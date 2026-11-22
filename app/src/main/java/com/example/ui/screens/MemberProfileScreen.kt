@@ -1,11 +1,6 @@
 package com.example.ui.screens
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,60 +15,40 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.CameraAlt
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.VerifiedUser
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.data.MemberPhotoStorage
 import com.example.model.BanglaFormatters
 import com.example.model.Member
 import com.example.ui.components.SectionPanelCard
@@ -83,43 +58,15 @@ import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.ExpenseSurface
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeSurface
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @Composable
 fun MemberProfileScreen(
     member: Member,
     transactionCount: Int,
-    onUpdateProfile: (
-        phone: String,
-        email: String,
-        address: String,
-        profilePhotoPath: String?
-    ) -> Unit,
     onOpenChangePassword: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var showEditDialog by remember { mutableStateOf(false) }
-
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        if (uri != null) {
-            scope.launch {
-                val savedPath = withContext(Dispatchers.IO) {
-                    MemberPhotoStorage.saveAvatarFromUri(context, member.id, uri)
-                }
-                if (savedPath != null) {
-                    onUpdateProfile(member.phone, member.email, member.address, savedPath)
-                }
-            }
-        }
-    }
-
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp),
@@ -132,38 +79,10 @@ fun MemberProfileScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clickable {
-                                photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            }
-                            .testTag("member_profile_avatar_button"),
-                        contentAlignment = Alignment.BottomEnd
-                    ) {
-                        MemberAvatarView(
-                            name = member.name,
-                            photoPath = member.profilePhotoPath,
-                            size = 72.dp
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
-                                .border(1.5.dp, Color.White, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.CameraAlt,
-                                contentDescription = "ছবি পরিবর্তন করুন",
-                                tint = Color.White,
-                                modifier = Modifier.size(13.dp)
-                            )
-                        }
-                    }
+                    MemberAvatarView(
+                        name = member.name,
+                        size = 72.dp
+                    )
 
                     Spacer(modifier = Modifier.width(14.dp))
 
@@ -197,23 +116,6 @@ fun MemberProfileScreen(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                         }
-                    }
-
-                    OutlinedButton(
-                        onClick = { showEditDialog = true },
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                        modifier = Modifier
-                            .minimumInteractiveComponentSize()
-                            .testTag("member_edit_profile_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Edit,
-                            contentDescription = "প্রোফাইল সম্পাদনা",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("আপডেট", style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
@@ -345,160 +247,39 @@ fun MemberProfileScreen(
             }
         }
     }
-
-    if (showEditDialog) {
-        MemberEditProfileDialog(
-            member = member,
-            onDismiss = { showEditDialog = false },
-            onPickPhoto = {
-                photoPickerLauncher.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                )
-            },
-            onSave = { phone, email, address ->
-                onUpdateProfile(phone, email, address, null)
-                showEditDialog = false
-            }
-        )
-    }
 }
 
 @Composable
 fun MemberAvatarView(
     name: String,
-    photoPath: String,
+    photoPath: String = "",
     size: Dp,
     modifier: Modifier = Modifier
 ) {
-    val bitmap = remember(photoPath) { MemberPhotoStorage.loadBitmapFromPath(photoPath) }
     val initials = remember(name) {
         name.trim().split(" ").filter { it.isNotBlank() }.take(2)
             .joinToString("") { it.first().uppercaseChar().toString() }
             .ifBlank { "M" }
     }
 
-    if (bitmap != null) {
-        Image(
-            bitmap = bitmap.asImageBitmap(),
-            contentDescription = "$name প্রোফাইল ছবি",
-            contentScale = ContentScale.Crop,
-            modifier = modifier
-                .size(size)
-                .clip(CircleShape)
-                .border(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), CircleShape)
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(Brush.linearGradient(listOf(BrandHeroStart, BrandHeroEnd))),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = initials,
+            style = if (size <= 44.dp) {
+                MaterialTheme.typography.labelLarge
+            } else {
+                MaterialTheme.typography.titleLarge
+            },
+            fontWeight = FontWeight.Bold,
+            color = Color.White
         )
-    } else {
-        Box(
-            modifier = modifier
-                .size(size)
-                .clip(CircleShape)
-                .background(Brush.linearGradient(listOf(BrandHeroStart, BrandHeroEnd))),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = initials,
-                style = if (size <= 44.dp) {
-                    MaterialTheme.typography.labelLarge
-                } else {
-                    MaterialTheme.typography.titleLarge
-                },
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        }
     }
-}
-
-@Composable
-private fun MemberEditProfileDialog(
-    member: Member,
-    onDismiss: () -> Unit,
-    onPickPhoto: () -> Unit,
-    onSave: (phone: String, email: String, address: String) -> Unit
-) {
-    var phone by remember(member) { mutableStateOf(member.phone) }
-    var email by remember(member) { mutableStateOf(member.email) }
-    var address by remember(member) { mutableStateOf(member.address) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("প্রোফাইল আপডেট করুন") },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onPickPhoto,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CameraAlt,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("প্রোফাইল ছবি নির্বাচন করুন")
-                }
-
-                OutlinedTextField(
-                    value = phone,
-                    onValueChange = { phone = it },
-                    label = { Text("ফোন নম্বর (Phone)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Phone,
-                        imeAction = ImeAction.Next
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("profile_edit_phone_input")
-                )
-
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("ইমেইল (Email)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Email,
-                        imeAction = ImeAction.Next
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("profile_edit_email_input")
-                )
-
-                OutlinedTextField(
-                    value = address,
-                    onValueChange = { address = it },
-                    label = { Text("ঠিকানা (Address)") },
-                    maxLines = 2,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("profile_edit_address_input")
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onSave(phone, email, address) },
-                modifier = Modifier.testTag("profile_edit_save_button")
-            ) {
-                Text("সংরক্ষণ করুন")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("বাতিল")
-            }
-        }
-    )
 }
 
 @Composable

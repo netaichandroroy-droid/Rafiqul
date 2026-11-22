@@ -41,6 +41,8 @@ fun TransactionsScreen(
     transactions: List<HisabTransaction>,
     modifier: Modifier = Modifier,
     memberTakaJomaList: List<MemberTakaJoma> = emptyList(),
+    onApproveMemberTakaJoma: (MemberTakaJoma) -> Unit = {},
+    onRejectMemberTakaJoma: (MemberTakaJoma) -> Unit = {},
     onDeleteMemberTakaJoma: (MemberTakaJoma) -> Unit = {},
     onOpenMemberTakaJoma: (() -> Unit)? = null
 ) {
@@ -149,6 +151,8 @@ fun TransactionsScreen(
             AdminMemberTakaJomaTableCard(
                 submissions = memberTakaJomaList,
                 onDeleteSubmission = onDeleteMemberTakaJoma,
+                onApproveSubmission = onApproveMemberTakaJoma,
+                onRejectSubmission = onRejectMemberTakaJoma,
                 onOpenForm = onOpenMemberTakaJoma
             )
         }

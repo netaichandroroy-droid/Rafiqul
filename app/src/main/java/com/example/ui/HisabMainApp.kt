@@ -1,8 +1,12 @@
 package com.example.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,6 +37,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PersonAdd
@@ -74,13 +79,17 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.R
 import com.example.auth.AppLockCredentialStore
-import com.example.data.BackupExporter
+import com.example.data.GoogleDriveBackupClient
+import com.example.data.GoogleDriveBackupStore
 import com.example.data.LocalTransactionStore
 import com.example.data.MemberAppLinkStore
-import com.example.data.MemberPhotoStorage
 import com.example.data.MemberStore
 import com.example.data.MemberTakaJomaStore
+import com.example.data.MonthlySalesStore
 import com.example.data.OnlinePaymentStore
+import com.example.data.ReportPictureRenderer
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.ApiException
 import com.example.model.HisabTransaction
 import com.example.model.TxType
 import com.example.ui.components.DeleteTransactionDialog
@@ -94,13 +103,28 @@ import com.example.ui.screens.MemberListScreen
 import com.example.ui.screens.MemberTakaJomaScreen
 import com.example.ui.screens.OnlinePaymentScreen
 import com.example.ui.screens.ReportsScreen
+import com.example.ui.screens.SalesUploadScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.TransactionModalSheet
 import com.example.ui.screens.TransactionsScreen
 import com.example.ui.theme.BrandDeep
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private enum class DrivePendingAction {
+    CONNECT,
+    BACKUP_MANUAL,
+    BACKUP_SILENT,
+    RESTORE
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
 
 @Composable
 fun HisabMainApp(
@@ -112,7 +136,9 @@ fun HisabMainApp(
     val memberStore = remember(context) { MemberStore(context) }
     val onlinePaymentStore = remember(context) { OnlinePaymentStore(context) }
     val takaJomaStore = remember(context) { MemberTakaJomaStore(context) }
+    val monthlySalesStore = remember(context) { MonthlySalesStore(context) }
     val memberAppLinkStore = remember(context) { MemberAppLinkStore(context) }
+    val driveBackupStore = remember(context) { GoogleDriveBackupStore(context) }
     val viewModel: LocalHisabViewModel = viewModel(
         key = "local_hisab",
         factory = viewModelFactory {
@@ -122,7 +148,10 @@ fun HisabMainApp(
                     memberStore = memberStore,
                     onlinePaymentStore = onlinePaymentStore,
                     takaJomaStore = takaJomaStore,
-                    reservedAdminLoginId = credentialStore.getLoginId()
+                    monthlySalesStore = monthlySalesStore,
+                    reservedAdminLoginId = credentialStore.getLoginId(),
+                    memberAppLinkStore = memberAppLinkStore,
+                    driveBackupStore = driveBackupStore
                 )
             }
         }
@@ -131,7 +160,11 @@ fun HisabMainApp(
     val members by viewModel.members.collectAsStateWithLifecycle()
     val onlinePaymentConfig by viewModel.onlinePaymentConfig.collectAsStateWithLifecycle()
     val takaJomaList by viewModel.takaJomaList.collectAsStateWithLifecycle()
+    val monthlySales by viewModel.monthlySales.collectAsStateWithLifecycle()
     val controls by viewModel.controls.collectAsStateWithLifecycle()
+    val driveState by viewModel.driveState.collectAsStateWithLifecycle()
+    val autoBackupRevision by viewModel.autoBackupRevision.collectAsStateWithLifecycle()
+    val aiVoiceState by viewModel.aiVoiceState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -144,20 +177,111 @@ fun HisabMainApp(
     var showMemberAppLinkDialog by remember { mutableStateOf(false) }
     var memberAppDownloadUrl by remember { mutableStateOf(memberAppLinkStore.getDownloadUrl()) }
     var appLoginId by remember { mutableStateOf(credentialStore.getLoginId()) }
+    var pendingDriveAction by remember { mutableStateOf<DrivePendingAction?>(null) }
 
-    val csvLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("text/csv")
+    val executeDriveWithToken: (DrivePendingAction, String) -> Unit = { action, token ->
+        when (action) {
+            DrivePendingAction.CONNECT -> viewModel.completeDriveConnect(token)
+            DrivePendingAction.BACKUP_MANUAL -> viewModel.backupAllToGoogleDrive(token, silent = false)
+            DrivePendingAction.BACKUP_SILENT -> viewModel.backupAllToGoogleDrive(token, silent = true)
+            DrivePendingAction.RESTORE -> viewModel.restoreAllFromGoogleDrive(token)
+        }
+    }
+
+    val authResolutionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { activityResult ->
+        val action = pendingDriveAction
+        pendingDriveAction = null
+        if (action == null) return@rememberLauncherForActivityResult
+        val isInteractive = action != DrivePendingAction.BACKUP_SILENT
+        if (activityResult.resultCode != Activity.RESULT_OK) {
+            if (isInteractive) {
+                viewModel.showMessage("Google Drive অনুমোদন বাতিল করা হয়েছে")
+            }
+            return@rememberLauncherForActivityResult
+        }
+        try {
+            val authClient = context.findActivity()?.let { Identity.getAuthorizationClient(it) }
+                ?: Identity.getAuthorizationClient(context)
+            val authResult = authClient.getAuthorizationResultFromIntent(activityResult.data)
+            val accessToken = authResult.accessToken
+            if (!accessToken.isNullOrBlank()) {
+                executeDriveWithToken(action, accessToken)
+            } else if (isInteractive) {
+                viewModel.showMessage("Google Drive টোকেন পাওয়া যায়নি")
+            }
+        } catch (e: ApiException) {
+            if (isInteractive) {
+                viewModel.showMessage("Google Drive সংযোগ ব্যর্থ হয়েছে (${e.statusCode})")
+            }
+        } catch (e: Exception) {
+            if (isInteractive) {
+                viewModel.showMessage(e.localizedMessage ?: "Google Drive সংযোগ ব্যর্থ হয়েছে")
+            }
+        }
+    }
+
+    val requestDriveAuthAndRun: (DrivePendingAction) -> Unit = { action ->
+        val isInteractive = action != DrivePendingAction.BACKUP_SILENT
+        val activity = context.findActivity()
+        val authClient = if (activity != null) {
+            Identity.getAuthorizationClient(activity)
+        } else {
+            Identity.getAuthorizationClient(context)
+        }
+        val request = GoogleDriveBackupClient.buildAuthorizationRequest()
+        authClient.authorize(request)
+            .addOnSuccessListener { result ->
+                if (result.hasResolution()) {
+                    val pendingIntent = result.pendingIntent
+                    if (isInteractive && pendingIntent != null) {
+                        pendingDriveAction = action
+                        authResolutionLauncher.launch(
+                            IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                        )
+                    }
+                } else {
+                    val token = result.accessToken
+                    if (!token.isNullOrBlank()) {
+                        executeDriveWithToken(action, token)
+                    } else if (isInteractive) {
+                        viewModel.showMessage("Google Drive অনুমোদন পাওয়া যায়নি")
+                    }
+                }
+            }
+            .addOnFailureListener { err ->
+                if (isInteractive) {
+                    viewModel.showMessage(
+                        err.localizedMessage ?: "Google Drive সেবা এই ডিভাইসে পাওয়া যায়নি"
+                    )
+                }
+            }
+    }
+
+    val pictureExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("image/png")
     ) { uri: Uri? ->
         if (uri != null) {
             scope.launch {
                 val ok = withContext(Dispatchers.IO) {
                     runCatching {
+                        val bitmap = ReportPictureRenderer.renderHisabReportBitmap(
+                            context = context,
+                            transactions = transactions,
+                            selectedMonth = controls.reportMonth
+                        )
                         context.contentResolver.openOutputStream(uri)?.use { out ->
-                            out.write(BackupExporter.buildCsv(transactions).toByteArray(Charsets.UTF_8))
+                            ReportPictureRenderer.writeBitmapAsPng(bitmap, out)
+                        } ?: run {
+                            bitmap.recycle()
+                            false
                         }
-                    }.isSuccess
+                    }.getOrDefault(false)
                 }
-                viewModel.showMessage(if (ok) "CSV রিপোর্ট সংরক্ষিত হয়েছে" else "CSV সংরক্ষণ ব্যর্থ হয়েছে")
+                viewModel.showMessage(
+                    if (ok) "রিপোর্ট ছবি (PNG) সংরক্ষিত হয়েছে" else "ছবি সংরক্ষণ ব্যর্থ হয়েছে"
+                )
             }
         }
     }
@@ -169,12 +293,13 @@ fun HisabMainApp(
             scope.launch {
                 val ok = withContext(Dispatchers.IO) {
                     runCatching {
+                        val payload = viewModel.buildFullBackupJson()
                         context.contentResolver.openOutputStream(uri)?.use { out ->
-                            out.write(BackupExporter.buildJsonBackup(transactions).toByteArray(Charsets.UTF_8))
+                            out.write(payload.toByteArray(Charsets.UTF_8))
                         }
                     }.isSuccess
                 }
-                viewModel.showMessage(if (ok) "JSON ব্যাকআপ সংরক্ষিত হয়েছে" else "JSON ব্যাকআপ ব্যর্থ হয়েছে")
+                viewModel.showMessage(if (ok) "সম্পূর্ণ JSON ব্যাকআপ সংরক্ষিত হয়েছে" else "JSON ব্যাকআপ ব্যর্থ হয়েছে")
             }
         }
     }
@@ -200,6 +325,13 @@ fun HisabMainApp(
 
     LaunchedEffect(Unit) {
         viewModel.refreshSharedData()
+    }
+
+    LaunchedEffect(autoBackupRevision) {
+        if (autoBackupRevision > 0 && driveState.isConnected && driveState.autoBackupEnabled) {
+            delay(1200)
+            requestDriveAuthAndRun(DrivePendingAction.BACKUP_SILENT)
+        }
     }
 
     LaunchedEffect(controls.snackbarMessage) {
@@ -307,22 +439,27 @@ fun HisabMainApp(
                     when (controls.selectedTab) {
                         HisabTab.HOME -> HomeScreen(
                             transactions = transactions,
-                            isSaving = controls.isSaving,
-                            onSaveInlineTransaction = { type, amount, category, note, date, account, onDone ->
-                                viewModel.saveTransaction(null, type, amount, category, note, date, account, onDone)
-                            },
                             onEdit = openEditModal,
                             onDelete = { deletingTransaction = it },
-                            onSeeAll = { viewModel.selectTab(HisabTab.TRANSACTIONS) }
+                            onSeeAll = { viewModel.selectTab(HisabTab.TRANSACTIONS) },
+                            members = members,
+                            monthlySales = monthlySales,
+                            memberTakaJomaList = takaJomaList,
+                            onApproveMemberTakaJoma = viewModel::approveMemberTakaJoma,
+                            onRejectMemberTakaJoma = viewModel::rejectMemberTakaJoma,
+                            onDeleteMemberTakaJoma = viewModel::deleteMemberTakaJoma,
+                            onOpenMemberTakaJoma = {
+                                viewModel.selectTab(HisabTab.SETTINGS)
+                                viewModel.openSettingsSubPage(SettingsSubPage.MEMBER_TAKA_JOMA)
+                            }
                         )
 
                         HisabTab.TRANSACTIONS -> TransactionsScreen(
                             transactions = transactions,
                             memberTakaJomaList = takaJomaList,
-                            onDeleteMemberTakaJoma = { entry ->
-                                MemberPhotoStorage.deleteStoredPhoto(context, entry.photoPath)
-                                viewModel.deleteMemberTakaJoma(entry)
-                            },
+                            onApproveMemberTakaJoma = viewModel::approveMemberTakaJoma,
+                            onRejectMemberTakaJoma = viewModel::rejectMemberTakaJoma,
+                            onDeleteMemberTakaJoma = viewModel::deleteMemberTakaJoma,
                             onOpenMemberTakaJoma = {
                                 viewModel.selectTab(HisabTab.SETTINGS)
                                 viewModel.openSettingsSubPage(SettingsSubPage.MEMBER_TAKA_JOMA)
@@ -333,7 +470,9 @@ fun HisabMainApp(
                             transactions = transactions,
                             selectedMonth = controls.reportMonth,
                             onShiftMonth = viewModel::shiftReportMonth,
-                            onExportCsv = { csvLauncher.launch("hisab-report.csv") }
+                            onExportPicture = {
+                                pictureExportLauncher.launch("hisab-report-${controls.reportMonth}.png")
+                            }
                         )
 
                         HisabTab.ACCOUNTS -> AccountsScreen(
@@ -343,22 +482,40 @@ fun HisabMainApp(
                         HisabTab.SETTINGS -> when (controls.settingsSubPage) {
                             SettingsSubPage.MAIN -> SettingsScreen(
                                 appLoginId = appLoginId,
+                                members = members,
                                 memberCount = members.size,
                                 activeMemberCount = members.count { it.isActive },
                                 isOnlinePaymentEnabled = onlinePaymentConfig.isOnlinePaymentEnabled,
                                 takaJomaCount = takaJomaList.size,
+                                salesCount = monthlySales.size,
                                 memberAppDownloadUrl = memberAppDownloadUrl,
                                 transactionCount = transactions.size,
                                 isBusy = controls.isSaving,
+                                driveState = driveState,
+                                aiVoiceState = aiVoiceState,
                                 onOpenMemberList = { viewModel.openSettingsSubPage(SettingsSubPage.MEMBER_LIST) },
                                 onOpenMemberTakaJoma = { viewModel.openSettingsSubPage(SettingsSubPage.MEMBER_TAKA_JOMA) },
+                                onOpenSalesUpload = { viewModel.openSettingsSubPage(SettingsSubPage.SALES_UPLOAD) },
                                 onOpenOnlinePayment = { viewModel.openSettingsSubPage(SettingsSubPage.ONLINE_PAYMENT) },
                                 onOpenMemberAppLink = { showMemberAppLinkDialog = true },
                                 onOpenChangePassword = { showChangePasswordDialog = true },
                                 onAppLogout = onAppLogout,
-                                onExportJson = { jsonExportLauncher.launch("personal-hisab-backup.json") },
+                                onExportJson = { jsonExportLauncher.launch("rafiqul-hisab-full-backup.json") },
                                 onRestoreJson = { jsonRestoreLauncher.launch(arrayOf("application/json", "*/*")) },
-                                onExportCsv = { csvLauncher.launch("hisab-report.csv") }
+                                onExportPicture = {
+                                    pictureExportLauncher.launch("hisab-report-${controls.reportMonth}.png")
+                                },
+                                onConnectGoogleDrive = { requestDriveAuthAndRun(DrivePendingAction.CONNECT) },
+                                onBackupToGoogleDrive = { requestDriveAuthAndRun(DrivePendingAction.BACKUP_MANUAL) },
+                                onRestoreFromGoogleDrive = { requestDriveAuthAndRun(DrivePendingAction.RESTORE) },
+                                onToggleDriveAutoBackup = viewModel::setDriveAutoBackup,
+                                onDisconnectGoogleDrive = viewModel::disconnectGoogleDrive,
+                                onSelectAiVoiceOption = viewModel::selectAiVoiceOption,
+                                onSelectAiVoiceScope = viewModel::selectAiVoiceScope,
+                                onSelectAiVoiceMember = viewModel::selectAiVoiceMember,
+                                onSpeakAiVoiceReport = viewModel::speakMemberSalesDuesWithAi,
+                                onReplayAiVoiceReport = viewModel::replayAiVoice,
+                                onStopAiVoiceReport = viewModel::stopAiVoice
                             )
 
                             SettingsSubPage.MEMBER_LIST -> MemberListScreen(
@@ -383,10 +540,19 @@ fun HisabMainApp(
                                 adminMembers = members,
                                 isAdminMode = true,
                                 onSubmit = viewModel::submitMemberTakaJoma,
-                                onDeleteSubmission = { entry ->
-                                    MemberPhotoStorage.deleteStoredPhoto(context, entry.photoPath)
-                                    viewModel.deleteMemberTakaJoma(entry)
-                                }
+                                onDeleteSubmission = viewModel::deleteMemberTakaJoma
+                            )
+
+                            SettingsSubPage.SALES_UPLOAD -> SalesUploadScreen(
+                                salesRecords = monthlySales,
+                                selectedMonth = controls.salesMonth,
+                                members = members,
+                                onShiftMonth = viewModel::shiftSalesMonth,
+                                onUploadMonthSales = viewModel::uploadMonthlySales,
+                                onSaveSingleRecord = viewModel::saveMonthlySalesRecord,
+                                onDeleteRecord = viewModel::deleteMonthlySalesRecord,
+                                onClearMonth = viewModel::clearMonthlySales,
+                                onShowMessage = viewModel::showMessage
                             )
                         }
                     }
@@ -457,6 +623,7 @@ fun HisabMainApp(
                 res.onSuccess { saved ->
                     memberAppDownloadUrl = saved
                     showMemberAppLinkDialog = false
+                    viewModel.notifyMemberAppLinkUpdated()
                     viewModel.showMessage(
                         if (saved.isBlank()) {
                             "কাস্টম ডাউনলোড লিঙ্ক মুছে ফেলা হয়েছে"
@@ -475,12 +642,17 @@ fun HisabMainApp(
                     val shared = MemberAppLinkStore.shareApkOrLink(
                         context = context,
                         apkUri = apkUri,
-                        downloadUrl = memberAppDownloadUrl
+                        downloadUrl = memberAppDownloadUrl.ifBlank { MemberAppLinkStore.DEFAULT_MEMBER_APP_URL }
                     )
                     if (!shared) {
                         viewModel.showMessage("অ্যাপ APK শেয়ার করা যায়নি")
                     }
                 }
+            },
+            onCopyLink = { linkText ->
+                val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                cm?.setPrimaryClip(android.content.ClipData.newPlainText("Member App Link", linkText))
+                viewModel.showMessage("মেম্বার মোবাইল লিঙ্ক কপি হয়েছে")
             }
         )
     }
@@ -502,28 +674,72 @@ private fun MemberAppLinkConfigDialog(
     currentUrl: String,
     onDismiss: () -> Unit,
     onSave: (String) -> Result<Unit>,
-    onShareApk: () -> Unit
+    onShareApk: () -> Unit,
+    onCopyLink: (String) -> Unit
 ) {
+    val activeLink = MemberAppLinkStore.resolveDisplayUrl(currentUrl)
     var urlInput by remember(currentUrl) { mutableStateOf(currentUrl) }
     var errorText by remember { mutableStateOf<String?>(null) }
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("মেম্বার মোবাইল অ্যাপ লিঙ্ক") },
+        title = { Text("মেম্বার মোবাইল লিঙ্ক (Login System)") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "এখানে লিঙ্ক সেভ করলে লগইন স্ক্রিনের নিচে সরাসরি ডাউনলোড লিঙ্ক দেখাবে।",
+                    text = "মেম্বাররা নিচের লিঙ্কে গিয়ে লগইন স্ক্রিনে নিজের নাম (Login ID) ও পাসওয়ার্ড দিয়ে লগইন করতে পারবেন।",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "সক্রিয় মেম্বার লিঙ্ক:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = activeLink,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        IconButton(
+                            onClick = { onCopyLink(activeLink) },
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("dialog_copy_member_link_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ContentCopy,
+                                contentDescription = "লিঙ্ক কপি করুন",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
                 androidx.compose.material3.OutlinedTextField(
                     value = urlInput,
                     onValueChange = {
                         urlInput = it
                         errorText = null
                     },
-                    label = { Text("ডাউনলোড লিঙ্ক (https://...)") },
+                    label = { Text("কাস্টম লিঙ্ক (ঐচ্ছিক, https://...)") },
+                    placeholder = { Text(MemberAppLinkStore.DEFAULT_MEMBER_APP_URL) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
@@ -542,7 +758,7 @@ private fun MemberAppLinkConfigDialog(
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("সরাসরি মোবাইল অ্যাপ APK শেয়ার করুন")
+                    Text("মেম্বার লিঙ্ক ও APK শেয়ার করুন")
                 }
             }
         },
@@ -580,12 +796,14 @@ private fun HisabTopAppBar(
         SettingsSubPage.MEMBER_LIST -> "Member List"
         SettingsSubPage.ONLINE_PAYMENT -> "Online Payment"
         SettingsSubPage.MEMBER_TAKA_JOMA -> "মেম্বার টাকা জমা"
+        SettingsSubPage.SALES_UPLOAD -> "Sales Upload"
     }
     val subtitle = when (settingsSubPage) {
         SettingsSubPage.MAIN -> stringResource(R.string.app_subtitle)
         SettingsSubPage.MEMBER_LIST -> "সকল সদস্যের তালিকা ও সক্রিয় অবস্থা"
         SettingsSubPage.ONLINE_PAYMENT -> "অনলাইন পেমেন্ট মাধ্যম ও হিসাব"
         SettingsSubPage.MEMBER_TAKA_JOMA -> "টাকা জমা ফর্ম ও জমার তালিকা"
+        SettingsSubPage.SALES_UPLOAD -> "মাস অনুযায়ী code, name, TP sales, TP+Vat"
     }
 
     Surface(
@@ -636,7 +854,7 @@ private fun HisabTopAppBar(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                     maxLines = 1,
@@ -645,8 +863,8 @@ private fun HisabTopAppBar(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.labelSmall,
-                    fontSize = 10.sp,
-                    color = Color.White.copy(alpha = 0.78f),
+                    fontSize = 11.5.sp,
+                    color = Color.White.copy(alpha = 0.88f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

@@ -15,23 +15,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,38 +42,75 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.model.BanglaFormatters
 import com.example.model.Member
+import com.example.model.MemberSalesDuesCalculator
 import com.example.model.MemberTakaJoma
+import com.example.model.MonthlySalesRecord
+import com.example.model.TakaJomaStatus
+import com.example.ui.components.MonthlySalesTableCard
 import com.example.ui.components.SectionPanelCard
+import com.example.ui.components.isMatchingMember
 import com.example.ui.theme.BrandHeroEnd
 import com.example.ui.theme.BrandHeroStart
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.NagadAccent
 
 @Composable
 fun MemberHomeScreen(
     member: Member,
     submissions: List<MemberTakaJoma>,
-    onUpdateSales: (Double) -> Unit,
+    monthlySales: List<MonthlySalesRecord> = emptyList(),
+    selectedSalesMonth: String = BanglaFormatters.currentYearMonth(),
+    onShiftSalesMonth: (Int) -> Unit = {},
     onOpenTakaJomaForm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val totalSubmitTaka = remember(submissions) { submissions.sumOf { it.amount } }
-    val salesAmount = member.salesAmount
-    val duesAmount = (salesAmount - totalSubmitTaka).coerceAtLeast(0.0)
-    val advanceAmount = (totalSubmitTaka - salesAmount).coerceAtLeast(0.0)
+    val salesSummary = remember(member, monthlySales, submissions) {
+        MemberSalesDuesCalculator.calculateForMember(
+            member = member,
+            monthlySales = monthlySales,
+            submissions = submissions
+        )
+    }
+    val totalSubmitTaka = salesSummary.approvedJoma
+    val pendingSubmitTaka = salesSummary.pendingJoma
+    val salesAmount = salesSummary.totalSales
+    val duesAmount = salesSummary.dues
+    val advanceAmount = salesSummary.advance
+
+    val monthSalesRecords = remember(monthlySales, selectedSalesMonth) {
+        monthlySales.filter { it.yearMonth == selectedSalesMonth }
+    }
+    val matchedMemberSalesRows = remember(monthSalesRecords, member.code, member.name) {
+        monthSalesRecords.filter {
+            isMatchingMember(record = it, memberCode = member.code, memberName = member.name)
+        }
+    }
 
     val currentMonth = remember { BanglaFormatters.currentYearMonth() }
-    val monthSubmissions = remember(submissions, currentMonth) {
-        submissions.filter { it.date.startsWith(currentMonth) }
+    val monthApprovedSubmissions = remember(submissions, currentMonth) {
+        submissions.filter {
+            it.date.startsWith(currentMonth) && it.resolvedStatus == TakaJomaStatus.APPROVED
+        }
     }
-    val monthSubmitTotal = remember(monthSubmissions) { monthSubmissions.sumOf { it.amount } }
+    val monthSubmitTotal = remember(monthApprovedSubmissions) {
+        monthApprovedSubmissions.sumOf { it.amount }
+    }
 
-    var showSalesDialog by remember { mutableStateOf(false) }
+    var onlyMineFilter by remember { mutableStateOf(false) }
+    var inspectingSalesRecord by remember { mutableStateOf<MonthlySalesRecord?>(null) }
+
+    val displayedSalesRows = remember(monthSalesRecords, matchedMemberSalesRows, onlyMineFilter) {
+        if (onlyMineFilter && matchedMemberSalesRows.isNotEmpty()) {
+            matchedMemberSalesRows
+        } else {
+            monthSalesRecords
+        }
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -142,8 +178,8 @@ fun MemberHomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         HeroSummaryMetricTile(
-                            title = "Sales",
-                            subtitle = "মোট বিক্রয়",
+                            title = "TP+Vat",
+                            subtitle = "বিক্রয় (Dues ভিত্তি)",
                             value = BanglaFormatters.formatBdt(salesAmount),
                             highlightColor = Color.White,
                             modifier = Modifier
@@ -152,7 +188,7 @@ fun MemberHomeScreen(
                         )
                         HeroSummaryMetricTile(
                             title = "Dues",
-                            subtitle = if (advanceAmount > 0.0) "অগ্রিম আছে" else "বকেয়া",
+                            subtitle = if (advanceAmount > 0.0) "অগ্রিম আছে" else "TP+Vat বকেয়া",
                             value = BanglaFormatters.formatBdt(duesAmount),
                             highlightColor = if (duesAmount > 0.0) {
                                 Color(0xFFFFD5D5)
@@ -165,13 +201,29 @@ fun MemberHomeScreen(
                         )
                         HeroSummaryMetricTile(
                             title = "Total Submit Taka",
-                            subtitle = "মোট জমা",
+                            subtitle = "অনুমোদিত জমা",
                             value = BanglaFormatters.formatBdt(totalSubmitTaka),
                             highlightColor = Color(0xFFC8F7DC),
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("member_home_submit_taka_box")
                         )
+                    }
+
+                    if (pendingSubmitTaka > 0.0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFFFF3CD).copy(alpha = 0.22f)
+                        ) {
+                            Text(
+                                text = "অপেক্ষমাণ জমা: ${BanglaFormatters.formatBdt(pendingSubmitTaka)} (${BanglaFormatters.toBanglaDigits(salesSummary.pendingCount.toString())}টি অ্যাডমিন অনুমোদনের পর যোগ হবে)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFFFE082),
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
                     }
 
                     if (advanceAmount > 0.0) {
@@ -187,62 +239,39 @@ fun MemberHomeScreen(
             }
         }
 
-        // Quick Actions Card for updating Sales & submitting Taka Joma
+        // Quick Action Card for submitting Taka Joma
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "হিসাব ও দ্রুত কার্যক্রম",
+                    text = "দ্রুত কার্যক্রম",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Sales যোগ বা আপডেট করুন এবং নতুন টাকা জমা ফর্ম দাখিল করুন",
+                    text = "নতুন টাকা জমা ফর্ম দাখিল করুন (অ্যাডমিন অনুমোদনের পর টাকা যোগ হবে)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                Button(
+                    onClick = onOpenTakaJomaForm,
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("member_home_go_taka_joma_button")
                 ) {
-                    OutlinedButton(
-                        onClick = { showSalesDialog = true },
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .testTag("member_update_sales_button")
-                    ) {
-                        Icon(
-                            imageVector = if (salesAmount > 0.0) Icons.Outlined.Edit else Icons.Outlined.TrendingUp,
-                            contentDescription = null,
-                            modifier = Modifier.size(17.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Sales আপডেট", maxLines = 1)
-                    }
-
-                    Button(
-                        onClick = onOpenTakaJomaForm,
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .testTag("member_home_go_taka_joma_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(17.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("টাকা জমা ফর্ম", maxLines = 1)
-                    }
+                    Icon(
+                        imageVector = Icons.Outlined.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("টাকা জমা ফর্ম", maxLines = 1)
                 }
             }
         }
@@ -274,8 +303,19 @@ fun MemberHomeScreen(
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
                 )
 
+                if (salesSummary.uploadedTpSales > 0.0) {
+                    MemberMetricListRow(
+                        label = "মোট TP sales (তথ্য মাত্র)",
+                        value = BanglaFormatters.formatBdt(salesSummary.uploadedTpSales),
+                        valueColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                    )
+                }
                 MemberMetricListRow(
-                    label = "মোট সেলস (Sales)",
+                    label = "মোট TP+Vat (Sales)",
                     value = BanglaFormatters.formatBdt(salesAmount),
                     valueColor = MaterialTheme.colorScheme.onSurface
                 )
@@ -284,16 +324,27 @@ fun MemberHomeScreen(
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
                 )
                 MemberMetricListRow(
-                    label = "মোট জমা টাকা (Total Submit Taka)",
+                    label = "অনুমোদিত জমা টাকা (Approved)",
                     value = BanglaFormatters.formatBdt(totalSubmitTaka),
                     valueColor = IncomeEmerald
                 )
+                if (pendingSubmitTaka > 0.0) {
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                    )
+                    MemberMetricListRow(
+                        label = "অপেক্ষমাণ জমা (${BanglaFormatters.toBanglaDigits(salesSummary.pendingCount.toString())}টি)",
+                        value = BanglaFormatters.formatBdt(pendingSubmitTaka),
+                        valueColor = NagadAccent
+                    )
+                }
                 HorizontalDivider(
                     thickness = 1.dp,
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
                 )
                 MemberMetricListRow(
-                    label = "বর্তমান বকেয়া (Dues)",
+                    label = "বর্তমান বকেয়া (Dues = TP+Vat − জমা)",
                     value = BanglaFormatters.formatBdt(duesAmount),
                     valueColor = if (duesAmount > 0.0) ExpenseCrimson else IncomeEmerald
                 )
@@ -302,22 +353,113 @@ fun MemberHomeScreen(
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
                 )
                 MemberMetricListRow(
-                    label = "চলতি মাসে জমা (${BanglaFormatters.toBanglaDigits(monthSubmissions.size.toString())}টি)",
+                    label = "চলতি মাসে অনুমোদিত জমা (${BanglaFormatters.toBanglaDigits(monthApprovedSubmissions.size.toString())}টি)",
                     value = BanglaFormatters.formatBdt(monthSubmitTotal),
                     valueColor = MaterialTheme.colorScheme.primary
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "* অনুমোদিত টাকা জমা দিলে শুধুমাত্র TP+Vat থেকে Dues কমবে (TP sales থেকে নয়)",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
+        }
+
+        // Uploaded Monthly Sales Table (code, name, TP sales, TP+Vat)
+        item {
+            MonthlySalesTableCard(
+                title = "Sales তালিকা (${BanglaFormatters.formatBanglaMonth(selectedSalesMonth)})",
+                subtitle = "অ্যাডমিন সেটিংস থেকে মাস অনুযায়ী আপলোডকৃত বিক্রয় হিসাব",
+                records = displayedSalesRows,
+                emptyMessage = "${BanglaFormatters.formatBanglaMonth(selectedSalesMonth)}-এর কোনো Sales এখনো আপলোড করা হয়নি।",
+                highlightedMemberCode = member.code,
+                highlightedMemberName = member.name,
+                headerAction = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = { onShiftSalesMonth(-1) },
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("member_sales_prev_month_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                contentDescription = "আগের মাস"
+                            )
+                        }
+                        IconButton(
+                            onClick = { onShiftSalesMonth(1) },
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("member_sales_next_month_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = "পরের মাস"
+                            )
+                        }
+                    }
+                },
+                filterContent = if (matchedMemberSalesRows.isNotEmpty()) {
+                    {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = !onlyMineFilter,
+                                onClick = { onlyMineFilter = false },
+                                label = {
+                                    Text("সকল (${BanglaFormatters.toBanglaDigits(monthSalesRecords.size.toString())})")
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                            FilterChip(
+                                selected = onlyMineFilter,
+                                onClick = { onlyMineFilter = true },
+                                label = {
+                                    Text("আমার (${BanglaFormatters.toBanglaDigits(matchedMemberSalesRows.size.toString())})")
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                        }
+                    }
+                } else {
+                    null
+                },
+                onRowClick = { record -> inspectingSalesRecord = record }
+            )
         }
     }
 
-    if (showSalesDialog) {
-        UpdateMemberSalesDialog(
-            currentSales = salesAmount,
-            totalSubmitTaka = totalSubmitTaka,
-            onDismiss = { showSalesDialog = false },
-            onSave = { updatedSales ->
-                onUpdateSales(updatedSales)
-                showSalesDialog = false
+    inspectingSalesRecord?.let { record ->
+        AlertDialog(
+            onDismissRequest = { inspectingSalesRecord = null },
+            title = { Text("${record.name} (${record.code.ifBlank { "-" }})") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("মাস: ${BanglaFormatters.formatBanglaMonth(record.yearMonth)}")
+                    Text("code: ${record.code.ifBlank { "-" }}")
+                    Text("name: ${record.name}")
+                    Text("TP sales: ${BanglaFormatters.formatBdt(record.tpSales)}")
+                    Text(
+                        text = "TP+Vat: ${BanglaFormatters.formatBdt(record.tpPlusVat)}",
+                        fontWeight = FontWeight.Bold,
+                        color = IncomeEmerald
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { inspectingSalesRecord = null }) {
+                    Text("বন্ধ করুন")
+                }
             }
         )
     }
@@ -391,133 +533,4 @@ private fun MemberMetricListRow(
             color = valueColor
         )
     }
-}
-
-@Composable
-private fun UpdateMemberSalesDialog(
-    currentSales: Double,
-    totalSubmitTaka: Double,
-    onDismiss: () -> Unit,
-    onSave: (Double) -> Unit
-) {
-    var addMode by remember { mutableStateOf(true) }
-    var amountInput by remember(addMode) {
-        mutableStateOf(
-            if (addMode || currentSales <= 0.0) "" else currentSales.toLong().toString()
-        )
-    }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    val parsed = amountInput.trim().toDoubleOrNull() ?: 0.0
-    val previewSales = if (addMode) (currentSales + parsed) else parsed
-    val previewDues = (previewSales - totalSubmitTaka).coerceAtLeast(0.0)
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Sales হিসাব আপডেট") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = addMode,
-                        onClick = { addMode = true },
-                        label = { Text("নতুন যোগ (+)") },
-                        modifier = Modifier.weight(1f),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.primary
-                        )
-                    )
-                    FilterChip(
-                        selected = !addMode,
-                        onClick = { addMode = false },
-                        label = { Text("মোট সেট করুন") },
-                        modifier = Modifier.weight(1f),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.primary
-                        )
-                    )
-                }
-
-                OutlinedTextField(
-                    value = amountInput,
-                    onValueChange = {
-                        amountInput = it
-                        errorMessage = null
-                    },
-                    label = {
-                        Text(if (addMode) "নতুন Sales টাকার পরিমাণ (৳)" else "সর্বমোট Sales পরিমাণ (৳)")
-                    },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("member_sales_amount_input")
-                )
-
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = "আপডেটের পর মোট Sales: ${BanglaFormatters.formatBdt(previewSales)}",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            text = "বর্তমান Total Submit: ${BanglaFormatters.formatBdt(totalSubmitTaka)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            text = "হিসাবকৃত Dues: ${BanglaFormatters.formatBdt(previewDues)}",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (previewDues > 0.0) ExpenseCrimson else IncomeEmerald
-                        )
-                    }
-                }
-
-                if (!errorMessage.isNullOrBlank()) {
-                    Text(
-                        text = errorMessage ?: "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val value = amountInput.trim().toDoubleOrNull()
-                    if (value == null || value < 0.0) {
-                        errorMessage = "অনুগ্রহ করে সঠিক পরিমাণ লিখুন।"
-                        return@Button
-                    }
-                    val targetSales = if (addMode) currentSales + value else value
-                    onSave(targetSales)
-                },
-                modifier = Modifier.testTag("member_sales_save_button")
-            ) {
-                Text("সংরক্ষণ করুন")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("বাতিল")
-            }
-        }
-    )
 }

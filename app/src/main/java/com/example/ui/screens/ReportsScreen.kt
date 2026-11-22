@@ -23,7 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -59,7 +59,7 @@ fun ReportsScreen(
     transactions: List<HisabTransaction>,
     selectedMonth: String,
     onShiftMonth: (Int) -> Unit,
-    onExportCsv: () -> Unit,
+    onExportPicture: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val monthItems = remember(transactions, selectedMonth) {
@@ -210,20 +210,20 @@ fun ReportsScreen(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 Button(
-                    onClick = onExportCsv,
+                    onClick = onExportPicture,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp)
-                        .testTag("reports_export_csv_button"),
+                        .testTag("reports_export_picture_button"),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Download,
+                        imageVector = Icons.Outlined.Image,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.download_csv))
+                    Text(stringResource(R.string.download_picture))
                 }
             }
         }

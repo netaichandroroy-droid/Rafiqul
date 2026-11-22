@@ -1,7 +1,6 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,18 +23,24 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
-import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,8 +50,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
@@ -57,34 +60,69 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.MemberPhotoStorage
 import com.example.model.BanglaFormatters
 import com.example.model.MemberTakaJoma
+import com.example.model.TakaJomaStatus
+import com.example.ui.theme.ExpenseCrimson
+import com.example.ui.theme.ExpenseSurface
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeSurface
+import com.example.ui.theme.NagadAccent
+import com.example.ui.theme.NagadSurface
+
+private enum class TakaJomaStatusFilter {
+    ALL,
+    PENDING,
+    APPROVED
+}
 
 @Composable
 fun AdminMemberTakaJomaTableCard(
     submissions: List<MemberTakaJoma>,
     onDeleteSubmission: (MemberTakaJoma) -> Unit,
+    onApproveSubmission: ((MemberTakaJoma) -> Unit)? = null,
+    onRejectSubmission: ((MemberTakaJoma) -> Unit)? = null,
     onOpenForm: (() -> Unit)? = null,
+    pendingOnlyMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val borderColor = MaterialTheme.colorScheme.outline
     val scrollState = rememberScrollState()
+    val pillsScrollState = rememberScrollState()
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
 
+    var statusFilter by remember { mutableStateOf(TakaJomaStatusFilter.ALL) }
     var previewItem by remember { mutableStateOf<Pair<Int, MemberTakaJoma>?>(null) }
     var deletingItem by remember { mutableStateOf<MemberTakaJoma?>(null) }
 
-    val totalAmount = remember(submissions) { submissions.sumOf { it.amount } }
+    val pendingEntries = remember(submissions) {
+        submissions.filter { it.resolvedStatus == TakaJomaStatus.PENDING }
+    }
+    val approvedEntries = remember(submissions) {
+        submissions.filter { it.resolvedStatus == TakaJomaStatus.APPROVED }
+    }
+    val approvedAmount = remember(approvedEntries) { approvedEntries.sumOf { it.amount } }
+    val pendingAmount = remember(pendingEntries) { pendingEntries.sumOf { it.amount } }
+
+    val visibleSubmissions = remember(submissions, statusFilter, pendingOnlyMode) {
+        if (pendingOnlyMode) {
+            submissions.filter { it.resolvedStatus == TakaJomaStatus.PENDING }
+        } else {
+            when (statusFilter) {
+                TakaJomaStatusFilter.ALL -> submissions
+                TakaJomaStatusFilter.PENDING -> submissions.filter { it.resolvedStatus == TakaJomaStatus.PENDING }
+                TakaJomaStatusFilter.APPROVED -> submissions.filter { it.resolvedStatus == TakaJomaStatus.APPROVED }
+            }
+        }
+    }
+
     val tableHeaderStyle = MaterialTheme.typography.labelMedium.copy(
-        fontSize = 11.sp,
+        fontSize = 12.sp,
         fontWeight = FontWeight.Bold
     )
     val tableBodyStyle = MaterialTheme.typography.bodySmall.copy(
-        fontSize = 12.sp
+        fontSize = 13.sp
     )
 
     fun measureCol(
@@ -101,35 +139,35 @@ fun AdminMemberTakaJomaTableCard(
         return widestDp.coerceIn(minWidth, maxWidth)
     }
 
-    val submitColW = remember(submissions, density) {
-        measureCol("Submit", submissions.map { formatAdminShortDate(it.date) }, 56.dp, 84.dp)
+    val submitColW = remember(visibleSubmissions, density) {
+        measureCol("Submit", visibleSubmissions.map { formatAdminShortDate(it.date) }, 56.dp, 84.dp)
     }
-    val slColW = remember(submissions, density) {
-        measureCol("SL", submissions.indices.map { (it + 1).toString().padStart(2, '0') }, 32.dp, 46.dp)
+    val slColW = remember(visibleSubmissions, density) {
+        measureCol("SL", visibleSubmissions.indices.map { (it + 1).toString().padStart(2, '0') }, 32.dp, 46.dp)
     }
-    val codeColW = remember(submissions, density) {
-        measureCol("Code", submissions.map { it.code }, 52.dp, 96.dp)
+    val codeColW = remember(visibleSubmissions, density) {
+        measureCol("Code", visibleSubmissions.map { it.code }, 52.dp, 96.dp)
     }
-    val nameColW = remember(submissions, density) {
-        measureCol("Name", submissions.map { it.name }, 74.dp, 150.dp)
+    val nameColW = remember(visibleSubmissions, density) {
+        measureCol("Name", visibleSubmissions.map { it.name }, 74.dp, 150.dp)
     }
-    val desigColW = remember(submissions, density) {
-        measureCol("Desig:", submissions.map { it.designation }, 52.dp, 120.dp)
+    val desigColW = remember(visibleSubmissions, density) {
+        measureCol("Desig:", visibleSubmissions.map { it.designation }, 52.dp, 120.dp)
     }
-    val areaColW = remember(submissions, density) {
-        measureCol("Area", submissions.map { it.area }, 56.dp, 130.dp)
+    val areaColW = remember(visibleSubmissions, density) {
+        measureCol("Area", visibleSubmissions.map { it.area }, 56.dp, 130.dp)
     }
-    val depotColW = remember(submissions, density) {
-        measureCol("Depot", submissions.map { it.depot }, 60.dp, 110.dp)
+    val depotColW = remember(visibleSubmissions, density) {
+        measureCol("Depot", visibleSubmissions.map { it.depot }, 60.dp, 110.dp)
     }
-    val methodColW = remember(submissions, density) {
-        val methods = submissions.map { it.bankName.substringBefore(" (").ifBlank { "-" } }
+    val methodColW = remember(visibleSubmissions, density) {
+        val methods = visibleSubmissions.map { it.bankName.substringBefore(" (").ifBlank { "-" } }
         measureCol("মাধ্যম", methods, 64.dp, 128.dp)
     }
-    val takaColW = remember(submissions, density) {
-        measureCol("Taka", submissions.map { BanglaFormatters.formatBdt(it.amount) }, 64.dp, 116.dp)
+    val takaColW = remember(visibleSubmissions, density) {
+        measureCol("Taka", visibleSubmissions.map { BanglaFormatters.formatBdt(it.amount) }, 64.dp, 116.dp)
     }
-    val slipColW = 54.dp
+    val statusColW = if (onApproveSubmission != null) 104.dp else 80.dp
 
     Card(
         modifier = modifier
@@ -150,13 +188,21 @@ fun AdminMemberTakaJomaTableCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "মেম্বার টাকা জমা (ফর্ম অনুযায়ী)",
+                        text = if (pendingOnlyMode) {
+                            "অপেক্ষমাণ টাকা জমা (অনুমোদন)"
+                        } else {
+                            "মেম্বার টাকা জমা (ফর্ম অনুযায়ী)"
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "মেম্বারদের দাখিলকৃত টাকা ও স্লিপের তালিকা",
+                        text = if (pendingOnlyMode) {
+                            "মেম্বার টাকা জমা দিলে এখানে আসবে; অনুমোদন করলে এখান থেকে সরে যাবে"
+                        } else {
+                            "মেম্বারদের দাখিলকৃত টাকা ও অ্যাডমিন অনুমোদন"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -165,7 +211,9 @@ fun AdminMemberTakaJomaTableCard(
                     TextButton(
                         onClick = onOpenForm,
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        modifier = Modifier.testTag("admin_lenden_open_taka_joma")
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("admin_lenden_open_taka_joma")
                     ) {
                         Text("+ ফর্ম")
                     }
@@ -177,38 +225,80 @@ fun AdminMemberTakaJomaTableCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .horizontalScroll(pillsScrollState)
                     .padding(horizontal = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Text(
-                        text = "মোট এন্ট্রি: ${BanglaFormatters.toBanglaDigits(submissions.size.toString())} টি",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
                     color = IncomeSurface
                 ) {
                     Text(
-                        text = "মোট জমা: ${BanglaFormatters.formatBdt(totalAmount)}",
+                        text = "অনুমোদিত: ${BanglaFormatters.formatBdt(approvedAmount)}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = IncomeEmerald,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                     )
                 }
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (pendingEntries.isNotEmpty()) NagadSurface else MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Text(
+                        text = "অপেক্ষমাণ: ${BanglaFormatters.toBanglaDigits(pendingEntries.size.toString())} টি (${BanglaFormatters.formatBdt(pendingAmount)})",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (pendingEntries.isNotEmpty()) NagadAccent else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            if (!pendingOnlyMode && submissions.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = statusFilter == TakaJomaStatusFilter.ALL,
+                        onClick = { statusFilter = TakaJomaStatusFilter.ALL },
+                        label = { Text("সব (${BanglaFormatters.toBanglaDigits(submissions.size.toString())})") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier.testTag("admin_taka_joma_filter_all")
+                    )
+                    FilterChip(
+                        selected = statusFilter == TakaJomaStatusFilter.PENDING,
+                        onClick = { statusFilter = TakaJomaStatusFilter.PENDING },
+                        label = { Text("অপেক্ষমাণ (${BanglaFormatters.toBanglaDigits(pendingEntries.size.toString())})") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = NagadSurface,
+                            selectedLabelColor = NagadAccent
+                        ),
+                        modifier = Modifier.testTag("admin_taka_joma_filter_pending")
+                    )
+                    FilterChip(
+                        selected = statusFilter == TakaJomaStatusFilter.APPROVED,
+                        onClick = { statusFilter = TakaJomaStatusFilter.APPROVED },
+                        label = { Text("অনুমোদিত (${BanglaFormatters.toBanglaDigits(approvedEntries.size.toString())})") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = IncomeSurface,
+                            selectedLabelColor = IncomeEmerald
+                        ),
+                        modifier = Modifier.testTag("admin_taka_joma_filter_approved")
+                    )
+                }
+            }
 
-            if (submissions.isEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (visibleSubmissions.isEmpty()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -224,7 +314,11 @@ fun AdminMemberTakaJomaTableCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "কোনো মেম্বার টাকা জমা দিলে ফর্মের হেডার অনুযায়ী এখানে যুক্ত হবে।",
+                        text = when {
+                            pendingOnlyMode -> "অনুমোদনের জন্য অপেক্ষমাণ কোনো টাকা জমা নেই।"
+                            submissions.isEmpty() -> "কোনো মেম্বার টাকা জমা দিলে ফর্মের হেডার অনুযায়ী এখানে যুক্ত হবে।"
+                            else -> "এই ক্যাটাগরিতে কোনো টাকা জমা এন্ট্রি নেই।"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -237,7 +331,7 @@ fun AdminMemberTakaJomaTableCard(
                 ) {
                     val borderOverhead = 11.dp
                     val baseTotal = submitColW + slColW + codeColW + nameColW + desigColW +
-                        areaColW + depotColW + methodColW + takaColW + slipColW + borderOverhead
+                        areaColW + depotColW + methodColW + takaColW + statusColW + borderOverhead
                     val extraWidth = (maxWidth - baseTotal).coerceAtLeast(0.dp)
                     val resolvedNameW = nameColW + (extraWidth * 0.30f)
                     val resolvedAreaW = areaColW + (extraWidth * 0.20f)
@@ -252,7 +346,7 @@ fun AdminMemberTakaJomaTableCard(
                         Column(
                             modifier = Modifier.border(1.dp, borderColor)
                         ) {
-                            // Header row matching form headers
+                            // Header row matching form headers + Status
                             Row(
                                 modifier = Modifier
                                     .height(IntrinsicSize.Min)
@@ -278,20 +372,18 @@ fun AdminMemberTakaJomaTableCard(
                                 AdminTableVerticalBorder(borderColor)
                                 AdminTableHeaderCell("Taka", resolvedTakaW, tableHeaderStyle, TextAlign.End)
                                 AdminTableVerticalBorder(borderColor)
-                                AdminTableHeaderCell("Slip", slipColW, tableHeaderStyle, TextAlign.Center)
+                                AdminTableHeaderCell("Status", statusColW, tableHeaderStyle, TextAlign.Center)
                             }
 
                             HorizontalDivider(thickness = 1.dp, color = borderColor)
 
-                            submissions.forEachIndexed { index, entry ->
+                            visibleSubmissions.forEachIndexed { index, entry ->
                                 val sl = index + 1
-                                val rowBg = if (index % 2 == 0) {
-                                    MaterialTheme.colorScheme.surface
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-                                }
-                                val slipBitmap = remember(entry.photoPath) {
-                                    MemberPhotoStorage.loadBitmapFromPath(entry.photoPath)
+                                val status = entry.resolvedStatus
+                                val rowBg = when {
+                                    status == TakaJomaStatus.PENDING -> NagadSurface.copy(alpha = 0.35f)
+                                    index % 2 == 0 -> MaterialTheme.colorScheme.surface
+                                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                                 }
                                 val methodLabel = entry.bankName.substringBefore(" (").ifBlank { "-" }
 
@@ -315,7 +407,7 @@ fun AdminMemberTakaJomaTableCard(
                                             Text(
                                                 text = formatAdminShortDate(entry.date),
                                                 style = tableBodyStyle.copy(
-                                                    fontSize = 11.sp,
+                                                    fontSize = 12.sp,
                                                     fontWeight = FontWeight.Medium
                                                 ),
                                                 color = MaterialTheme.colorScheme.onSurface,
@@ -324,7 +416,7 @@ fun AdminMemberTakaJomaTableCard(
                                             )
                                             Text(
                                                 text = "জমা",
-                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                                                 color = IncomeEmerald,
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -468,7 +560,11 @@ fun AdminMemberTakaJomaTableCard(
                                         Text(
                                             text = BanglaFormatters.formatBdt(entry.amount),
                                             style = tableBodyStyle.copy(fontWeight = FontWeight.Bold),
-                                            color = IncomeEmerald,
+                                            color = when (status) {
+                                                TakaJomaStatus.APPROVED -> IncomeEmerald
+                                                TakaJomaStatus.PENDING -> NagadAccent
+                                                TakaJomaStatus.REJECTED -> ExpenseCrimson
+                                            },
                                             textAlign = TextAlign.End,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
@@ -476,48 +572,40 @@ fun AdminMemberTakaJomaTableCard(
                                     }
                                     AdminTableVerticalBorder(borderColor)
 
-                                    // Slip
+                                    // Status & Quick Approve
                                     Box(
                                         modifier = Modifier
-                                            .width(slipColW)
+                                            .width(statusColW)
                                             .fillMaxHeight()
                                             .padding(horizontal = 4.dp, vertical = 6.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        if (slipBitmap != null) {
-                                            Image(
-                                                bitmap = slipBitmap.asImageBitmap(),
-                                                contentDescription = "${entry.name} স্লিপ",
-                                                contentScale = ContentScale.Crop,
+                                        if (status == TakaJomaStatus.PENDING && onApproveSubmission != null) {
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = IncomeEmerald,
                                                 modifier = Modifier
-                                                    .size(36.dp)
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .border(
-                                                        0.75.dp,
-                                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                                                        RoundedCornerShape(6.dp)
-                                                    )
-                                            )
-                                        } else {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(34.dp)
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                                                contentAlignment = Alignment.Center
+                                                    .minimumInteractiveComponentSize()
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .clickable { onApproveSubmission(entry) }
+                                                    .testTag("approve_taka_joma_${entry.id}")
                                             ) {
-                                                Icon(
-                                                    imageVector = Icons.Outlined.Image,
-                                                    contentDescription = "স্লিপ নেই",
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                                    modifier = Modifier.size(16.dp)
+                                                Text(
+                                                    text = "অনুমোদন",
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White,
+                                                    maxLines = 1,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                                                 )
                                             }
+                                        } else {
+                                            TakaJomaStatusPill(status = status)
                                         }
                                     }
                                 }
 
-                                if (index < submissions.lastIndex) {
+                                if (index < visibleSubmissions.lastIndex) {
                                     HorizontalDivider(thickness = 1.dp, color = borderColor)
                                 }
                             }
@@ -529,22 +617,23 @@ fun AdminMemberTakaJomaTableCard(
     }
 
     previewItem?.let { (sl, item) ->
-        val bmp = remember(item.photoPath) { MemberPhotoStorage.loadBitmapFromPath(item.photoPath) }
+        val status = item.resolvedStatus
         AlertDialog(
             onDismissRequest = { previewItem = null },
             title = { Text("SL ${sl.toString().padStart(2, '0')} • ${item.name}") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (bmp != null) {
-                        Image(
-                            bitmap = bmp.asImageBitmap(),
-                            contentDescription = "${item.name} স্লিপ ছবি",
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "অবস্থা:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        TakaJomaStatusPill(status = status)
                     }
                     Text("Submit তারিখ: ${BanglaFormatters.formatBanglaDate(item.date)}")
                     Text("কোড (Code): ${item.code.ifBlank { "-" }}")
@@ -564,6 +653,59 @@ fun AdminMemberTakaJomaTableCard(
                         fontWeight = FontWeight.Bold,
                         color = IncomeEmerald
                     )
+                    if (onApproveSubmission != null || onRejectSubmission != null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (status != TakaJomaStatus.APPROVED && onApproveSubmission != null) {
+                                Button(
+                                    onClick = {
+                                        onApproveSubmission(item)
+                                        previewItem = null
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = IncomeEmerald),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .testTag("dialog_approve_taka_joma_${item.id}")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.CheckCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("অনুমোদন", maxLines = 1)
+                                }
+                            }
+                            if (status != TakaJomaStatus.REJECTED && onRejectSubmission != null) {
+                                OutlinedButton(
+                                    onClick = {
+                                        onRejectSubmission(item)
+                                        previewItem = null
+                                    },
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ExpenseCrimson),
+                                    border = BorderStroke(1.dp, ExpenseCrimson.copy(alpha = 0.5f)),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .testTag("dialog_reject_taka_joma_${item.id}")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("বাতিল", maxLines = 1)
+                                }
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -608,6 +750,37 @@ fun AdminMemberTakaJomaTableCard(
                     Text("বাতিল")
                 }
             }
+        )
+    }
+}
+
+@Composable
+fun TakaJomaStatusPill(
+    status: TakaJomaStatus,
+    modifier: Modifier = Modifier
+) {
+    val bgColor = when (status) {
+        TakaJomaStatus.APPROVED -> IncomeSurface
+        TakaJomaStatus.PENDING -> NagadSurface
+        TakaJomaStatus.REJECTED -> ExpenseSurface
+    }
+    val textColor = when (status) {
+        TakaJomaStatus.APPROVED -> IncomeEmerald
+        TakaJomaStatus.PENDING -> NagadAccent
+        TakaJomaStatus.REJECTED -> ExpenseCrimson
+    }
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(10.dp),
+        color = bgColor
+    ) {
+        Text(
+            text = status.bnLabel,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+            fontWeight = FontWeight.Bold,
+            color = textColor,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
         )
     }
 }

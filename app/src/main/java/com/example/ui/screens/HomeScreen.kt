@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,10 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -33,42 +29,41 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.R
-import com.example.model.AccountType
 import com.example.model.BanglaFormatters
-import com.example.model.HisabCategories
 import com.example.model.HisabTransaction
+import com.example.model.Member
+import com.example.model.MemberTakaJoma
+import com.example.model.MonthlySalesRecord
+import com.example.model.TakaJomaStatus
 import com.example.model.TxType
+import com.example.ui.LocalHisabViewModel
+import com.example.ui.components.AdminMemberTakaJomaTableCard
 import com.example.ui.components.EmptyTransactionsState
 import com.example.ui.components.HeroBalanceCard
+import com.example.ui.components.MemberSalesDuesCard
 import com.example.ui.components.SectionPanelCard
-import com.example.ui.components.TransactionFormFields
 import com.example.ui.components.TransactionItemRow
-import com.example.ui.theme.DarkExpenseSurface
-import com.example.ui.theme.DarkExpenseText
-import com.example.ui.theme.DarkIncomeSurface
-import com.example.ui.theme.DarkIncomeText
 import com.example.ui.theme.ExpenseCrimsonDark
 import com.example.ui.theme.ExpenseSurface
 import com.example.ui.theme.IncomeEmeraldDark
 import com.example.ui.theme.IncomeSurface
+import com.example.ui.theme.NagadAccent
+import com.example.ui.theme.NagadSurface
 
 @Composable
 fun HomeScreen(
     transactions: List<HisabTransaction>,
-    isSaving: Boolean,
-    onSaveInlineTransaction: (
-        type: TxType,
-        amount: Double,
-        category: String,
-        note: String,
-        date: String,
-        account: AccountType,
-        onComplete: (Boolean) -> Unit
-    ) -> Unit,
     onEdit: (HisabTransaction) -> Unit,
     onDelete: (HisabTransaction) -> Unit,
     onSeeAll: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    members: List<Member> = emptyList(),
+    monthlySales: List<MonthlySalesRecord> = emptyList(),
+    memberTakaJomaList: List<MemberTakaJoma> = emptyList(),
+    onApproveMemberTakaJoma: (MemberTakaJoma) -> Unit = {},
+    onRejectMemberTakaJoma: (MemberTakaJoma) -> Unit = {},
+    onDeleteMemberTakaJoma: (MemberTakaJoma) -> Unit = {},
+    onOpenMemberTakaJoma: (() -> Unit)? = null
 ) {
     val totalIncome = remember(transactions) {
         transactions.filter { it.resolvedType == TxType.INCOME }.sumOf { it.amount }
@@ -85,20 +80,27 @@ fun HomeScreen(
     val todayExpense = remember(transactions, todayIso) {
         transactions.filter { it.date == todayIso && it.resolvedType == TxType.EXPENSE }.sumOf { it.amount }
     }
+    val todayApprovedMemberJoma = remember(transactions, todayIso) {
+        transactions
+            .filter {
+                it.date == todayIso &&
+                    it.resolvedType == TxType.INCOME &&
+                    it.id.startsWith(LocalHisabViewModel.TAKA_JOMA_TX_PREFIX)
+            }
+            .sumOf { it.amount }
+    }
+    val pendingMemberJomaList = remember(memberTakaJomaList) {
+        memberTakaJomaList.filter { it.resolvedStatus == TakaJomaStatus.PENDING }
+    }
+    val pendingMemberJomaTotal = remember(pendingMemberJomaList) {
+        pendingMemberJomaList.sumOf { it.amount }
+    }
     val recent = remember(transactions) { transactions.take(5) }
 
     val incomeSurface = IncomeSurface
     val incomeText = IncomeEmeraldDark
     val expenseSurface = ExpenseSurface
     val expenseText = ExpenseCrimsonDark
-
-    var inlineType by remember { mutableStateOf(TxType.EXPENSE) }
-    var inlineAmount by remember { mutableStateOf("") }
-    var inlineCategory by remember { mutableStateOf(HisabCategories.forType(TxType.EXPENSE).first()) }
-    var inlineNote by remember { mutableStateOf("") }
-    var inlineDate by remember { mutableStateOf(todayIso) }
-    var inlineAccount by remember { mutableStateOf(AccountType.CASH) }
-    var inlineError by remember { mutableStateOf<String?>(null) }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -169,74 +171,100 @@ fun HomeScreen(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("today_approved_member_joma_banner"),
+                    shape = RoundedCornerShape(12.dp),
+                    color = incomeSurface.copy(alpha = 0.72f)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "মেম্বার অনুমোদিত জমা (আজ)",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = incomeText,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = BanglaFormatters.formatBdt(todayApprovedMemberJoma),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = incomeText
+                        )
+                    }
+                }
+
+                if (pendingMemberJomaList.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("today_pending_member_joma_banner"),
+                        shape = RoundedCornerShape(12.dp),
+                        color = NagadSurface.copy(alpha = 0.85f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "অপেক্ষমাণ (${BanglaFormatters.toBanglaDigits(pendingMemberJomaList.size.toString())}টি অনুমোদনের পর যোগ হবে)",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = NagadAccent,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = BanglaFormatters.formatBdt(pendingMemberJomaTotal),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = NagadAccent
+                            )
+                        }
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "* মেম্বার টাকা জমা দিলে অ্যাডমিন অনুমোদনের পর আজকের হিসাবে জমা হবে",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
 
-        // Direct Daily Income & Expense Entry Form with BDT (৳) currency display
+        // Member Taka Joma Table (pending submissions only — disappears once Admin approves)
         item {
-            SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "দৈনিক আয় ও খরচ এন্ট্রি ফর্ম",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "টাকার পরিমাণ (৳), তারিখ, ক্যাটাগরি ও নোট দিয়ে সংরক্ষণ করুন",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(14.dp))
+            AdminMemberTakaJomaTableCard(
+                submissions = memberTakaJomaList,
+                onDeleteSubmission = onDeleteMemberTakaJoma,
+                onApproveSubmission = onApproveMemberTakaJoma,
+                onRejectSubmission = onRejectMemberTakaJoma,
+                onOpenForm = onOpenMemberTakaJoma,
+                pendingOnlyMode = true
+            )
+        }
 
-                TransactionFormFields(
-                    selectedType = inlineType,
-                    onTypeChange = { txType ->
-                        inlineType = txType
-                        val list = HisabCategories.forType(txType)
-                        if (inlineCategory !in list) {
-                            inlineCategory = list.first()
-                        }
-                    },
-                    amountText = inlineAmount,
-                    onAmountChange = {
-                        inlineAmount = it
-                        inlineError = null
-                    },
-                    selectedCategory = inlineCategory,
-                    onCategoryChange = { inlineCategory = it },
-                    noteText = inlineNote,
-                    onNoteChange = { inlineNote = it },
-                    dateIso = inlineDate,
-                    onDateChange = { inlineDate = it },
-                    selectedAccount = inlineAccount,
-                    onAccountChange = { inlineAccount = it },
-                    validationError = inlineError,
-                    isSaving = isSaving,
-                    submitLabel = stringResource(R.string.save_transaction),
-                    tagPrefix = "inline",
-                    onSubmit = {
-                        val amount = inlineAmount.toDoubleOrNull()
-                        if (amount == null || amount <= 0.0 || amount > 1_000_000_000.0) {
-                            inlineError = "অনুগ্রহ করে সঠিক টাকার পরিমাণ লিখুন।"
-                            return@TransactionFormFields
-                        }
-                        onSaveInlineTransaction(
-                            inlineType,
-                            amount,
-                            inlineCategory,
-                            inlineNote,
-                            inlineDate,
-                            inlineAccount
-                        ) { ok ->
-                            if (ok) {
-                                inlineAmount = ""
-                                inlineNote = ""
-                                inlineError = null
-                            }
-                        }
-                    }
-                )
-            }
+        // Member Sales & Dues Summary (Dues decreases when Taka Joma is approved)
+        item {
+            MemberSalesDuesCard(
+                members = members,
+                monthlySales = monthlySales,
+                submissions = memberTakaJomaList
+            )
         }
 
         item {

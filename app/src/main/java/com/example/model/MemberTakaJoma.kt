@@ -1,5 +1,27 @@
 package com.example.model
 
+enum class TakaJomaStatus(
+    val wireValue: String,
+    val bnLabel: String
+) {
+    PENDING("PENDING", "অপেক্ষমাণ"),
+    APPROVED("APPROVED", "অনুমোদিত"),
+    REJECTED("REJECTED", "বাতিল");
+
+    companion object {
+        fun fromRaw(raw: String?): TakaJomaStatus {
+            val cleaned = raw?.trim().orEmpty()
+            return when {
+                cleaned.equals(PENDING.wireValue, ignoreCase = true) ||
+                    cleaned == PENDING.bnLabel -> PENDING
+                cleaned.equals(REJECTED.wireValue, ignoreCase = true) ||
+                    cleaned == REJECTED.bnLabel -> REJECTED
+                else -> APPROVED
+            }
+        }
+    }
+}
+
 data class MemberTakaJoma(
     val id: String,
     val memberId: String,
@@ -15,8 +37,13 @@ data class MemberTakaJoma(
     val photoPath: String = "",
     val slipHash: String = "",
     val submittedByRole: String = "MEMBER",
-    val createdAtMs: Long = System.currentTimeMillis()
-)
+    val createdAtMs: Long = System.currentTimeMillis(),
+    val approvalStatus: String = TakaJomaStatus.APPROVED.wireValue,
+    val reviewedAtMs: Long = 0L
+) {
+    val resolvedStatus: TakaJomaStatus
+        get() = TakaJomaStatus.fromRaw(approvalStatus)
+}
 
 enum class PaymentMethodCategory {
     CASH,

@@ -22,7 +22,7 @@
     <string name="month_income">মাসের আয়</string>
     <string name="month_expense">মাসের খরচ</string>
     <string name="income_vs_expense">আয় বনাম খরচ</string>
-    <string name="download_csv">CSV রিপোর্ট ডাউনলোড</string>
+    <string name="download_picture">রিপোর্ট ছবি (Picture) ডাউনলোড</string>
     <string name="accounts_summary">অ্যাকাউন্ট সারাংশ</string>
     <string name="accounts_subtitle">ক্যাশ ও ব্যাংক হিসাবের বর্তমান ব্যালেন্স</string>
     <string name="cash_account">নগদ টাকা</string>
@@ -30,7 +30,7 @@
     <string name="settings_title">সেটিংস ও ব্যাকআপ</string>
     <string name="json_backup">JSON ব্যাকআপ</string>
     <string name="restore_backup">ব্যাকআপ রিস্টোর</string>
-    <string name="csv_export">CSV এক্সপোর্ট</string>
+    <string name="picture_export">রিপোর্ট Picture ডাউনলোড</string>
     <string name="save_transaction">সংরক্ষণ করুন</string>
     <string name="delete_confirm_title">লেনদেন মুছবেন?</string>
     <string name="delete_confirm_body">এই লেনদেনটি স্থায়ীভাবে মুছে ফেলা হবে।</string>

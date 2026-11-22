@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <resources>
-    <string name="firestore_database_id" translatable="false">ai-studio-android-rafiquli-a8d07eb6-5ef8-4981-bcd4-911b31b1ff11</string>
+    <string name="recaptcha_site_key" translatable="false">6LfSriwuAAAAADFQwF7zyBTgLsLT6NQWKbTNiFBW</string>
 </resources>

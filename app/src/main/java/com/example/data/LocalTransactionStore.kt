@@ -97,6 +97,6 @@ class LocalTransactionStore(context: Context) {
     companion object {
         private const val PREFS_NAME = "hisab_local_transactions_prefs"
         private const val KEY_TRANSACTIONS = "transactions_json"
-        private const val LOCAL_USER_ID = "local_rafiqul"
+        const val LOCAL_USER_ID = "local_rafiqul"
     }
 }

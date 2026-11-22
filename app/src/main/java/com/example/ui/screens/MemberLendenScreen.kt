@@ -1,7 +1,6 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,10 +27,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -50,8 +47,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
@@ -62,26 +57,27 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.MemberPhotoStorage
 import com.example.model.BanglaFormatters
 import com.example.model.HisabTransaction
 import com.example.model.MemberTakaJoma
+import com.example.model.TakaJomaStatus
 import com.example.model.TxType
 import com.example.ui.components.SectionPanelCard
+import com.example.ui.components.TakaJomaStatusPill
 import com.example.ui.components.TransactionItemRow
+import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeEmeraldDark
 import com.example.ui.theme.IncomeSurface
+import com.example.ui.theme.NagadAccent
+import com.example.ui.theme.NagadSurface
 
 @Composable
 fun MemberLendenScreen(
     submissions: List<MemberTakaJoma>,
     transactions: List<HisabTransaction>,
     onOpenTakaJomaForm: () -> Unit,
-    onDeleteSubmission: (MemberTakaJoma) -> Unit,
     onAddPersonalTx: (TxType) -> Unit,
-    onEditPersonalTx: (HisabTransaction) -> Unit,
-    onDeletePersonalTx: (HisabTransaction) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val borderColor = MaterialTheme.colorScheme.outline
@@ -90,13 +86,19 @@ fun MemberLendenScreen(
     val density = LocalDensity.current
 
     var previewItem by remember { mutableStateOf<Pair<Int, MemberTakaJoma>?>(null) }
-    var deletingItem by remember { mutableStateOf<MemberTakaJoma?>(null) }
 
     val currentMonth = remember { BanglaFormatters.currentYearMonth() }
     val monthTotalTaka = remember(submissions, currentMonth) {
-        submissions.filter { it.date.startsWith(currentMonth) }.sumOf { it.amount }
+        submissions
+            .filter { it.date.startsWith(currentMonth) && it.resolvedStatus == TakaJomaStatus.APPROVED }
+            .sumOf { it.amount }
     }
-    val allTimeTaka = remember(submissions) { submissions.sumOf { it.amount } }
+    val approvedTaka = remember(submissions) {
+        submissions.filter { it.resolvedStatus == TakaJomaStatus.APPROVED }.sumOf { it.amount }
+    }
+    val pendingTaka = remember(submissions) {
+        submissions.filter { it.resolvedStatus == TakaJomaStatus.PENDING }.sumOf { it.amount }
+    }
 
     val tableHeaderStyle = MaterialTheme.typography.labelMedium.copy(
         fontSize = 11.sp,
@@ -135,7 +137,6 @@ fun MemberLendenScreen(
         val takaLabels = submissions.map { BanglaFormatters.formatBdt(it.amount) }
         measureColumnWidth("Taka", takaLabels, minWidth = 62.dp, maxWidth = 120.dp)
     }
-    val slipColWidth = 54.dp
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -163,7 +164,7 @@ fun MemberLendenScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "জমা দেওয়া সকল টাকা ও স্লিপের তালিকা",
+                            text = "জমা দেওয়া সকল টাকা ও অনুমোদনের তালিকা",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -193,10 +194,17 @@ fun MemberLendenScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     LendenStatTile(
-                        label = "মোট এন্ট্রি",
-                        value = "${BanglaFormatters.toBanglaDigits(submissions.size.toString())} টি",
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.primary,
+                        label = "অনুমোদিত",
+                        value = BanglaFormatters.formatBdt(approvedTaka),
+                        containerColor = IncomeSurface,
+                        contentColor = IncomeEmerald,
+                        modifier = Modifier.weight(1f)
+                    )
+                    LendenStatTile(
+                        label = "অপেক্ষমাণ",
+                        value = BanglaFormatters.formatBdt(pendingTaka),
+                        containerColor = NagadSurface,
+                        contentColor = NagadAccent,
                         modifier = Modifier.weight(1f)
                     )
                     LendenStatTile(
@@ -204,13 +212,6 @@ fun MemberLendenScreen(
                         value = BanglaFormatters.formatBdt(monthTotalTaka),
                         containerColor = IncomeSurface,
                         contentColor = IncomeEmeraldDark,
-                        modifier = Modifier.weight(1f)
-                    )
-                    LendenStatTile(
-                        label = "সর্বমোট টাকা",
-                        value = BanglaFormatters.formatBdt(allTimeTaka),
-                        containerColor = IncomeSurface,
-                        contentColor = IncomeEmerald,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -250,7 +251,7 @@ fun MemberLendenScreen(
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "এখনো কোনো টাকা জমা এন্ট্রি নেই। 'টাকা জমা' ফর্ম থেকে জমা দিলে এখানে Submit, SL, Name, Taka ও Slip আকারে দেখাবে।",
+                            text = "এখনো কোনো টাকা জমা এন্ট্রি নেই। 'টাকা জমা' ফর্ম থেকে জমা দিলে এখানে Submit, SL, Name ও Taka আকারে দেখাবে।",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -262,13 +263,12 @@ fun MemberLendenScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 6.dp, vertical = 10.dp)
                     ) {
-                        val borderOverhead = 6.dp
-                        val baseTotal = baseSubmitW + baseSlW + baseNameW + baseTakaW +
-                            slipColWidth + borderOverhead
+                        val borderOverhead = 5.dp
+                        val baseTotal = baseSubmitW + baseSlW + baseNameW + baseTakaW + borderOverhead
                         val extraWidth = (maxWidth - baseTotal).coerceAtLeast(0.dp)
-                        val submitColWidth = baseSubmitW + (extraWidth * 0.20f)
+                        val submitColWidth = baseSubmitW + (extraWidth * 0.22f)
                         val nameColWidth = baseNameW + (extraWidth * 0.48f)
-                        val takaColWidth = baseTakaW + (extraWidth * 0.32f)
+                        val takaColWidth = baseTakaW + (extraWidth * 0.30f)
 
                         Box(
                             modifier = Modifier
@@ -278,7 +278,7 @@ fun MemberLendenScreen(
                             Column(
                                 modifier = Modifier.border(1.dp, borderColor)
                             ) {
-                                // Header Row: Submit | SL | Name | Taka | Slip
+                                // Header Row: Submit | SL | Name | Taka
                                 Row(
                                     modifier = Modifier
                                         .height(IntrinsicSize.Min)
@@ -293,8 +293,6 @@ fun MemberLendenScreen(
                                     LendenHeaderCell("Name", nameColWidth, tableHeaderStyle)
                                     LendenVerticalBorder(borderColor)
                                     LendenHeaderCell("Taka", takaColWidth, tableHeaderStyle, textAlign = TextAlign.End)
-                                    LendenVerticalBorder(borderColor)
-                                    LendenHeaderCell("Slip", slipColWidth, tableHeaderStyle, textAlign = TextAlign.Center)
                                 }
 
                                 HorizontalDivider(thickness = 1.dp, color = borderColor)
@@ -305,9 +303,6 @@ fun MemberLendenScreen(
                                         MaterialTheme.colorScheme.surface
                                     } else {
                                         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-                                    }
-                                    val slipBitmap = remember(entry.photoPath) {
-                                        MemberPhotoStorage.loadBitmapFromPath(entry.photoPath)
                                     }
 
                                     Row(
@@ -327,6 +322,7 @@ fun MemberLendenScreen(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                val status = entry.resolvedStatus
                                                 Text(
                                                     text = formatShortSubmitDate(entry.date),
                                                     style = tableBodyStyle.copy(
@@ -339,9 +335,13 @@ fun MemberLendenScreen(
                                                     overflow = TextOverflow.Ellipsis
                                                 )
                                                 Text(
-                                                    text = "জমা",
+                                                    text = status.bnLabel,
                                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                                    color = IncomeEmerald,
+                                                    color = when (status) {
+                                                        TakaJomaStatus.APPROVED -> IncomeEmerald
+                                                        TakaJomaStatus.PENDING -> NagadAccent
+                                                        TakaJomaStatus.REJECTED -> ExpenseCrimson
+                                                    },
                                                     fontWeight = FontWeight.Bold
                                                 )
                                             }
@@ -415,47 +415,6 @@ fun MemberLendenScreen(
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                         }
-                                        LendenVerticalBorder(borderColor)
-
-                                        // 5. Slip
-                                        Box(
-                                            modifier = Modifier
-                                                .width(slipColWidth)
-                                                .fillMaxHeight()
-                                                .padding(horizontal = 4.dp, vertical = 6.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (slipBitmap != null) {
-                                                Image(
-                                                    bitmap = slipBitmap.asImageBitmap(),
-                                                    contentDescription = "${entry.name} স্লিপ",
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier
-                                                        .size(36.dp)
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .border(
-                                                            0.75.dp,
-                                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                                                            RoundedCornerShape(6.dp)
-                                                        )
-                                                )
-                                            } else {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(34.dp)
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Outlined.Image,
-                                                        contentDescription = "স্লিপ নেই",
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
                                     }
 
                                     if (index < submissions.lastIndex) {
@@ -491,8 +450,8 @@ fun MemberLendenScreen(
                     transactions.forEachIndexed { index, tx ->
                         TransactionItemRow(
                             transaction = tx,
-                            onEdit = onEditPersonalTx,
-                            onDelete = onDeletePersonalTx,
+                            onEdit = null,
+                            onDelete = null,
                             showDivider = index < transactions.lastIndex
                         )
                     }
@@ -502,7 +461,6 @@ fun MemberLendenScreen(
     }
 
     previewItem?.let { (sl, item) ->
-        val bmp = remember(item.photoPath) { MemberPhotoStorage.loadBitmapFromPath(item.photoPath) }
         AlertDialog(
             onDismissRequest = { previewItem = null },
             title = {
@@ -510,16 +468,17 @@ fun MemberLendenScreen(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (bmp != null) {
-                        Image(
-                            bitmap = bmp.asImageBitmap(),
-                            contentDescription = "${item.name} স্লিপ ছবি",
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "অবস্থা:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        TakaJomaStatusPill(status = item.resolvedStatus)
                     }
                     Text("Submit তারিখ: ${BanglaFormatters.formatBanglaDate(item.date)}")
                     Text("কোড (Code): ${item.code.ifBlank { "-" }}")
@@ -547,43 +506,6 @@ fun MemberLendenScreen(
             confirmButton = {
                 TextButton(onClick = { previewItem = null }) {
                     Text("বন্ধ করুন")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        previewItem = null
-                        deletingItem = item
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("মুছুন")
-                }
-            }
-        )
-    }
-
-    deletingItem?.let { item ->
-        AlertDialog(
-            onDismissRequest = { deletingItem = null },
-            title = { Text("এন্ট্রি মুছে ফেলবেন?") },
-            text = {
-                Text("${item.name} — ${BanglaFormatters.formatBdt(item.amount)} মুছে ফেলা হবে।")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDeleteSubmission(item)
-                        deletingItem = null
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("মুছুন")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { deletingItem = null }) {
-                    Text("বাতিল")
                 }
             }
         )

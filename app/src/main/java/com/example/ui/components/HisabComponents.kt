@@ -148,8 +148,8 @@ private fun HeroStatBox(
 @Composable
 fun TransactionItemRow(
     transaction: HisabTransaction,
-    onEdit: (HisabTransaction) -> Unit,
-    onDelete: (HisabTransaction) -> Unit,
+    onEdit: ((HisabTransaction) -> Unit)? = null,
+    onDelete: ((HisabTransaction) -> Unit)? = null,
     showDivider: Boolean = true
 ) {
     val isIncome = transaction.resolvedType == TxType.INCOME
@@ -208,31 +208,35 @@ fun TransactionItemRow(
                 fontWeight = FontWeight.Bold,
                 color = semanticColor
             )
-            IconButton(
-                onClick = { onEdit(transaction) },
-                modifier = Modifier
-                    .minimumInteractiveComponentSize()
-                    .testTag("edit_tx_${transaction.id}")
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Edit,
-                    contentDescription = "সম্পাদনা",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp)
-                )
+            if (onEdit != null) {
+                IconButton(
+                    onClick = { onEdit(transaction) },
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("edit_tx_${transaction.id}")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Edit,
+                        contentDescription = "সম্পাদনা",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
-            IconButton(
-                onClick = { onDelete(transaction) },
-                modifier = Modifier
-                    .minimumInteractiveComponentSize()
-                    .testTag("delete_tx_${transaction.id}")
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.DeleteOutline,
-                    contentDescription = "মুছুন",
-                    tint = semanticColor,
-                    modifier = Modifier.size(18.dp)
-                )
+            if (onDelete != null) {
+                IconButton(
+                    onClick = { onDelete(transaction) },
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("delete_tx_${transaction.id}")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.DeleteOutline,
+                        contentDescription = "মুছুন",
+                        tint = semanticColor,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
         if (showDivider) {
@@ -358,13 +362,13 @@ fun StylishBottomNavBar(
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 6.dp)
-                .height(48.dp),
+                .height(54.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEach { item ->
                 val pillModifier = if (item.selected) {
                     Modifier
-                        .height(38.dp)
+                        .height(44.dp)
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(
@@ -374,7 +378,7 @@ fun StylishBottomNavBar(
                         )
                 } else {
                     Modifier
-                        .height(38.dp)
+                        .height(44.dp)
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                 }
@@ -398,13 +402,13 @@ fun StylishBottomNavBar(
                             imageVector = item.icon,
                             contentDescription = item.label,
                             tint = if (item.selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.height(1.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = item.label,
-                            fontSize = 10.sp,
-                            lineHeight = 11.sp,
+                            fontSize = 11.5.sp,
+                            lineHeight = 14.sp,
                             fontWeight = if (item.selected) FontWeight.Bold else FontWeight.Medium,
                             color = if (item.selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,

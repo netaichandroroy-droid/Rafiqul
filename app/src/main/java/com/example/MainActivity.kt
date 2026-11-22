@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import com.example.ai.configureAppCheck
 import com.example.auth.AppLockCredentialStore
 import com.example.auth.AppSession
 import com.example.data.MemberAppLinkStore
@@ -23,17 +24,21 @@ import com.example.ui.theme.HisabKhataTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        configureAppCheck(this, intent)
         enableEdgeToEdge()
+        val prefillLoginId = intent?.data?.getQueryParameter("member")
+            ?.trim()
+            .orEmpty()
         setContent {
             HisabKhataTheme {
-                AppContent()
+                AppContent(initialLoginId = prefillLoginId)
             }
         }
     }
 }
 
 @Composable
-fun AppContent() {
+fun AppContent(initialLoginId: String = "") {
     val context = LocalContext.current
     val credentialStore = remember(context) { AppLockCredentialStore(context) }
     val memberStore = remember(context) { MemberStore(context) }
@@ -42,9 +47,10 @@ fun AppContent() {
 
     when (val session = activeSession) {
         AppSession.LoggedOut -> {
-            val downloadUrl = remember(activeSession) { memberAppLinkStore.getDownloadUrl() }
+            val downloadUrl = remember(activeSession) { memberAppLinkStore.getEffectiveMemberLink() }
             AppLoginScreen(
                 memberAppDownloadUrl = downloadUrl,
+                initialLoginId = initialLoginId,
                 onLoginAttempt = { loginId, password ->
                     if (credentialStore.login(loginId, password)) {
                         activeSession = AppSession.Admin

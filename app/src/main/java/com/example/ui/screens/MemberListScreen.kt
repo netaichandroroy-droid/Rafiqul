@@ -1,5 +1,9 @@
 package com.example.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,19 +33,24 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -59,6 +68,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
@@ -71,8 +81,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.MemberAppLinkStore
 import com.example.model.BanglaFormatters
 import com.example.model.Member
+import com.example.model.MemberSalesDuesCalculator
 import com.example.ui.components.SectionPanelCard
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.ExpenseSurface
@@ -111,9 +123,37 @@ fun MemberListScreen(
     var editingMember by remember { mutableStateOf<Member?>(null) }
     var viewingProfileMember by remember { mutableStateOf<Member?>(null) }
     var deletingMember by remember { mutableStateOf<Member?>(null) }
+    var selectedAreaFilter by remember { mutableStateOf<String?>(null) }
 
-    val activeCount = remember(members) { members.count { it.isActive } }
-    val inactiveCount = members.size - activeCount
+    val sortedMembers = remember(members) {
+        MemberSalesDuesCalculator.sortMembersByArea(members)
+    }
+    val distinctAreas = remember(sortedMembers) {
+        sortedMembers
+            .map { MemberSalesDuesCalculator.normalizeText(it.area) }
+            .filter { it.isNotEmpty() }
+            .distinctBy { it.lowercase() }
+    }
+    val effectiveAreaFilter = if (selectedAreaFilter != null && distinctAreas.any {
+            it.equals(selectedAreaFilter, ignoreCase = true)
+        }
+    ) {
+        selectedAreaFilter
+    } else {
+        null
+    }
+    val displayedMembers = remember(sortedMembers, effectiveAreaFilter) {
+        if (effectiveAreaFilter == null) {
+            sortedMembers
+        } else {
+            sortedMembers.filter {
+                MemberSalesDuesCalculator.normalizeText(it.area).equals(effectiveAreaFilter, ignoreCase = true)
+            }
+        }
+    }
+
+    val activeCount = remember(sortedMembers) { sortedMembers.count { it.isActive } }
+    val inactiveCount = sortedMembers.size - activeCount
     val tableHorizontalScroll = rememberScrollState()
 
     val textMeasurer = rememberTextMeasurer()
@@ -141,24 +181,24 @@ fun MemberListScreen(
         return widestDp.coerceIn(minWidth, maxWidth)
     }
 
-    val baseSlW = remember(members, density) {
-        val slValues = members.indices.map { (it + 1).toString().padStart(2, '0') }
+    val baseSlW = remember(displayedMembers, density) {
+        val slValues = displayedMembers.indices.map { (it + 1).toString().padStart(2, '0') }
         measureColumnWidth("SL", slValues, minWidth = 28.dp, maxWidth = 40.dp)
     }
-    val baseCodeW = remember(members, density) {
-        measureColumnWidth("Code", members.map { it.code }, minWidth = 42.dp, maxWidth = 100.dp)
+    val baseCodeW = remember(displayedMembers, density) {
+        measureColumnWidth("Code", displayedMembers.map { it.code }, minWidth = 42.dp, maxWidth = 100.dp)
     }
-    val baseNameW = remember(members, density) {
-        measureColumnWidth("Name", members.map { it.name }, minWidth = 52.dp, maxWidth = 200.dp)
+    val baseNameW = remember(displayedMembers, density) {
+        measureColumnWidth("Name", displayedMembers.map { it.name }, minWidth = 52.dp, maxWidth = 200.dp)
     }
-    val baseDesigW = remember(members, density) {
-        measureColumnWidth("Desig:", members.map { it.designation }, minWidth = 44.dp, maxWidth = 150.dp)
+    val baseDesigW = remember(displayedMembers, density) {
+        measureColumnWidth("Desig:", displayedMembers.map { it.designation }, minWidth = 44.dp, maxWidth = 150.dp)
     }
-    val baseAreaW = remember(members, density) {
-        measureColumnWidth("Area", members.map { it.area }, minWidth = 46.dp, maxWidth = 160.dp)
+    val baseAreaW = remember(displayedMembers, density) {
+        measureColumnWidth("Area", displayedMembers.map { it.area }, minWidth = 46.dp, maxWidth = 160.dp)
     }
-    val baseDepotW = remember(members, density) {
-        measureColumnWidth("Depot", members.map { it.depot }, minWidth = 46.dp, maxWidth = 150.dp)
+    val baseDepotW = remember(displayedMembers, density) {
+        measureColumnWidth("Depot", displayedMembers.map { it.depot }, minWidth = 46.dp, maxWidth = 150.dp)
     }
     val activeColWidth = 46.dp
     val actionColWidth = 56.dp
@@ -184,7 +224,7 @@ fun MemberListScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "মোট ${BanglaFormatters.toBanglaDigits(members.size.toString())} জন • সক্রিয় ${BanglaFormatters.toBanglaDigits(activeCount.toString())} জন",
+                            text = "মোট ${BanglaFormatters.toBanglaDigits(sortedMembers.size.toString())} জন • Area অনুযায়ী সাজানো",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -217,7 +257,7 @@ fun MemberListScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     MemberStatChip(
-                        label = "মোট: ${BanglaFormatters.toBanglaDigits(members.size.toString())}",
+                        label = "মোট: ${BanglaFormatters.toBanglaDigits(sortedMembers.size.toString())}",
                         bg = MaterialTheme.colorScheme.primaryContainer,
                         fg = MaterialTheme.colorScheme.primary
                     )
@@ -232,6 +272,41 @@ fun MemberListScreen(
                         fg = inactiveFg
                     )
                 }
+
+                if (distinctAreas.size > 1) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = effectiveAreaFilter == null,
+                            onClick = { selectedAreaFilter = null },
+                            label = { Text("সব Area (${BanglaFormatters.toBanglaDigits(sortedMembers.size.toString())})") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.primary
+                            ),
+                            modifier = Modifier.testTag("member_list_area_all")
+                        )
+                        distinctAreas.forEach { areaName ->
+                            val isSelected = effectiveAreaFilter.equals(areaName, ignoreCase = true)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    selectedAreaFilter = if (isSelected) null else areaName
+                                },
+                                label = { Text(areaName) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -243,7 +318,7 @@ fun MemberListScreen(
                 border = BorderStroke(0.5.dp, borderColor),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                if (members.isEmpty()) {
+                if (displayedMembers.isEmpty()) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -322,8 +397,8 @@ fun MemberListScreen(
 
                                 HorizontalDivider(thickness = 1.dp, color = borderColor)
 
-                                // All-bordered Member Rows with exact equal height to Header Row
-                                members.forEachIndexed { index, member ->
+                                // All-bordered Member Rows (sorted by Area) with exact equal height to Header Row
+                                displayedMembers.forEachIndexed { index, member ->
                                     val rowBg = if (index % 2 == 0) {
                                         MaterialTheme.colorScheme.surface
                                     } else {
@@ -464,7 +539,7 @@ fun MemberListScreen(
                                         }
                                     }
 
-                                    if (index < members.lastIndex) {
+                                    if (index < displayedMembers.lastIndex) {
                                         HorizontalDivider(thickness = 1.dp, color = borderColor)
                                     }
                                 }
@@ -638,7 +713,13 @@ private fun MemberProfileDetailSheet(
     onResetPassword: (() -> Unit)?,
     onDelete: () -> Unit
 ) {
+    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val linkStore = remember(context) { MemberAppLinkStore(context) }
+    val inviteText = remember(member.name, linkStore) {
+        linkStore.buildMemberInviteText(member.name)
+    }
+    var linkStatusMessage by remember { mutableStateOf<String?>(null) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -704,6 +785,80 @@ private fun MemberProfileDetailSheet(
                 "Joining Date",
                 if (member.joiningDate.isNotBlank()) BanglaFormatters.formatBanglaDate(member.joiningDate) else "-"
             )
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "মেম্বার মোবাইল লিঙ্ক (Login System)",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = inviteText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                cm?.setPrimaryClip(ClipData.newPlainText("Member Login Link", inviteText))
+                                linkStatusMessage = "লিঙ্ক ও লগইন তথ্য কপি হয়েছে"
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ContentCopy,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("কপি করুন")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, inviteText)
+                                }
+                                val chooser = Intent.createChooser(shareIntent, "মেম্বার লিঙ্ক শেয়ার করুন").apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(chooser)
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Share,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("শেয়ার করুন")
+                        }
+                    }
+                    if (!linkStatusMessage.isNullOrBlank()) {
+                        Text(
+                            text = linkStatusMessage ?: "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(6.dp))
 

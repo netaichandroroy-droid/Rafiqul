@@ -83,12 +83,17 @@ import kotlinx.coroutines.withContext
 fun AppLoginScreen(
     onLoginAttempt: (loginId: String, password: String) -> String?,
     memberAppDownloadUrl: String = "",
+    initialLoginId: String = "",
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var loginId by remember { mutableStateOf("") }
+    val resolvedMemberUrl = remember(memberAppDownloadUrl) {
+        MemberAppLinkStore.resolveDisplayUrl(memberAppDownloadUrl)
+    }
+
+    var loginId by remember(initialLoginId) { mutableStateOf(initialLoginId) }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -115,7 +120,7 @@ fun AppLoginScreen(
             val shared = MemberAppLinkStore.shareApkOrLink(
                 context = context,
                 apkUri = apkUri,
-                downloadUrl = memberAppDownloadUrl
+                downloadUrl = resolvedMemberUrl
             )
             downloadStatusMessage = if (shared) {
                 "মেম্বার মোবাইল অ্যাপ শেয়ার / ডাউনলোড চালু হয়েছে।"
@@ -340,13 +345,13 @@ fun AppLoginScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "মেম্বার মোবাইল অ্যাপ (Mobile App)",
+                                text = "মেম্বার মোবাইল লিঙ্ক (Login System)",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "সদস্যদের ফোনে অ্যাপ ডাউনলোড ও ইনস্টল লিঙ্ক",
+                                text = "মেম্বাররা এই লিঙ্ক বা APK দিয়ে লগইন করতে পারবেন",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -356,7 +361,7 @@ fun AppLoginScreen(
                             color = IncomeSurface
                         ) {
                             Text(
-                                text = "Mobile App",
+                                text = "Mobile Link",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = IncomeEmerald,
@@ -372,126 +377,96 @@ fun AppLoginScreen(
                     )
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    if (MemberAppLinkStore.isValidHttpUrl(memberAppDownloadUrl)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f))
-                                .clickable {
-                                    val opened = MemberAppLinkStore.openUrlSafely(context, memberAppDownloadUrl)
-                                    if (!opened) {
-                                        downloadStatusMessage = "লিঙ্কটি ব্রাউজারে খোলা যায়নি।"
-                                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f))
+                            .clickable {
+                                val opened = MemberAppLinkStore.openUrlSafely(context, resolvedMemberUrl)
+                                if (!opened) {
+                                    downloadStatusMessage = "লিঙ্কটি ব্রাউজারে খোলা যায়নি।"
                                 }
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
-                                .testTag("member_app_download_url_link"),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = memberAppDownloadUrl,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary,
-                                textDecoration = TextDecoration.Underline,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                            IconButton(
-                                onClick = {
-                                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                                    cm?.setPrimaryClip(
-                                        ClipData.newPlainText("Member App Link", memberAppDownloadUrl)
-                                    )
-                                    downloadStatusMessage = "ডাউনলোড লিঙ্ক কপি হয়েছে"
-                                },
-                                modifier = Modifier
-                                    .minimumInteractiveComponentSize()
-                                    .testTag("member_app_copy_link_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.ContentCopy,
-                                    contentDescription = "লিঙ্ক কপি করুন",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
                             }
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .testTag("member_app_download_url_link"),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = resolvedMemberUrl,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            textDecoration = TextDecoration.Underline,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = {
+                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                cm?.setPrimaryClip(
+                                    ClipData.newPlainText("Member App Link", resolvedMemberUrl)
+                                )
+                                downloadStatusMessage = "মেম্বার মোবাইল লিঙ্ক কপি হয়েছে"
+                            },
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("member_app_copy_link_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ContentCopy,
+                                contentDescription = "লিঙ্ক কপি করুন",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        if (MemberAppLinkStore.isValidHttpUrl(memberAppDownloadUrl)) {
-                            Button(
-                                onClick = {
-                                    val opened = MemberAppLinkStore.openUrlSafely(context, memberAppDownloadUrl)
-                                    if (!opened) {
-                                        downloadStatusMessage = "ডাউনলোড লিঙ্ক খোলা যায়নি।"
-                                    }
-                                },
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                                    .testTag("member_app_download_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Download,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("ডাউনলোড")
-                            }
+                        Button(
+                            onClick = {
+                                val opened = MemberAppLinkStore.openUrlSafely(context, resolvedMemberUrl)
+                                if (!opened) {
+                                    downloadStatusMessage = "ডাউনলোড লিঙ্ক খোলা যায়নি।"
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("member_app_download_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Download,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("লিঙ্ক খুলুন")
+                        }
 
-                            OutlinedButton(
-                                onClick = { triggerShareApk() },
-                                enabled = !isSharingApk,
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                                    .testTag("member_app_share_apk_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Share,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(if (isSharingApk) "প্রস্তুত..." else "APK শেয়ার")
-                            }
-                        } else {
-                            OutlinedButton(
-                                onClick = { triggerShareApk() },
-                                enabled = !isSharingApk,
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp)
-                                    .testTag("member_app_download_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Download,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isSharingApk) {
-                                        "অ্যাপ APK প্রস্তুত হচ্ছে..."
-                                    } else {
-                                        "মেম্বার মোবাইল অ্যাপ ডাউনলোড / শেয়ার করুন"
-                                    },
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
+                        OutlinedButton(
+                            onClick = { triggerShareApk() },
+                            enabled = !isSharingApk,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("member_app_share_apk_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Share,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(if (isSharingApk) "প্রস্তুত..." else "শেয়ার / APK")
                         }
                     }
 

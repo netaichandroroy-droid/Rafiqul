@@ -64,14 +64,12 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.auth.AppLockCredentialStore
 import com.example.data.LocalTransactionStore
-import com.example.data.MemberPhotoStorage
 import com.example.data.MemberStore
 import com.example.data.MemberTakaJomaStore
+import com.example.data.MonthlySalesStore
 import com.example.data.OnlinePaymentStore
-import com.example.model.HisabTransaction
 import com.example.model.Member
 import com.example.model.TxType
-import com.example.ui.components.DeleteTransactionDialog
 import com.example.ui.components.StylishBottomNavBar
 import com.example.ui.components.StylishNavTab
 import com.example.ui.screens.ChangePasswordDialog
@@ -105,6 +103,7 @@ fun MemberMainApp(
         OnlinePaymentStore(context, ownerScope = "member_${initialMember.id}")
     }
     val takaJomaStore = remember(context) { MemberTakaJomaStore(context) }
+    val monthlySalesStore = remember(context) { MonthlySalesStore(context) }
     val viewModel: LocalHisabViewModel = viewModel(
         key = "member_hisab_${initialMember.id}",
         factory = viewModelFactory {
@@ -114,6 +113,7 @@ fun MemberMainApp(
                     memberStore = memberStore,
                     onlinePaymentStore = onlinePaymentStore,
                     takaJomaStore = takaJomaStore,
+                    monthlySalesStore = monthlySalesStore,
                     ownerUserId = "member_${initialMember.id}",
                     reservedAdminLoginId = credentialStore.getLoginId()
                 )
@@ -124,6 +124,7 @@ fun MemberMainApp(
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val onlinePaymentConfig by viewModel.onlinePaymentConfig.collectAsStateWithLifecycle()
     val takaJomaList by viewModel.takaJomaList.collectAsStateWithLifecycle()
+    val monthlySales by viewModel.monthlySales.collectAsStateWithLifecycle()
     val controls by viewModel.controls.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -131,8 +132,6 @@ fun MemberMainApp(
     var selectedTab by remember { mutableStateOf(MemberTab.HOME) }
     var showModal by remember { mutableStateOf(false) }
     var modalInitialType by remember { mutableStateOf(TxType.EXPENSE) }
-    var editingTransaction by remember { mutableStateOf<HisabTransaction?>(null) }
-    var deletingTransaction by remember { mutableStateOf<HisabTransaction?>(null) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(activeMember.id, selectedTab) {
@@ -159,14 +158,7 @@ fun MemberMainApp(
     }
 
     val openNewModal: (TxType) -> Unit = { type ->
-        editingTransaction = null
         modalInitialType = type
-        showModal = true
-    }
-
-    val openEditModal: (HisabTransaction) -> Unit = { tx ->
-        editingTransaction = tx
-        modalInitialType = tx.resolvedType
         showModal = true
     }
 
@@ -234,16 +226,9 @@ fun MemberMainApp(
                         MemberTab.HOME -> MemberHomeScreen(
                             member = activeMember,
                             submissions = takaJomaList,
-                            onUpdateSales = { newSales ->
-                                memberStore.updateMemberSales(activeMember.id, newSales)
-                                    .onSuccess { updated ->
-                                        activeMember = updated
-                                        viewModel.showMessage("Sales হিসাব হালনাগাদ হয়েছে")
-                                    }
-                                    .onFailure { err ->
-                                        viewModel.showMessage(err.localizedMessage ?: "Sales আপডেট করা যায়নি")
-                                    }
-                            },
+                            monthlySales = monthlySales,
+                            selectedSalesMonth = controls.salesMonth,
+                            onShiftSalesMonth = viewModel::shiftSalesMonth,
                             onOpenTakaJomaForm = { selectedTab = MemberTab.TAKA_JOMA }
                         )
 
@@ -251,13 +236,7 @@ fun MemberMainApp(
                             submissions = takaJomaList,
                             transactions = transactions,
                             onOpenTakaJomaForm = { selectedTab = MemberTab.TAKA_JOMA },
-                            onDeleteSubmission = { entry ->
-                                MemberPhotoStorage.deleteStoredPhoto(context, entry.photoPath)
-                                viewModel.deleteMemberTakaJoma(entry)
-                            },
-                            onAddPersonalTx = openNewModal,
-                            onEditPersonalTx = openEditModal,
-                            onDeletePersonalTx = { deletingTransaction = it }
+                            onAddPersonalTx = openNewModal
                         )
 
                         MemberTab.TAKA_JOMA -> MemberTakaJomaScreen(
@@ -265,40 +244,22 @@ fun MemberMainApp(
                             currentMember = activeMember,
                             isAdminMode = false,
                             onSubmit = viewModel::submitMemberTakaJoma,
-                            onDeleteSubmission = { entry ->
-                                MemberPhotoStorage.deleteStoredPhoto(context, entry.photoPath)
-                                viewModel.deleteMemberTakaJoma(entry)
-                            }
+                            onDeleteSubmission = { /* Members cannot delete */ }
                         )
 
                         MemberTab.PAYMENT -> OnlinePaymentScreen(
                             config = onlinePaymentConfig,
-                            onToggleMasterEnabled = viewModel::setOnlinePaymentEnabled,
-                            onToggleAccountEnabled = viewModel::togglePaymentAccountEnabled,
-                            onUpdateAccount = viewModel::updatePaymentAccount,
+                            onToggleMasterEnabled = {},
+                            onToggleAccountEnabled = { _, _ -> },
+                            onUpdateAccount = { _, _, _, _ -> },
                             onRecordPaymentTransaction = viewModel::recordOnlinePaymentTransaction,
                             onShowMessage = viewModel::showMessage,
-                            isAdminEditable = true
+                            isAdminEditable = false
                         )
 
                         MemberTab.PROFILE -> MemberProfileScreen(
                             member = activeMember,
                             transactionCount = transactions.size,
-                            onUpdateProfile = { phone, email, address, photoPath ->
-                                val result = memberStore.updateMemberProfile(
-                                    memberId = activeMember.id,
-                                    phone = phone,
-                                    email = email,
-                                    address = address,
-                                    profilePhotoPath = photoPath
-                                )
-                                result.onSuccess { updated ->
-                                    activeMember = updated
-                                    viewModel.showMessage("প্রোফাইল সফলভাবে হালনাগাদ হয়েছে")
-                                }.onFailure { err ->
-                                    viewModel.showMessage(err.localizedMessage ?: "প্রোফাইল আপডেট করা যায়নি")
-                                }
-                            },
                             onOpenChangePassword = { showChangePasswordDialog = true },
                             onLogout = onMemberLogout
                         )
@@ -310,12 +271,12 @@ fun MemberMainApp(
 
     if (showModal) {
         TransactionModalSheet(
-            editingTransaction = editingTransaction,
+            editingTransaction = null,
             initialType = modalInitialType,
             isSaving = controls.isSaving,
             onDismiss = { showModal = false },
-            onSave = { editingId, type, amount, category, note, date, account ->
-                viewModel.saveTransaction(editingId, type, amount, category, note, date, account) { ok ->
+            onSave = { _, type, amount, category, note, date, account ->
+                viewModel.saveTransaction(null, type, amount, category, note, date, account) { ok ->
                     if (ok) showModal = false
                 }
             }
@@ -341,17 +302,6 @@ fun MemberMainApp(
                 showChangePasswordDialog = false
                 viewModel.showMessage("পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে")
             }
-        )
-    }
-
-    deletingTransaction?.let { target ->
-        DeleteTransactionDialog(
-            transaction = target,
-            onConfirm = {
-                viewModel.deleteTransaction(target)
-                deletingTransaction = null
-            },
-            onDismiss = { deletingTransaction = null }
         )
     }
 }
@@ -388,7 +338,7 @@ private fun MemberTopAppBar(
             Column {
                 Text(
                     text = member.name,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                     maxLines = 1,
@@ -397,8 +347,8 @@ private fun MemberTopAppBar(
                 Text(
                     text = details,
                     style = MaterialTheme.typography.labelSmall,
-                    fontSize = 10.sp,
-                    color = Color.White.copy(alpha = 0.80f),
+                    fontSize = 11.5.sp,
+                    color = Color.White.copy(alpha = 0.88f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

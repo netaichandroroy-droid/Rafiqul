@@ -1,15 +1,10 @@
 package com.example.ui.screens
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,14 +21,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.AccountBalance
-import androidx.compose.material.icons.outlined.AddAPhoto
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
@@ -68,28 +61,23 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.data.MemberPhotoStorage
-import com.example.data.MemberTakaJomaStore
 import com.example.model.BangladeshBankDirectory
 import com.example.model.BanglaFormatters
 import com.example.model.Member
 import com.example.model.MemberTakaJoma
 import com.example.model.PaymentMethodCategory
+import com.example.model.TakaJomaStatus
 import com.example.ui.components.SectionPanelCard
 import com.example.ui.theme.BkashAccent
 import com.example.ui.theme.BkashSurface
@@ -98,9 +86,6 @@ import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeSurface
 import com.example.ui.theme.NagadAccent
 import com.example.ui.theme.NagadSurface
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.UUID
 
 @Composable
@@ -128,10 +113,6 @@ fun MemberTakaJomaScreen(
     onDeleteSubmission: (MemberTakaJoma) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val duplicateCheckStore = remember(context) { MemberTakaJomaStore(context) }
-
     var pendingSubmissionId by remember { mutableStateOf(UUID.randomUUID().toString()) }
     var selectedMemberId by remember(currentMember?.id) {
         mutableStateOf(currentMember?.id ?: "")
@@ -157,10 +138,7 @@ fun MemberTakaJomaScreen(
     var bankSearchQuery by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
     var dateText by remember { mutableStateOf(BanglaFormatters.todayIso()) }
-    var photoPath by remember { mutableStateOf("") }
-    var slipHash by remember { mutableStateOf("") }
     var formError by remember { mutableStateOf<String?>(null) }
-    var isPickingPhoto by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
 
     fun applyMemberAutoFill(member: Member) {
@@ -215,48 +193,11 @@ fun MemberTakaJomaScreen(
     var previewSubmission by remember { mutableStateOf<MemberTakaJoma?>(null) }
     var deletingSubmission by remember { mutableStateOf<MemberTakaJoma?>(null) }
 
-    val totalAmount = remember(submissions) { submissions.sumOf { it.amount } }
-    val pickedBitmap = remember(photoPath) { MemberPhotoStorage.loadBitmapFromPath(photoPath) }
-
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        if (uri != null) {
-            isPickingPhoto = true
-            val previousPath = photoPath
-            scope.launch {
-                val saved = withContext(Dispatchers.IO) {
-                    MemberPhotoStorage.saveTakaJomaPhotoWithHashFromUri(context, pendingSubmissionId, uri)
-                }
-                if (saved != null) {
-                    val alreadyUsed = withContext(Dispatchers.IO) {
-                        submissions.any {
-                            it.slipHash.isNotBlank() && it.slipHash.equals(saved.sha256, ignoreCase = true)
-                        } || duplicateCheckStore.isDuplicateSlip(saved.sha256)
-                    }
-                    if (alreadyUsed) {
-                        if (saved.path != previousPath) {
-                            withContext(Dispatchers.IO) {
-                                MemberPhotoStorage.deleteStoredPhoto(context, saved.path)
-                            }
-                        }
-                        formError = "এই স্লিপটি আগেও জমা দেওয়া হয়েছে। এক স্লিপ দুইবার জমা দেওয়া যাবে না।"
-                    } else {
-                        if (previousPath.isNotBlank() && previousPath != saved.path) {
-                            withContext(Dispatchers.IO) {
-                                MemberPhotoStorage.deleteStoredPhoto(context, previousPath)
-                            }
-                        }
-                        photoPath = saved.path
-                        slipHash = saved.sha256
-                        formError = null
-                    }
-                } else {
-                    formError = "ছবি লোড করা যায়নি, আবার চেষ্টা করুন।"
-                }
-                isPickingPhoto = false
-            }
-        }
+    val approvedAmount = remember(submissions) {
+        submissions.filter { it.resolvedStatus == TakaJomaStatus.APPROVED }.sumOf { it.amount }
+    }
+    val pendingAmount = remember(submissions) {
+        submissions.filter { it.resolvedStatus == TakaJomaStatus.PENDING }.sumOf { it.amount }
     }
 
     LazyColumn(
@@ -281,7 +222,7 @@ fun MemberTakaJomaScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "নাম, কোড, ডিপো, Cash/Nagad/bKash/Bank, টাকা ও ছবি যুক্ত করুন",
+                            text = "নাম, কোড, ডিপো, Cash/Nagad/bKash/Bank ও টাকার পরিমাণ যুক্ত করুন",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -325,12 +266,26 @@ fun MemberTakaJomaScreen(
                         color = IncomeSurface
                     ) {
                         Text(
-                            text = "মোট টাকা: ${BanglaFormatters.formatBdt(totalAmount)}",
+                            text = "অনুমোদিত: ${BanglaFormatters.formatBdt(approvedAmount)}",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = IncomeEmerald,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                         )
+                    }
+                    if (pendingAmount > 0.0) {
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = NagadSurface
+                        ) {
+                            Text(
+                                text = "অপেক্ষমাণ: ${BanglaFormatters.formatBdt(pendingAmount)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = NagadAccent,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -377,7 +332,8 @@ fun MemberTakaJomaScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        items(adminMembers, key = { it.id }) { member ->
+                        val areaSortedMembers = com.example.model.MemberSalesDuesCalculator.sortMembersByArea(adminMembers)
+                        items(areaSortedMembers, key = { it.id }) { member ->
                             val isSelected = selectedMemberId == member.id
                             val chipLabel = if (member.code.isNotBlank()) {
                                 "${member.code} • ${member.name}"
@@ -996,133 +952,6 @@ fun MemberTakaJomaScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "ছবি / রসিদ সংযুক্তি (Photo)",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-
-                if (pickedBitmap != null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .border(
-                                1.dp,
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                RoundedCornerShape(12.dp)
-                            )
-                    ) {
-                        Image(
-                            bitmap = pickedBitmap.asImageBitmap(),
-                            contentDescription = "নির্বাচিত জমার ছবি",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(160.dp)
-                        )
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(18.dp),
-                                color = Color.Black.copy(alpha = 0.68f),
-                                modifier = Modifier
-                                    .minimumInteractiveComponentSize()
-                                    .clickable {
-                                        photoPickerLauncher.launch(
-                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                        )
-                                    }
-                            ) {
-                                Text(
-                                    text = "পরিবর্তন",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                )
-                            }
-                            Surface(
-                                shape = CircleShape,
-                                color = ExpenseCrimson.copy(alpha = 0.9f),
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clickable {
-                                        val toDelete = photoPath
-                                        photoPath = ""
-                                        slipHash = ""
-                                        scope.launch(Dispatchers.IO) {
-                                            MemberPhotoStorage.deleteStoredPhoto(context, toDelete)
-                                        }
-                                    }
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Close,
-                                        contentDescription = "ছবি সরান",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                        border = BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable(enabled = !isPickingPhoto) {
-                                photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            }
-                            .testTag("taka_joma_photo_picker")
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.AddAPhoto,
-                                contentDescription = "ছবি যোগ করুন",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = if (isPickingPhoto) "ছবি সংরক্ষণ হচ্ছে..." else "ছবি / রসিদ যোগ করুন (Photo)",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = "গ্যালারি থেকে টাকা জমার ছবি বা রসিদ দিন",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-
                 if (!formError.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -1135,7 +964,7 @@ fun MemberTakaJomaScreen(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Button(
-                    enabled = !isSubmitting && !isPickingPhoto,
+                    enabled = !isSubmitting,
                     onClick = {
                         val cleanName = name.trim()
                         val cleanCode = code.trim()
@@ -1143,15 +972,6 @@ fun MemberTakaJomaScreen(
                         val cleanBank = selectedBank.trim()
                         val parsedAmount = amountText.trim().toDoubleOrNull()
                         val cleanDate = dateText.trim().ifBlank { BanglaFormatters.todayIso() }
-                        val effectiveHash = slipHash.ifBlank {
-                            MemberPhotoStorage.computeFileSha256(photoPath)
-                        }
-                        val hasDuplicateSlip = (effectiveHash.isNotBlank() || photoPath.isNotBlank()) && (
-                            submissions.any {
-                                (effectiveHash.isNotBlank() && it.slipHash.equals(effectiveHash, ignoreCase = true)) ||
-                                    (photoPath.isNotBlank() && it.photoPath == photoPath)
-                            } || duplicateCheckStore.isDuplicateSlip(effectiveHash, photoPath)
-                        )
 
                         when {
                             cleanName.isEmpty() -> formError = "অনুগ্রহ করে নাম লিখুন।"
@@ -1160,9 +980,6 @@ fun MemberTakaJomaScreen(
                             cleanBank.isEmpty() -> formError = "অনুগ্রহ করে ড্রপডাউন থেকে Cash, Nagad, bKash বা একটি ব্যাংক নির্বাচন করুন।"
                             parsedAmount == null || parsedAmount <= 0.0 -> {
                                 formError = "সঠিক টাকার পরিমাণ লিখুন।"
-                            }
-                            hasDuplicateSlip -> {
-                                formError = "এই স্লিপটি আগেও জমা দেওয়া হয়েছে। এক স্লিপ দুইবার জমা দেওয়া যাবে না।"
                             }
                             else -> {
                                 isSubmitting = true
@@ -1180,8 +997,8 @@ fun MemberTakaJomaScreen(
                                     parsedAmount,
                                     cleanDate,
                                     "",
-                                    photoPath,
-                                    effectiveHash,
+                                    "",
+                                    "",
                                     cleanDesignation,
                                     cleanArea
                                 ) { ok ->
@@ -1189,8 +1006,6 @@ fun MemberTakaJomaScreen(
                                     if (ok) {
                                         pendingSubmissionId = UUID.randomUUID().toString()
                                         amountText = ""
-                                        photoPath = ""
-                                        slipHash = ""
                                         selectedBank = ""
                                         dropdownExpanded = false
                                         selectedCategoryFilter = null
@@ -1214,7 +1029,7 @@ fun MemberTakaJomaScreen(
                                         }
                                         formError = null
                                     } else {
-                                        formError = "এই স্লিপটি আগেও জমা দেওয়া হয়েছে। এক স্লিপ দুইবার জমা দেওয়া যাবে না।"
+                                        formError = "জমা সংরক্ষণ করা যায়নি, আবার চেষ্টা করুন।"
                                     }
                                 }
                             }
@@ -1244,7 +1059,7 @@ fun MemberTakaJomaScreen(
                     text = if (submissions.isEmpty()) {
                         "এখনো কোনো টাকা জমা ফর্ম সংরক্ষিত হয়নি।"
                     } else {
-                        "ছবি বড় করে দেখতে ছবির উপর ট্যাপ করুন"
+                        "বিস্তারিত দেখতে সারির উপর ট্যাপ করুন (অ্যাডমিন অনুমোদনের পর টাকা যোগ হবে)"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1259,6 +1074,7 @@ fun MemberTakaJomaScreen(
                     submissions.forEachIndexed { index, entry ->
                         TakaJomaListRow(
                             entry = entry,
+                            canDelete = isAdminMode,
                             onPreview = { previewSubmission = entry },
                             onDelete = { deletingSubmission = entry }
                         )
@@ -1275,22 +1091,22 @@ fun MemberTakaJomaScreen(
     }
 
     previewSubmission?.let { item ->
-        val bmp = remember(item.photoPath) { MemberPhotoStorage.loadBitmapFromPath(item.photoPath) }
         AlertDialog(
             onDismissRequest = { previewSubmission = null },
             title = { Text("${item.name} • ${BanglaFormatters.formatBdt(item.amount)}") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (bmp != null) {
-                        Image(
-                            bitmap = bmp.asImageBitmap(),
-                            contentDescription = "${item.name} জমার ছবি",
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "অবস্থা:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        com.example.ui.components.TakaJomaStatusPill(status = item.resolvedStatus)
                     }
                     Text("কোড (Code): ${item.code.ifBlank { "-" }}")
                     if (item.designation.isNotBlank()) {
@@ -1317,43 +1133,42 @@ fun MemberTakaJomaScreen(
         )
     }
 
-    deletingSubmission?.let { item ->
-        AlertDialog(
-            onDismissRequest = { deletingSubmission = null },
-            title = { Text("জমা রেকর্ড মুছে ফেলবেন?") },
-            text = {
-                Text("${item.name} (Code: ${item.code}) — ${BanglaFormatters.formatBdt(item.amount)} মুছে ফেলা হবে।")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDeleteSubmission(item)
-                        deletingSubmission = null
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("মুছুন")
+    if (isAdminMode) {
+        deletingSubmission?.let { item ->
+            AlertDialog(
+                onDismissRequest = { deletingSubmission = null },
+                title = { Text("জমা রেকর্ড মুছে ফেলবেন?") },
+                text = {
+                    Text("${item.name} (Code: ${item.code}) — ${BanglaFormatters.formatBdt(item.amount)} মুছে ফেলা হবে।")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onDeleteSubmission(item)
+                            deletingSubmission = null
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("মুছুন")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { deletingSubmission = null }) {
+                        Text("বাতিল")
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { deletingSubmission = null }) {
-                    Text("বাতিল")
-                }
-            }
-        )
+            )
+        }
     }
 }
 
 @Composable
 private fun TakaJomaListRow(
     entry: MemberTakaJoma,
+    canDelete: Boolean,
     onPreview: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val thumbBitmap = remember(entry.photoPath) {
-        MemberPhotoStorage.loadBitmapFromPath(entry.photoPath)
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1362,31 +1177,19 @@ private fun TakaJomaListRow(
             .testTag("taka_joma_row_${entry.id}"),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (thumbBitmap != null) {
-            Image(
-                bitmap = thumbBitmap.asImageBitmap(),
-                contentDescription = "${entry.name} ছবি",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(IncomeSurface),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.ReceiptLong,
+                contentDescription = null,
+                tint = IncomeEmerald,
+                modifier = Modifier.size(22.dp)
             )
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(IncomeSurface),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ReceiptLong,
-                    contentDescription = null,
-                    tint = IncomeEmerald,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -1440,25 +1243,31 @@ private fun TakaJomaListRow(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        Text(
-            text = BanglaFormatters.formatBdt(entry.amount),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = IncomeEmerald
-        )
-
-        IconButton(
-            onClick = onDelete,
-            modifier = Modifier
-                .minimumInteractiveComponentSize()
-                .testTag("delete_taka_joma_${entry.id}")
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.DeleteOutline,
-                contentDescription = "মুছুন",
-                tint = ExpenseCrimson,
-                modifier = Modifier.size(18.dp)
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = BanglaFormatters.formatBdt(entry.amount),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = IncomeEmerald
             )
+            Spacer(modifier = Modifier.height(3.dp))
+            com.example.ui.components.TakaJomaStatusPill(status = entry.resolvedStatus)
+        }
+
+        if (canDelete) {
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("delete_taka_joma_${entry.id}")
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.DeleteOutline,
+                    contentDescription = "মুছুন",
+                    tint = ExpenseCrimson,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }

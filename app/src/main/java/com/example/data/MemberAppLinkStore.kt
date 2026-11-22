@@ -18,6 +18,20 @@ class MemberAppLinkStore(context: Context) {
         return prefs.getString(KEY_DOWNLOAD_URL, "")?.trim().orEmpty()
     }
 
+    fun getEffectiveMemberLink(): String {
+        return getDownloadUrl().ifBlank { DEFAULT_MEMBER_APP_URL }
+    }
+
+    fun buildMemberInviteText(memberName: String? = null): String {
+        val link = getEffectiveMemberLink()
+        val idLine = if (!memberName.isNullOrBlank()) {
+            "\nLogin ID: ${memberName.trim()}\nPassword: ${memberName.trim()} (অথবা পরিবর্তিত পাসওয়ার্ড)"
+        } else {
+            "\nলগইন নিয়ম: মেম্বার লিস্টে থাকা আপনার নামই Login ID ও প্রাথমিক Password।"
+        }
+        return "মেম্বার মোবাইল অ্যাপ ও লগইন লিঙ্ক: $link$idLine"
+    }
+
     fun saveDownloadUrl(rawUrl: String): Result<String> {
         val cleaned = rawUrl.trim()
         if (cleaned.isEmpty()) {
@@ -75,12 +89,17 @@ class MemberAppLinkStore(context: Context) {
     }
 
     companion object {
+        const val DEFAULT_MEMBER_APP_URL = "https://ais-pre-ki27a5iyxvtqdalsscbv2a-223515846545.asia-east1.run.app"
         private const val PREFS_NAME = "hisab_member_app_link_prefs"
         private const val KEY_DOWNLOAD_URL = "member_app_download_url"
         private const val SHARE_DIR_NAME = "share"
         private const val APK_SHARE_FILE_NAME = "Member_Mobile_App.apk"
         private val HAS_SCHEME_REGEX = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*:.*")
         private val HOST_PORT_REGEX = Regex("^[a-zA-Z0-9.-]+:\\d+(/.*)?$")
+
+        fun resolveDisplayUrl(customUrl: String): String {
+            return customUrl.trim().takeIf { isValidHttpUrl(it) } ?: DEFAULT_MEMBER_APP_URL
+        }
 
         fun isValidHttpUrl(url: String): Boolean {
             val trimmed = url.trim()
@@ -107,6 +126,7 @@ class MemberAppLinkStore(context: Context) {
         }
 
         fun shareApkOrLink(context: Context, apkUri: Uri?, downloadUrl: String): Boolean {
+            val effectiveUrl = resolveDisplayUrl(downloadUrl)
             return runCatching {
                 val intent = if (apkUri != null) {
                     Intent(Intent.ACTION_SEND).apply {
@@ -116,24 +136,20 @@ class MemberAppLinkStore(context: Context) {
                             Intent.EXTRA_SUBJECT,
                             "মেম্বার মোবাইল অ্যাপ (APK)"
                         )
-                        if (isValidHttpUrl(downloadUrl)) {
-                            putExtra(
-                                Intent.EXTRA_TEXT,
-                                "মেম্বার মোবাইল অ্যাপ ডাউনলোড লিঙ্ক: $downloadUrl"
-                            )
-                        }
+                        putExtra(
+                            Intent.EXTRA_TEXT,
+                            "মেম্বার মোবাইল অ্যাপ ও লগইন লিঙ্ক: $effectiveUrl\nলগইন নিয়ম: মেম্বার লিস্টের নামই Login ID ও প্রাথমিক Password।"
+                        )
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                } else if (isValidHttpUrl(downloadUrl)) {
+                } else {
                     Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
                         putExtra(
                             Intent.EXTRA_TEXT,
-                            "মেম্বার মোবাইল অ্যাপ ডাউনলোড লিঙ্ক: $downloadUrl"
+                            "মেম্বার মোবাইল অ্যাপ ও লগইন লিঙ্ক: $effectiveUrl\nলগইন নিয়ম: মেম্বার লিস্টের নামই Login ID ও প্রাথমিক Password।"
                         )
                     }
-                } else {
-                    return false
                 }
                 val chooser = Intent.createChooser(intent, "মেম্বার মোবাইল অ্যাপ শেয়ার করুন").apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

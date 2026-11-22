@@ -3,6 +3,7 @@ package com.example.data
 import android.content.Context
 import androidx.core.content.edit
 import com.example.model.MemberTakaJoma
+import com.example.model.TakaJomaStatus
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -40,7 +41,11 @@ class MemberTakaJomaStore(context: Context) {
                         photoPath = obj.optString("photoPath", "").trim(),
                         slipHash = obj.optString("slipHash", "").trim(),
                         submittedByRole = obj.optString("submittedByRole", "MEMBER").ifBlank { "MEMBER" },
-                        createdAtMs = obj.optLong("createdAtMs", System.currentTimeMillis())
+                        createdAtMs = obj.optLong("createdAtMs", System.currentTimeMillis()),
+                        approvalStatus = TakaJomaStatus.fromRaw(
+                            obj.optString("approvalStatus", TakaJomaStatus.APPROVED.wireValue)
+                        ).wireValue,
+                        reviewedAtMs = obj.optLong("reviewedAtMs", 0L)
                     )
                 )
             }
@@ -73,6 +78,8 @@ class MemberTakaJomaStore(context: Context) {
                 put("slipHash", item.slipHash)
                 put("submittedByRole", item.submittedByRole)
                 put("createdAtMs", item.createdAtMs)
+                put("approvalStatus", item.resolvedStatus.wireValue)
+                put("reviewedAtMs", item.reviewedAtMs)
             }
             array.put(obj)
         }
@@ -116,6 +123,30 @@ class MemberTakaJomaStore(context: Context) {
 
     fun addSubmission(entry: MemberTakaJoma): List<MemberTakaJoma> {
         return tryAddSubmission(entry).getOrElse { loadAll() }
+    }
+
+    fun updateApprovalStatus(
+        submissionId: String,
+        status: TakaJomaStatus,
+        reviewedAtMs: Long = System.currentTimeMillis()
+    ): List<MemberTakaJoma> {
+        val current = loadAll()
+        var changed = false
+        val updated = current.map { item ->
+            if (item.id == submissionId) {
+                changed = true
+                item.copy(
+                    approvalStatus = status.wireValue,
+                    reviewedAtMs = reviewedAtMs
+                )
+            } else {
+                item
+            }
+        }
+        if (changed) {
+            saveAll(updated)
+        }
+        return sortSubmissions(updated)
     }
 
     fun deleteSubmission(
