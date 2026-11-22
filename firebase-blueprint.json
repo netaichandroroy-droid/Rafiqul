@@ -1,0 +1,123 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile storing username, email, PBKDF2-HMAC-SHA256 hashed password, and HTTPS profile picture URL.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the authenticated owner user."
+        },
+        "username": {
+          "type": "string",
+          "description": "Unique handle (3-30 chars: letters, digits, _, ., -)."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address."
+        },
+        "passwordHash": {
+          "type": "string",
+          "description": "Salted PBKDF2-HMAC-SHA256 password hash in pbkdf2_sha256$iterations$salt$hash format."
+        },
+        "profilePictureUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Optional HTTPS URL for the user's profile picture."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server-generated creation timestamp via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server-generated last update timestamp via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "username",
+        "email",
+        "passwordHash",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "HisabTransaction": {
+      "title": "HisabTransaction",
+      "description": "A personal income or expense transaction in the Bengali Personal Hisab Khata ledger.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the authenticated owner user."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["income", "expense"],
+          "description": "Transaction type: income or expense."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Positive transaction amount in BDT."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category label in Bengali (e.g., খাবার, বেতন)."
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional note or description for the transaction."
+        },
+        "date": {
+          "type": "string",
+          "description": "Transaction date formatted as YYYY-MM-DD."
+        },
+        "account": {
+          "type": "string",
+          "enum": ["cash", "bank"],
+          "description": "Account used: cash or bank."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server-generated creation timestamp via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server-generated last update timestamp via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "type",
+        "amount",
+        "category",
+        "note",
+        "date",
+        "account",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Owner-isolated user profile document."
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": {
+        "$ref": "#/entities/HisabTransaction"
+      },
+      "description": "User-scoped subcollection storing personal income and expense transactions."
+    }
+  }
+}

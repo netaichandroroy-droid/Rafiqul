@@ -1,0 +1,6 @@
+{
+  "name": "Rafiqul Islam",
+  "description": "Personal Hisab Khata - Bengali personal income and expense tracker with BDT (৳) currency, cash & bank accounts, monthly reports, CSV/JSON backup, and Firebase cloud sync.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
