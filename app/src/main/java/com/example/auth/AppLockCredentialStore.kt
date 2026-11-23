@@ -16,10 +16,6 @@ class AppLockCredentialStore(context: Context) {
         Context.MODE_PRIVATE
     )
 
-    init {
-        ensureInitialized()
-    }
-
     private fun ensureInitialized() {
         if (!prefs.contains(KEY_PASSWORD_HASH)) {
             val defaultHash = PasswordHasher.hashPassword(DEFAULT_PASSWORD, minLength = MIN_PASSWORD_LENGTH)
@@ -127,6 +123,26 @@ class AppLockCredentialStore(context: Context) {
             putBoolean(KEY_IS_DEFAULT_PASSWORD, false)
         }
         return Result.success(Unit)
+    }
+
+    fun getPasswordHash(): String {
+        ensureInitialized()
+        return prefs.getString(KEY_PASSWORD_HASH, "") ?: ""
+    }
+
+    fun applySyncedCredentials(
+        loginId: String,
+        passwordHash: String,
+        isDefaultPassword: Boolean
+    ) {
+        val cleanedId = loginId.trim()
+        val cleanedHash = passwordHash.trim()
+        if (!LOGIN_ID_REGEX.matches(cleanedId) || cleanedHash.length < 32) return
+        prefs.edit(commit = true) {
+            putString(KEY_LOGIN_ID, cleanedId)
+            putString(KEY_PASSWORD_HASH, cleanedHash)
+            putBoolean(KEY_IS_DEFAULT_PASSWORD, isDefaultPassword)
+        }
     }
 
     companion object {

@@ -63,6 +63,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.auth.AppLockCredentialStore
+import com.example.data.CloudAutoSyncRepository
 import com.example.data.LocalTransactionStore
 import com.example.data.MemberStore
 import com.example.data.MemberTakaJomaStore
@@ -94,7 +95,9 @@ private enum class MemberTab(val label: String) {
 fun MemberMainApp(
     initialMember: Member,
     credentialStore: AppLockCredentialStore,
-    onMemberLogout: () -> Unit
+    onMemberLogout: () -> Unit,
+    cloudSyncRepository: CloudAutoSyncRepository? = null,
+    syncOwnerUid: String = "local"
 ) {
     val context = LocalContext.current
     val localStore = remember(context) { LocalTransactionStore(context) }
@@ -105,7 +108,7 @@ fun MemberMainApp(
     val takaJomaStore = remember(context) { MemberTakaJomaStore(context) }
     val monthlySalesStore = remember(context) { MonthlySalesStore(context) }
     val viewModel: LocalHisabViewModel = viewModel(
-        key = "member_hisab_${initialMember.id}",
+        key = "member_hisab_${syncOwnerUid}_${initialMember.id}",
         factory = viewModelFactory {
             initializer {
                 LocalHisabViewModel(
@@ -115,7 +118,8 @@ fun MemberMainApp(
                     takaJomaStore = takaJomaStore,
                     monthlySalesStore = monthlySalesStore,
                     ownerUserId = "member_${initialMember.id}",
-                    reservedAdminLoginId = credentialStore.getLoginId()
+                    reservedAdminLoginId = credentialStore.getLoginId(),
+                    cloudSyncRepository = cloudSyncRepository
                 )
             }
         }
@@ -126,6 +130,7 @@ fun MemberMainApp(
     val takaJomaList by viewModel.takaJomaList.collectAsStateWithLifecycle()
     val monthlySales by viewModel.monthlySales.collectAsStateWithLifecycle()
     val controls by viewModel.controls.collectAsStateWithLifecycle()
+    val cloudSyncState by viewModel.cloudSyncState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var activeMember by remember(initialMember) { mutableStateOf(initialMember) }
@@ -134,7 +139,7 @@ fun MemberMainApp(
     var modalInitialType by remember { mutableStateOf(TxType.EXPENSE) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(activeMember.id, selectedTab) {
+    LaunchedEffect(activeMember.id, selectedTab, cloudSyncState.lastSyncedAtMs) {
         memberStore.findById(activeMember.id)?.let { latest ->
             if (latest != activeMember) {
                 activeMember = latest
@@ -296,6 +301,7 @@ fun MemberMainApp(
                 )
                 result.map { updated ->
                     activeMember = updated
+                    viewModel.syncMemberToCloud(updated)
                 }
             },
             onSuccess = {

@@ -341,7 +341,8 @@ data class StylishNavTab(
     val icon: ImageVector,
     val selected: Boolean,
     val testTag: String,
-    val onClick: () -> Unit
+    val onClick: () -> Unit,
+    val popupContent: (@Composable () -> Unit)? = null
 )
 
 @Composable
@@ -415,6 +416,7 @@ fun StylishBottomNavBar(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                    item.popupContent?.invoke()
                 }
             }
         }

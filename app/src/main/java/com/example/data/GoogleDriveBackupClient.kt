@@ -1,13 +1,23 @@
 package com.example.data
 
+import android.accounts.Account
+import android.accounts.AccountManager
+import android.content.Context
+import android.content.Intent
+import com.google.android.gms.auth.GoogleAuthException
+import com.google.android.gms.auth.GoogleAuthUtil
+import com.google.android.gms.auth.UserRecoverableAuthException
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.common.api.Scope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.IOException
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
@@ -17,11 +27,21 @@ data class DriveFileMeta(
     val modifiedTime: String = ""
 )
 
+class DriveUnauthorizedException(message: String) : IllegalStateException(message)
+
+sealed interface DriveTokenResult {
+    data class Success(val accessToken: String, val accountEmail: String) : DriveTokenResult
+    data class NeedsConsent(val intent: Intent, val accountEmail: String) : DriveTokenResult
+    data class Failure(val message: String, val isNetworkError: Boolean = false) : DriveTokenResult
+}
+
 object GoogleDriveBackupClient {
 
     const val BACKUP_FILE_NAME = "rafiqul-hisab-full-backup.json"
+    const val GOOGLE_ACCOUNT_TYPE = "com.google"
     private const val SCOPE_DRIVE_FILE = "https://www.googleapis.com/auth/drive.file"
     private const val SCOPE_USER_EMAIL = "https://www.googleapis.com/auth/userinfo.email"
+    private const val OAUTH2_SCOPE_STRING = "oauth2:$SCOPE_DRIVE_FILE $SCOPE_USER_EMAIL"
 
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
@@ -33,15 +53,88 @@ object GoogleDriveBackupClient {
             .build()
     }
 
-    fun buildAuthorizationRequest(): AuthorizationRequest {
-        return AuthorizationRequest.builder()
+    fun buildAuthorizationRequest(accountEmail: String? = null): AuthorizationRequest {
+        val builder = AuthorizationRequest.builder()
             .setRequestedScopes(
                 listOf(
                     Scope(SCOPE_DRIVE_FILE),
                     Scope(SCOPE_USER_EMAIL)
                 )
             )
-            .build()
+        val cleanEmail = accountEmail?.trim().orEmpty()
+        if (cleanEmail.isNotEmpty()) {
+            builder.setAccount(Account(cleanEmail, GOOGLE_ACCOUNT_TYPE))
+        }
+        return builder.build()
+    }
+
+    fun createGoogleAccountPickerIntent(selectedEmail: String? = null): Intent {
+        val cleanEmail = selectedEmail?.trim().takeIf { !it.isNullOrEmpty() }
+        return AccountManager.newChooseAccountIntent(
+            cleanEmail?.let { Account(it, GOOGLE_ACCOUNT_TYPE) },
+            null,
+            arrayOf(GOOGLE_ACCOUNT_TYPE),
+            null,
+            null,
+            null,
+            null
+        )
+    }
+
+    suspend fun acquireAccessTokenViaGoogleAuthUtil(
+        context: Context,
+        accountEmail: String
+    ): DriveTokenResult {
+        val cleanEmail = accountEmail.trim()
+        if (cleanEmail.isEmpty()) {
+            return DriveTokenResult.Failure("Gmail অ্যাকাউন্ট পাওয়া যায়নি।")
+        }
+        return withContext(Dispatchers.IO) {
+            try {
+                val account = Account(cleanEmail, GOOGLE_ACCOUNT_TYPE)
+                val token = GoogleAuthUtil.getToken(
+                    context.applicationContext,
+                    account,
+                    OAUTH2_SCOPE_STRING
+                )
+                if (token.isNotBlank()) {
+                    DriveTokenResult.Success(token, cleanEmail)
+                } else {
+                    DriveTokenResult.Failure("Google Drive টোকেন পাওয়া যায়নি।")
+                }
+            } catch (recoverable: UserRecoverableAuthException) {
+                val consentIntent = recoverable.intent
+                if (consentIntent != null) {
+                    DriveTokenResult.NeedsConsent(consentIntent, cleanEmail)
+                } else {
+                    DriveTokenResult.Failure("Google Drive অনুমোদন স্ক্রিন খোলা যায়নি।")
+                }
+            } catch (_: IOException) {
+                DriveTokenResult.Failure(
+                    message = "ইন্টারনেট সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।",
+                    isNetworkError = true
+                )
+            } catch (authErr: GoogleAuthException) {
+                val detail = authErr.localizedMessage.orEmpty().trim()
+                val msg = if (detail.isNotEmpty()) {
+                    "Google Drive অনুমোদন ব্যর্থ হয়েছে: $detail"
+                } else {
+                    "Google Drive অনুমোদন ব্যর্থ হয়েছে।"
+                }
+                DriveTokenResult.Failure(msg)
+            } catch (e: Exception) {
+                DriveTokenResult.Failure(e.localizedMessage ?: "Google Drive সংযোগ ব্যর্থ হয়েছে।")
+            }
+        }
+    }
+
+    suspend fun clearCachedToken(context: Context, accessToken: String) {
+        if (accessToken.isBlank()) return
+        withContext(Dispatchers.IO) {
+            runCatching {
+                GoogleAuthUtil.clearToken(context.applicationContext, accessToken)
+            }
+        }
     }
 
     fun fetchUserEmail(accessToken: String): String? {
@@ -79,7 +172,7 @@ object GoogleDriveBackupClient {
             httpClient.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    throw IllegalStateException(extractDriveError(response.code, body))
+                    throw buildDriveException(response.code, body)
                 }
                 val files = JSONObject(body).optJSONArray("files")
                 if (files == null || files.length() == 0) {
@@ -102,8 +195,13 @@ object GoogleDriveBackupClient {
         jsonPayload: String
     ): Result<DriveFileMeta> {
         return runCatching {
+            val findRes = findBackupFile(accessToken)
+            val findErr = findRes.exceptionOrNull()
+            if (findErr is DriveUnauthorizedException) {
+                throw findErr
+            }
             val existingId = knownFileId?.trim()?.takeIf { it.isNotEmpty() }
-                ?: findBackupFile(accessToken).getOrNull()?.id
+                ?: findRes.getOrNull()?.id
 
             if (existingId != null) {
                 val patchResult = uploadMultipart(
@@ -113,6 +211,10 @@ object GoogleDriveBackupClient {
                 )
                 if (patchResult.isSuccess) {
                     return@runCatching patchResult.getOrThrow()
+                }
+                val patchErr = patchResult.exceptionOrNull()
+                if (patchErr is DriveUnauthorizedException) {
+                    throw patchErr
                 }
             }
 
@@ -129,7 +231,12 @@ object GoogleDriveBackupClient {
         knownFileId: String?
     ): Result<Pair<DriveFileMeta, String>> {
         return runCatching {
-            val meta = findBackupFile(accessToken).getOrNull()
+            val findRes = findBackupFile(accessToken)
+            val findErr = findRes.exceptionOrNull()
+            if (findErr is DriveUnauthorizedException) {
+                throw findErr
+            }
+            val meta = findRes.getOrNull()
                 ?: knownFileId?.trim()?.takeIf { it.isNotEmpty() }?.let {
                     DriveFileMeta(id = it, name = BACKUP_FILE_NAME)
                 }
@@ -145,7 +252,7 @@ object GoogleDriveBackupClient {
             httpClient.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    throw IllegalStateException(extractDriveError(response.code, body))
+                    throw buildDriveException(response.code, body)
                 }
                 if (body.isBlank()) {
                     throw IllegalStateException("Google Drive-এর ব্যাকআপ ফাইলটি খালি।")
@@ -190,7 +297,7 @@ object GoogleDriveBackupClient {
             httpClient.newCall(builder.build()).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    throw IllegalStateException(extractDriveError(response.code, body))
+                    throw buildDriveException(response.code, body)
                 }
                 val obj = JSONObject(body)
                 DriveFileMeta(
@@ -199,6 +306,15 @@ object GoogleDriveBackupClient {
                     modifiedTime = obj.optString("modifiedTime", "")
                 )
             }
+        }
+    }
+
+    private fun buildDriveException(code: Int, body: String): IllegalStateException {
+        val message = extractDriveError(code, body)
+        return if (code == 401) {
+            DriveUnauthorizedException(message)
+        } else {
+            IllegalStateException(message)
         }
     }
 

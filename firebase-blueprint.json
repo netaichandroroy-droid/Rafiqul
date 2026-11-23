@@ -56,6 +56,10 @@
           "type": "string",
           "description": "UID of the authenticated owner user."
         },
+        "ownerScope": {
+          "type": "string",
+          "description": "Optional local scope identifier (local_rafiqul for Admin, member_<id> for Member)."
+        },
         "type": {
           "type": "string",
           "enum": ["income", "expense"],
@@ -104,6 +108,91 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "MemberSync": {
+      "title": "MemberSync",
+      "description": "Synced organization member record with hashed member login credentials and metadata.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "designation": { "type": "string" },
+        "phone": { "type": "string" },
+        "depot": { "type": "string" },
+        "code": { "type": "string" },
+        "area": { "type": "string" },
+        "active": { "type": "boolean" },
+        "clientCreatedAtMs": { "type": "number" },
+        "passwordHash": { "type": "string" },
+        "defaultPassword": { "type": "boolean" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "joiningDate": { "type": "string" },
+        "salesAmount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "active", "createdAt", "updatedAt"]
+    },
+    "MemberTakaJomaSync": {
+      "title": "MemberTakaJomaSync",
+      "description": "Synced member deposit submission (Taka Joma) with approval status.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "memberId": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "depot": { "type": "string" },
+        "designation": { "type": "string" },
+        "area": { "type": "string" },
+        "bankName": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string" },
+        "note": { "type": "string" },
+        "slipHash": { "type": "string" },
+        "submittedByRole": { "type": "string", "enum": ["ADMIN", "MEMBER"] },
+        "clientCreatedAtMs": { "type": "number" },
+        "approvalStatus": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "reviewedAtMs": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "memberId", "name", "amount", "date", "submittedByRole", "approvalStatus", "createdAt", "updatedAt"]
+    },
+    "MonthlySalesSync": {
+      "title": "MonthlySalesSync",
+      "description": "Synced monthly member sales record (TP sales and TP+VAT).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "yearMonth": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "tpSales": { "type": "number" },
+        "tpPlusVat": { "type": "number" },
+        "clientCreatedAtMs": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "yearMonth", "code", "name", "tpSales", "tpPlusVat", "createdAt", "updatedAt"]
+    },
+    "AppSyncConfig": {
+      "title": "AppSyncConfig",
+      "description": "Synced app configuration document (online_payment, member_app_link, admin_auth).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "onlinePaymentEnabled": { "type": "boolean" },
+        "accountsJson": { "type": "string" },
+        "downloadUrl": { "type": "string" },
+        "loginId": { "type": "string" },
+        "passwordHash": { "type": "string" },
+        "defaultPassword": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -118,6 +207,30 @@
         "$ref": "#/entities/HisabTransaction"
       },
       "description": "User-scoped subcollection storing personal income and expense transactions."
+    },
+    "/users/{userId}/members/{memberId}": {
+      "schema": {
+        "$ref": "#/entities/MemberSync"
+      },
+      "description": "User-scoped subcollection storing organization members for cross-device auto-sync."
+    },
+    "/users/{userId}/takaJoma/{submissionId}": {
+      "schema": {
+        "$ref": "#/entities/MemberTakaJomaSync"
+      },
+      "description": "User-scoped subcollection storing member Taka Joma deposit submissions for cross-device auto-sync."
+    },
+    "/users/{userId}/monthlySales/{recordId}": {
+      "schema": {
+        "$ref": "#/entities/MonthlySalesSync"
+      },
+      "description": "User-scoped subcollection storing monthly member sales records for cross-device auto-sync."
+    },
+    "/users/{userId}/appConfig/{configId}": {
+      "schema": {
+        "$ref": "#/entities/AppSyncConfig"
+      },
+      "description": "User-scoped configuration documents (online_payment, member_app_link, admin_auth) for auto-sync."
     }
   }
 }

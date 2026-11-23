@@ -73,11 +73,13 @@ import com.example.R
 import com.example.ai.AiVoiceScope
 import com.example.ai.AiVoiceStatus
 import com.example.ai.FemaleAiVoiceOption
+import com.example.data.CloudSyncUiState
 import com.example.data.MemberAppLinkStore
 import com.example.model.BanglaFormatters
 import com.example.model.Member
 import com.example.ui.AiVoiceUiState
 import com.example.ui.DriveUiState
+import com.example.ui.components.CloudAutoSyncCard
 import com.example.ui.components.SectionPanelCard
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.ExpenseSurface
@@ -100,6 +102,7 @@ fun SettingsScreen(
     transactionCount: Int,
     isBusy: Boolean,
     driveState: DriveUiState = DriveUiState(),
+    cloudSyncState: CloudSyncUiState = CloudSyncUiState(),
     aiVoiceState: AiVoiceUiState = AiVoiceUiState(),
     onOpenMemberList: () -> Unit,
     onOpenMemberTakaJoma: () -> Unit = {},
@@ -111,6 +114,13 @@ fun SettingsScreen(
     onExportJson: () -> Unit,
     onRestoreJson: () -> Unit,
     onExportPicture: () -> Unit,
+    onToggleCloudAutoSync: (Boolean) -> Unit = {},
+    onSyncCloudNow: () -> Unit = {},
+    onCloudSignOut: () -> Unit = {},
+    isCloudSigningIn: Boolean = false,
+    cloudAuthError: String? = null,
+    onCloudSignIn: () -> Unit = {},
+    onSwitchCloudAccount: () -> Unit = onCloudSignOut,
     onConnectGoogleDrive: () -> Unit = {},
     onBackupToGoogleDrive: () -> Unit = {},
     onRestoreFromGoogleDrive: () -> Unit = {},
@@ -206,6 +216,20 @@ fun SettingsScreen(
                     testTag = "settings_member_app_link_item"
                 )
             }
+        }
+
+        // App Auto-Sync (Firestore Cloud Sync) Card (Admin Only)
+        item {
+            CloudAutoSyncCard(
+                cloudSyncState = cloudSyncState,
+                onToggleAutoSync = onToggleCloudAutoSync,
+                onSyncNow = onSyncCloudNow,
+                onCloudSignOut = onCloudSignOut,
+                isSigningIn = isCloudSigningIn,
+                authError = cloudAuthError,
+                onCloudSignIn = onCloudSignIn,
+                onSwitchCloudAccount = onSwitchCloudAccount
+            )
         }
 
         // Female Bangla AI Voice Report Card

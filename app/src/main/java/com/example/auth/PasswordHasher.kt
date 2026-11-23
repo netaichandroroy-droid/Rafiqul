@@ -1,13 +1,17 @@
 package com.example.auth
 
 import java.security.MessageDigest
+import java.security.NoSuchAlgorithmException
 import java.security.SecureRandom
+import javax.crypto.Mac
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
+import javax.crypto.spec.SecretKeySpec
 
 object PasswordHasher {
     private const val ALGORITHM_PREFIX = "pbkdf2_sha256"
     private const val JCE_ALGORITHM = "PBKDF2WithHmacSHA256"
+    private const val HMAC_ALGORITHM = "HmacSHA256"
     private const val DEFAULT_ITERATIONS = 120_000
     private const val SALT_BYTES = 16
     private const val KEY_LENGTH_BITS = 256
@@ -57,11 +61,62 @@ object PasswordHasher {
     ): ByteArray {
         val spec = PBEKeySpec(password, salt, iterations, keyLengthBits)
         return try {
-            val factory = SecretKeyFactory.getInstance(JCE_ALGORITHM)
-            factory.generateSecret(spec).encoded
+            try {
+                val factory = SecretKeyFactory.getInstance(JCE_ALGORITHM)
+                factory.generateSecret(spec).encoded
+            } catch (_: NoSuchAlgorithmException) {
+                derivePbkdf2HmacSha256Fallback(
+                    password = password,
+                    salt = salt,
+                    iterations = iterations,
+                    keyLengthBytes = (keyLengthBits + 7) / 8
+                )
+            }
         } finally {
             spec.clearPassword()
         }
+    }
+
+    private fun derivePbkdf2HmacSha256Fallback(
+        password: CharArray,
+        salt: ByteArray,
+        iterations: Int,
+        keyLengthBytes: Int
+    ): ByteArray {
+        val passwordBytes = String(password).toByteArray(Charsets.UTF_8)
+        val mac = Mac.getInstance(HMAC_ALGORITHM).apply {
+            init(SecretKeySpec(passwordBytes, HMAC_ALGORITHM))
+        }
+        val hashLen = mac.macLength
+        val blockCount = (keyLengthBytes + hashLen - 1) / hashLen
+        val output = ByteArray(blockCount * hashLen)
+        val intBlock = ByteArray(4)
+
+        try {
+            for (blockIndex in 1..blockCount) {
+                intBlock[0] = (blockIndex ushr 24).toByte()
+                intBlock[1] = (blockIndex ushr 16).toByte()
+                intBlock[2] = (blockIndex ushr 8).toByte()
+                intBlock[3] = blockIndex.toByte()
+
+                mac.reset()
+                mac.update(salt)
+                mac.update(intBlock)
+                var u = mac.doFinal()
+                val t = u.copyOf()
+
+                for (iter in 2..iterations) {
+                    u = mac.doFinal(u)
+                    for (j in t.indices) {
+                        t[j] = (t[j].toInt() xor u[j].toInt()).toByte()
+                    }
+                }
+                System.arraycopy(t, 0, output, (blockIndex - 1) * hashLen, hashLen)
+            }
+        } finally {
+            passwordBytes.fill(0)
+        }
+        return output.copyOf(keyLengthBytes)
     }
 
     private fun encodeBase64(bytes: ByteArray): String {

@@ -10,6 +10,9 @@ import com.example.ai.FemaleAiVoiceOption
 import com.example.auth.AppLockCredentialStore
 import com.example.auth.PasswordHasher
 import com.example.data.BackupExporter
+import com.example.data.CloudAutoSyncRepository
+import com.example.data.CloudSyncUiState
+import com.example.data.DriveUnauthorizedException
 import com.example.data.GoogleDriveBackupClient
 import com.example.data.GoogleDriveBackupStore
 import com.example.data.LocalTransactionStore
@@ -26,6 +29,8 @@ import com.example.model.MemberTakaJoma
 import com.example.model.MonthlySalesRecord
 import com.example.model.OnlinePaymentConfig
 import com.example.model.PaymentChannel
+import com.example.model.ReportCategory
+import com.example.model.ReportPeriodScope
 import com.example.model.TakaJomaStatus
 import com.example.model.TxFilter
 import com.example.model.TxType
@@ -59,6 +64,8 @@ enum class SettingsSubPage {
 data class HisabUiControls(
     val selectedTab: HisabTab = HisabTab.HOME,
     val settingsSubPage: SettingsSubPage = SettingsSubPage.MAIN,
+    val selectedReportCategory: ReportCategory = ReportCategory.MONTHLY,
+    val reportPeriodScope: ReportPeriodScope = ReportPeriodScope.SELECTED_MONTH,
     val filter: TxFilter = TxFilter.ALL,
     val reportMonth: String = BanglaFormatters.currentYearMonth(),
     val salesMonth: String = BanglaFormatters.currentYearMonth(),
@@ -100,7 +107,8 @@ class LocalHisabViewModel(
     private val ownerUserId: String = DEFAULT_ADMIN_OWNER_ID,
     private val reservedAdminLoginId: String = AppLockCredentialStore.DEFAULT_LOGIN_ID,
     private val memberAppLinkStore: MemberAppLinkStore? = null,
-    private val driveBackupStore: GoogleDriveBackupStore? = null
+    private val driveBackupStore: GoogleDriveBackupStore? = null,
+    private val cloudSyncRepository: CloudAutoSyncRepository? = null
 ) : ViewModel() {
 
     private var allTransactions: List<HisabTransaction> = localStore.loadAll()
@@ -151,6 +159,68 @@ class LocalHisabViewModel(
     private val _aiVoiceState = MutableStateFlow(AiVoiceUiState())
     val aiVoiceState: StateFlow<AiVoiceUiState> = _aiVoiceState.asStateFlow()
 
+    val cloudSyncState: StateFlow<CloudSyncUiState> = cloudSyncRepository?.syncState
+        ?: MutableStateFlow(CloudSyncUiState()).asStateFlow()
+
+    init {
+        cloudSyncRepository?.let { repo ->
+            viewModelScope.launch {
+                repo.remoteUpdates.collect {
+                    refreshSharedData()
+                }
+            }
+        }
+    }
+
+    private fun pushCloudMutation(block: suspend CloudAutoSyncRepository.() -> Unit) {
+        val repo = cloudSyncRepository ?: return
+        if (!repo.isAutoSyncActive()) return
+        viewModelScope.launch {
+            repo.block()
+        }
+    }
+
+    fun setCloudAutoSyncEnabled(enabled: Boolean) {
+        val repo = cloudSyncRepository ?: return
+        repo.setAutoSyncEnabled(enabled)
+        showMessage(
+            if (enabled) "অ্যাপ অটো-সিঙ্ক চালু হয়েছে"
+            else "অ্যাপ অটো-সিঙ্ক সাময়িকভাবে বন্ধ হয়েছে"
+        )
+    }
+
+    fun syncCloudNow() {
+        val repo = cloudSyncRepository ?: return
+        viewModelScope.launch {
+            val res = repo.syncAllNow()
+            res.onSuccess {
+                showMessage("সব ডেটা ক্লাউডে সফলভাবে সিঙ্ক হয়েছে")
+            }.onFailure { err ->
+                showMessage(err.localizedMessage ?: "ক্লাউড সিঙ্ক ব্যর্থ হয়েছে")
+            }
+        }
+    }
+
+    fun syncAdminCredentialsToCloud(
+        loginId: String,
+        passwordHash: String,
+        isDefaultPassword: Boolean
+    ) {
+        pushCloudMutation {
+            syncAdminCredentials(
+                loginId = loginId,
+                passwordHash = passwordHash,
+                isDefaultPassword = isDefaultPassword
+            )
+        }
+    }
+
+    fun syncMemberToCloud(member: Member) {
+        pushCloudMutation {
+            upsertMember(member)
+        }
+    }
+
     private fun notifyAdminDataChanged() {
         if (isAdminSession && _driveState.value.isConnected && _driveState.value.autoBackupEnabled) {
             _autoBackupRevision.update { it + 1 }
@@ -159,6 +229,10 @@ class LocalHisabViewModel(
 
     fun notifyMemberAppLinkUpdated() {
         notifyAdminDataChanged()
+        val url = memberAppLinkStore?.getDownloadUrl().orEmpty()
+        pushCloudMutation {
+            syncMemberAppLink(url)
+        }
     }
 
     private fun loadScopedTakaJoma(): List<MemberTakaJoma> {
@@ -181,10 +255,13 @@ class LocalHisabViewModel(
     }
 
     fun refreshSharedData() {
+        allTransactions = localStore.loadAll()
+        _transactions.value = filterForOwner(allTransactions)
         _takaJomaList.value = loadScopedTakaJoma()
         _monthlySales.value = monthlySalesStore?.loadAll().orEmpty()
         if (isAdminSession) {
             _members.value = memberStore.loadAll()
+            _onlinePaymentConfig.value = onlinePaymentStore.load()
         }
     }
 
@@ -196,6 +273,21 @@ class LocalHisabViewModel(
                 settingsSubPage = if (tab == HisabTab.SETTINGS) it.settingsSubPage else SettingsSubPage.MAIN
             )
         }
+    }
+
+    fun openReportCategory(category: ReportCategory) {
+        refreshSharedData()
+        _controls.update {
+            it.copy(
+                selectedTab = HisabTab.REPORTS,
+                settingsSubPage = SettingsSubPage.MAIN,
+                selectedReportCategory = category
+            )
+        }
+    }
+
+    fun setReportPeriodScope(scope: ReportPeriodScope) {
+        _controls.update { it.copy(reportPeriodScope = scope) }
     }
 
     fun openSettingsSubPage(page: SettingsSubPage) {
@@ -245,6 +337,7 @@ class LocalHisabViewModel(
         val cleanNote = note.trim().ifBlank { cleanCategory }
         val now = Timestamp.now()
 
+        var savedTx: HisabTransaction? = null
         val updatedAll = if (editingId == null) {
             val created = HisabTransaction(
                 id = UUID.randomUUID().toString(),
@@ -258,6 +351,7 @@ class LocalHisabViewModel(
                 createdAt = now,
                 updatedAt = now
             )
+            savedTx = created
             listOf(created) + allTransactions
         } else {
             allTransactions.map { existing ->
@@ -275,7 +369,7 @@ class LocalHisabViewModel(
                         date = date,
                         account = account.wireValue,
                         updatedAt = now
-                    )
+                    ).also { savedTx = it }
                 } else {
                     existing
                 }
@@ -288,6 +382,7 @@ class LocalHisabViewModel(
         localStore.saveAll(updatedAll)
         allTransactions = updatedAll
         _transactions.value = filterForOwner(updatedAll)
+        savedTx?.let { tx -> pushCloudMutation { upsertTransaction(tx) } }
         notifyAdminDataChanged()
         _controls.update {
             it.copy(
@@ -312,6 +407,7 @@ class LocalHisabViewModel(
         localStore.saveAll(updatedAll)
         allTransactions = updatedAll
         _transactions.value = filterForOwner(updatedAll)
+        pushCloudMutation { deleteTransaction(transaction.id) }
         notifyAdminDataChanged()
         _controls.update { it.copy(snackbarMessage = "লেনদেন মুছে ফেলা হয়েছে") }
     }
@@ -350,6 +446,7 @@ class LocalHisabViewModel(
             localStore.saveAll(combinedAll)
             allTransactions = combinedAll
             _transactions.value = filterForOwner(combinedAll)
+            pushCloudMutation { restored.forEach { upsertTransaction(it) } }
             notifyAdminDataChanged()
             _controls.update {
                 it.copy(snackbarMessage = "${BanglaFormatters.toBanglaDigits(restored.size.toString())}টি লেনদেন রিস্টোর হয়েছে")
@@ -387,6 +484,7 @@ class LocalHisabViewModel(
             memberAppLinkStore?.saveDownloadUrl(url)
         }
 
+        pushCloudMutation { syncAllNow() }
         notifyAdminDataChanged()
         _controls.update {
             it.copy(snackbarMessage = "সব ডেটা রিস্টোর হয়েছে (${backup.buildBanglaSummary()})")
@@ -394,16 +492,27 @@ class LocalHisabViewModel(
         return true
     }
 
-    fun completeDriveConnect(accessToken: String) {
+    fun completeDriveConnect(
+        accessToken: String,
+        hintEmail: String = "",
+        onUnauthorized: suspend () -> Unit = {}
+    ) {
         if (!isAdminSession) return
         viewModelScope.launch {
             _driveState.update { it.copy(isSyncing = true) }
             val result = withContext(Dispatchers.IO) {
-                val email = GoogleDriveBackupClient.fetchUserEmail(accessToken).orEmpty()
-                val existingMeta = GoogleDriveBackupClient.findBackupFile(accessToken).getOrNull()
-                email to existingMeta
+                val fetchedEmail = GoogleDriveBackupClient.fetchUserEmail(accessToken).orEmpty()
+                val resolvedEmail = fetchedEmail.ifBlank { hintEmail.trim() }
+                val findRes = GoogleDriveBackupClient.findBackupFile(accessToken)
+                Triple(resolvedEmail, findRes.getOrNull(), findRes.exceptionOrNull())
             }
-            val (email, existingMeta) = result
+            val (email, existingMeta, findErr) = result
+            if (findErr is DriveUnauthorizedException) {
+                onUnauthorized()
+                _driveState.update { it.copy(isSyncing = false) }
+                showMessage(findErr.localizedMessage ?: "Google Drive অনুমোদনের মেয়াদ শেষ হয়েছে। অনুগ্রহ করে আবার সংযুক্ত করুন।")
+                return@launch
+            }
             driveBackupStore?.saveConnectedAccount(email)
             if (existingMeta != null) {
                 driveBackupStore?.updateBackupMetadata(
@@ -428,7 +537,9 @@ class LocalHisabViewModel(
 
     fun backupAllToGoogleDrive(
         accessToken: String,
-        silent: Boolean = false
+        silent: Boolean = false,
+        hintEmail: String = "",
+        onUnauthorized: suspend () -> Unit = {}
     ) {
         if (!isAdminSession) return
         val jsonPayload = buildFullBackupJson()
@@ -447,6 +558,7 @@ class LocalHisabViewModel(
             val uploadOutcome = withContext(Dispatchers.IO) {
                 val email = if (_driveState.value.connectedEmail.isBlank()) {
                     GoogleDriveBackupClient.fetchUserEmail(accessToken).orEmpty()
+                        .ifBlank { hintEmail.trim() }
                 } else {
                     _driveState.value.connectedEmail
                 }
@@ -480,6 +592,9 @@ class LocalHisabViewModel(
                     showMessage("সব ডেটা Google Drive-এ সফলভাবে জমা হয়েছে")
                 }
             }.onFailure { err ->
+                if (err is DriveUnauthorizedException) {
+                    onUnauthorized()
+                }
                 _driveState.update { it.copy(isSyncing = false) }
                 if (!silent) {
                     showMessage(err.localizedMessage ?: "Google Drive ব্যাকআপ ব্যর্থ হয়েছে")
@@ -488,7 +603,11 @@ class LocalHisabViewModel(
         }
     }
 
-    fun restoreAllFromGoogleDrive(accessToken: String) {
+    fun restoreAllFromGoogleDrive(
+        accessToken: String,
+        hintEmail: String = "",
+        onUnauthorized: suspend () -> Unit = {}
+    ) {
         if (!isAdminSession) return
         viewModelScope.launch {
             _driveState.update { it.copy(isSyncing = true) }
@@ -496,6 +615,7 @@ class LocalHisabViewModel(
             val downloadOutcome = withContext(Dispatchers.IO) {
                 val email = if (_driveState.value.connectedEmail.isBlank()) {
                     GoogleDriveBackupClient.fetchUserEmail(accessToken).orEmpty()
+                        .ifBlank { hintEmail.trim() }
                 } else {
                     _driveState.value.connectedEmail
                 }
@@ -531,6 +651,9 @@ class LocalHisabViewModel(
                     _driveState.update { it.copy(isSyncing = false) }
                 }
             }.onFailure { err ->
+                if (err is DriveUnauthorizedException) {
+                    onUnauthorized()
+                }
                 _driveState.update { it.copy(isSyncing = false) }
                 showMessage(err.localizedMessage ?: "Google Drive থেকে রিস্টোর ব্যর্থ হয়েছে")
             }
@@ -609,9 +732,10 @@ class LocalHisabViewModel(
             return
         }
 
+        var savedMember: Member? = null
         val updated = if (editingId == null) {
             val defaultHash = PasswordHasher.hashPassword(cleanName, minLength = 1)
-            _members.value + Member(
+            val created = Member(
                 id = UUID.randomUUID().toString(),
                 name = cleanName,
                 designation = cleanDesignation,
@@ -626,6 +750,8 @@ class LocalHisabViewModel(
                 address = cleanAddress,
                 joiningDate = cleanJoiningDate.ifBlank { BanglaFormatters.todayIso() }
             )
+            savedMember = created
+            _members.value + created
         } else {
             _members.value.map { existing ->
                 if (existing.id == editingId) {
@@ -646,7 +772,7 @@ class LocalHisabViewModel(
                         email = cleanEmail,
                         address = cleanAddress,
                         joiningDate = cleanJoiningDate
-                    )
+                    ).also { savedMember = it }
                 } else {
                     existing
                 }
@@ -654,6 +780,7 @@ class LocalHisabViewModel(
         }
         memberStore.saveAll(updated)
         _members.value = updated
+        savedMember?.let { m -> pushCloudMutation { upsertMember(m) } }
         notifyAdminDataChanged()
         showMessage(
             if (editingId == null) {
@@ -667,11 +794,17 @@ class LocalHisabViewModel(
 
     fun toggleMemberActive(memberId: String, isActive: Boolean) {
         if (!isAdminSession) return
+        var target: Member? = null
         val updated = _members.value.map { member ->
-            if (member.id == memberId) member.copy(isActive = isActive) else member
+            if (member.id == memberId) {
+                member.copy(isActive = isActive).also { target = it }
+            } else {
+                member
+            }
         }
         memberStore.saveAll(updated)
         _members.value = updated
+        target?.let { m -> pushCloudMutation { upsertMember(m) } }
         notifyAdminDataChanged()
     }
 
@@ -679,6 +812,7 @@ class LocalHisabViewModel(
         if (!isAdminSession) return
         val resetMember = memberStore.resetMemberPasswordToDefault(memberId) ?: return
         _members.value = _members.value.map { if (it.id == memberId) resetMember else it }
+        pushCloudMutation { upsertMember(resetMember) }
         notifyAdminDataChanged()
         showMessage("${resetMember.name}-এর পাসওয়ার্ড রিসেট করে '${resetMember.name}' করা হয়েছে")
     }
@@ -688,6 +822,7 @@ class LocalHisabViewModel(
         val updated = _members.value.filterNot { it.id == member.id }
         memberStore.saveAll(updated)
         _members.value = updated
+        pushCloudMutation { deleteMember(member.id) }
         notifyAdminDataChanged()
         showMessage("সদস্য মুছে ফেলা হয়েছে")
     }
@@ -697,6 +832,7 @@ class LocalHisabViewModel(
         val updated = _onlinePaymentConfig.value.copy(isOnlinePaymentEnabled = enabled)
         onlinePaymentStore.save(updated)
         _onlinePaymentConfig.value = updated
+        pushCloudMutation { syncOnlinePaymentConfig(updated) }
         notifyAdminDataChanged()
         showMessage(if (enabled) "অনলাইন পেমেন্ট চালু হয়েছে" else "অনলাইন পেমেন্ট বন্ধ হয়েছে")
     }
@@ -709,6 +845,7 @@ class LocalHisabViewModel(
         val updated = _onlinePaymentConfig.value.copy(accounts = updatedAccounts)
         onlinePaymentStore.save(updated)
         _onlinePaymentConfig.value = updated
+        pushCloudMutation { syncOnlinePaymentConfig(updated) }
         notifyAdminDataChanged()
     }
 
@@ -733,6 +870,7 @@ class LocalHisabViewModel(
         val updated = _onlinePaymentConfig.value.copy(accounts = updatedAccounts)
         onlinePaymentStore.save(updated)
         _onlinePaymentConfig.value = updated
+        pushCloudMutation { syncOnlinePaymentConfig(updated) }
         notifyAdminDataChanged()
         showMessage("পেমেন্ট অ্যাকাউন্ট সংরক্ষিত হয়েছে")
     }
@@ -826,10 +964,15 @@ class LocalHisabViewModel(
         )
         store.tryAddSubmission(entry)
             .onSuccess {
+                var linkedTx: HisabTransaction? = null
                 if (isAdminSession && entry.resolvedStatus == TakaJomaStatus.APPROVED) {
-                    upsertApprovedTakaJomaTransaction(entry, txDate = entry.date)
+                    linkedTx = upsertApprovedTakaJomaTransaction(entry, txDate = entry.date)
                 }
                 _takaJomaList.value = loadScopedTakaJoma()
+                pushCloudMutation {
+                    upsertTakaJoma(entry)
+                    linkedTx?.let { upsertTransaction(it) }
+                }
                 notifyAdminDataChanged()
                 showMessage(
                     if (isAdminSession) {
@@ -860,8 +1003,9 @@ class LocalHisabViewModel(
         val updatedSubmissions = store.updateApprovalStatus(entry.id, status)
         val reviewedEntry = updatedSubmissions.firstOrNull { it.id == entry.id }
             ?: entry.copy(approvalStatus = status.wireValue)
+        var linkedTx: HisabTransaction? = null
         if (status == TakaJomaStatus.APPROVED) {
-            upsertApprovedTakaJomaTransaction(
+            linkedTx = upsertApprovedTakaJomaTransaction(
                 entry = reviewedEntry,
                 txDate = BanglaFormatters.todayIso()
             )
@@ -869,6 +1013,14 @@ class LocalHisabViewModel(
             removeLinkedTakaJomaTransaction(entry.id)
         }
         _takaJomaList.value = loadScopedTakaJoma()
+        pushCloudMutation {
+            upsertTakaJoma(reviewedEntry)
+            if (linkedTx != null) {
+                upsertTransaction(linkedTx)
+            } else {
+                deleteTransaction("${TAKA_JOMA_TX_PREFIX}${entry.id}")
+            }
+        }
         notifyAdminDataChanged()
         val msg = when (status) {
             TakaJomaStatus.APPROVED -> "${entry.name}-এর ${BanglaFormatters.formatBdt(entry.amount)} জমা অনুমোদিত হয়ে আজকের হিসাবে যোগ হয়েছে"
@@ -890,6 +1042,10 @@ class LocalHisabViewModel(
         )
         removeLinkedTakaJomaTransaction(entry.id)
         _takaJomaList.value = loadScopedTakaJoma()
+        pushCloudMutation {
+            deleteTakaJoma(entry.id)
+            deleteTransaction("${TAKA_JOMA_TX_PREFIX}${entry.id}")
+        }
         notifyAdminDataChanged()
         showMessage("টাকা জমা রেকর্ড মুছে ফেলা হয়েছে")
     }
@@ -897,7 +1053,7 @@ class LocalHisabViewModel(
     private fun upsertApprovedTakaJomaTransaction(
         entry: MemberTakaJoma,
         txDate: String
-    ) {
+    ): HisabTransaction {
         val txId = "${TAKA_JOMA_TX_PREFIX}${entry.id}"
         val cleanDate = txDate.trim().ifBlank { BanglaFormatters.todayIso() }
         val now = Timestamp.now()
@@ -916,6 +1072,7 @@ class LocalHisabViewModel(
         localStore.saveAll(updatedAll)
         allTransactions = updatedAll
         _transactions.value = filterForOwner(updatedAll)
+        return linkedTx
     }
 
     private fun removeLinkedTakaJomaTransaction(submissionId: String) {
@@ -942,12 +1099,22 @@ class LocalHisabViewModel(
             onComplete(false)
             return
         }
+        val removedIds = if (replaceMonth) {
+            _monthlySales.value.filter { it.yearMonth == yearMonth }.map { it.id }
+        } else {
+            emptyList()
+        }
         val updated = store.uploadForMonth(
             yearMonth = yearMonth,
             newRecords = records,
             replaceMonth = replaceMonth
         )
         _monthlySales.value = updated
+        val monthRecords = updated.filter { it.yearMonth == yearMonth }
+        pushCloudMutation {
+            removedIds.forEach { deleteMonthlySales(it) }
+            monthRecords.forEach { upsertMonthlySales(it) }
+        }
         notifyAdminDataChanged()
         showMessage(
             "${BanglaFormatters.formatBanglaMonth(yearMonth)}-এর ${BanglaFormatters.toBanglaDigits(records.size.toString())}টি Sales রেকর্ড আপলোড হয়েছে"
@@ -984,6 +1151,7 @@ class LocalHisabViewModel(
             createdAtMs = existing?.createdAtMs ?: System.currentTimeMillis()
         )
         _monthlySales.value = store.upsertRecord(record)
+        pushCloudMutation { upsertMonthlySales(record) }
         notifyAdminDataChanged()
         showMessage(if (editingId == null) "নতুন Sales যোগ হয়েছে" else "Sales তথ্য হালনাগাদ হয়েছে")
         onComplete(true)
@@ -993,6 +1161,7 @@ class LocalHisabViewModel(
         if (!isAdminSession) return
         val store = monthlySalesStore ?: return
         _monthlySales.value = store.deleteRecord(recordId)
+        pushCloudMutation { deleteMonthlySales(recordId) }
         notifyAdminDataChanged()
         showMessage("Sales রেকর্ড মুছে ফেলা হয়েছে")
     }
@@ -1000,7 +1169,9 @@ class LocalHisabViewModel(
     fun clearMonthlySales(yearMonth: String) {
         if (!isAdminSession) return
         val store = monthlySalesStore ?: return
+        val removedIds = _monthlySales.value.filter { it.yearMonth == yearMonth }.map { it.id }
         _monthlySales.value = store.clearMonth(yearMonth)
+        pushCloudMutation { removedIds.forEach { deleteMonthlySales(it) } }
         notifyAdminDataChanged()
         showMessage("${BanglaFormatters.formatBanglaMonth(yearMonth)}-এর সব Sales মুছে ফেলা হয়েছে")
     }

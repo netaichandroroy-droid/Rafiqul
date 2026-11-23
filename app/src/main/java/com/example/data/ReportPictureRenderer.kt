@@ -14,8 +14,13 @@ import android.text.TextUtils
 import androidx.core.content.res.ResourcesCompat
 import com.example.R
 import com.example.model.BanglaFormatters
+import com.example.model.GroupedReportRow
 import com.example.model.HisabTransaction
+import com.example.model.MemberReportItem
 import com.example.model.MonthlySalesRecord
+import com.example.model.ReportCategory
+import com.example.model.ReportPeriodScope
+import com.example.model.ReportTotals
 import com.example.model.TxType
 import java.io.OutputStream
 
@@ -567,6 +572,339 @@ object ReportPictureRenderer {
                 totalAmtPaint
             )
             y += totalBarHeight
+        }
+
+        drawFooter(canvas, y + 48f, baseTypeface)
+        return bitmap
+    }
+
+    fun renderMpoWiseReportBitmap(
+        context: Context,
+        items: List<MemberReportItem>,
+        totals: ReportTotals,
+        selectedMonth: String,
+        periodScope: ReportPeriodScope
+    ): Bitmap {
+        val periodText = when (periodScope) {
+            ReportPeriodScope.SELECTED_MONTH -> "সময়কাল: ${BanglaFormatters.formatBanglaMonth(selectedMonth)}"
+            ReportPeriodScope.ALL_TIME -> "সময়কাল: সর্বমোট (সব মাস)"
+        }
+        val rows = items.mapIndexed { idx, item ->
+            val codePart = item.summary.code.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
+            val areaPart = item.summary.area.takeIf { it.isNotBlank() }.orEmpty()
+            RenderTableRow(
+                sl = (idx + 1).toString().padStart(2, '0'),
+                name = "${item.summary.name}$codePart",
+                subLabel = areaPart.ifBlank { item.designation.ifBlank { "-" } },
+                tpPlusVat = item.summary.totalSales,
+                joma = item.summary.approvedJoma,
+                dues = item.summary.dues
+            )
+        }
+        return renderCategorizedReportBitmap(
+            context = context,
+            title = "Rafiqul Islam • ${ReportCategory.MPO_WISE.title}",
+            periodText = periodText,
+            countLabel = "মোট MPO: ${BanglaFormatters.toBanglaDigits(items.size.toString())} জন",
+            tableHeading = "MPO ভিত্তিক সেলস, জমা ও বকেয়া তালিকা",
+            col2Header = "MPO ও এরিয়া",
+            rows = rows,
+            totals = totals
+        )
+    }
+
+    fun renderGroupedSummaryReportBitmap(
+        context: Context,
+        category: ReportCategory,
+        groups: List<GroupedReportRow>,
+        totals: ReportTotals,
+        selectedMonth: String,
+        periodScope: ReportPeriodScope
+    ): Bitmap {
+        val periodText = when (periodScope) {
+            ReportPeriodScope.SELECTED_MONTH -> "সময়কাল: ${BanglaFormatters.formatBanglaMonth(selectedMonth)}"
+            ReportPeriodScope.ALL_TIME -> "সময়কাল: সর্বমোট (সব মাস)"
+        }
+        val col2Header = when (category) {
+            ReportCategory.AM_WISE -> "AM / এরিয়া"
+            ReportCategory.REGION_WISE -> "রিজিয়ন / ডিপো"
+            else -> "নাম"
+        }
+        val rows = groups.mapIndexed { idx, group ->
+            RenderTableRow(
+                sl = (idx + 1).toString().padStart(2, '0'),
+                name = group.title,
+                subLabel = "${group.leaderLabel} • ${BanglaFormatters.toBanglaDigits(group.memberCount.toString())} জন",
+                tpPlusVat = group.totalTpPlusVat,
+                joma = group.approvedJoma,
+                dues = group.dues
+            )
+        }
+        return renderCategorizedReportBitmap(
+            context = context,
+            title = "Rafiqul Islam • ${category.title}",
+            periodText = periodText,
+            countLabel = "মোট গ্রুপ: ${BanglaFormatters.toBanglaDigits(groups.size.toString())}টি • সদস্য: ${BanglaFormatters.toBanglaDigits(totals.memberCount.toString())} জন",
+            tableHeading = "${category.title} সারাংশ তালিকা",
+            col2Header = col2Header,
+            rows = rows,
+            totals = totals
+        )
+    }
+
+    private data class RenderTableRow(
+        val sl: String,
+        val name: String,
+        val subLabel: String,
+        val tpPlusVat: Double,
+        val joma: Double,
+        val dues: Double
+    )
+
+    private fun renderCategorizedReportBitmap(
+        context: Context,
+        title: String,
+        periodText: String,
+        countLabel: String,
+        tableHeading: String,
+        col2Header: String,
+        rows: List<RenderTableRow>,
+        totals: ReportTotals
+    ): Bitmap {
+        val maxRows = 45
+        val shownRows = rows.take(maxRows)
+        val headerHeight = 190f
+        val statRowHeight = 148f
+        val tableHeaderHeight = 62f
+        val tableRowHeight = 64f
+        val emptyRowHeight = if (shownRows.isEmpty()) 110f else 0f
+        val totalBarHeight = if (shownRows.isNotEmpty()) 64f else 0f
+        val overflowHeight = if (rows.size > maxRows) 44f else 0f
+        val footerHeight = 96f
+
+        val totalHeight = (
+            headerHeight +
+                28f +
+                statRowHeight +
+                28f +
+                74f +
+                tableHeaderHeight +
+                (shownRows.size * tableRowHeight) +
+                emptyRowHeight +
+                totalBarHeight +
+                overflowHeight +
+                footerHeight
+            ).toInt().coerceAtLeast(820)
+
+        val bitmap = Bitmap.createBitmap(IMAGE_WIDTH, totalHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val baseTypeface = resolveBanglaTypeface(context)
+        val boldTypeface = Typeface.create(baseTypeface, Typeface.BOLD)
+
+        val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = BG_COLOR }
+        canvas.drawRect(0f, 0f, IMAGE_WIDTH.toFloat(), totalHeight.toFloat(), bgPaint)
+
+        val heroPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                0f, 0f, IMAGE_WIDTH.toFloat(), headerHeight,
+                BRAND_HERO_START, BRAND_HERO_END, Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawRect(0f, 0f, IMAGE_WIDTH.toFloat(), headerHeight, heroPaint)
+
+        val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = boldTypeface
+            color = Color.WHITE
+            textSize = 38f
+        }
+        val subtitlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = baseTypeface
+            color = Color.argb(220, 255, 255, 255)
+            textSize = 23f
+        }
+        canvas.drawText(title, MARGIN_X, 72f, titlePaint)
+        canvas.drawText(periodText, MARGIN_X, 116f, subtitlePaint)
+        canvas.drawText(
+            "$countLabel • তারিখ: ${BanglaFormatters.formatBanglaDate(BanglaFormatters.todayIso())}",
+            MARGIN_X,
+            152f,
+            subtitlePaint
+        )
+
+        var y = headerHeight + 28f
+        val gap = 18f
+        val statW = (IMAGE_WIDTH - 2 * MARGIN_X - 2 * gap) / 3f
+        drawStatBox(
+            canvas = canvas,
+            rect = RectF(MARGIN_X, y, MARGIN_X + statW, y + statRowHeight),
+            label = "মোট TP+Vat",
+            value = BanglaFormatters.formatBdt(totals.totalTpPlusVat),
+            bgColor = CARD_WHITE,
+            accentColor = BRAND_DEEP,
+            baseTypeface = baseTypeface,
+            boldTypeface = boldTypeface
+        )
+        drawStatBox(
+            canvas = canvas,
+            rect = RectF(MARGIN_X + statW + gap, y, MARGIN_X + 2 * statW + gap, y + statRowHeight),
+            label = "মোট অনুমোদিত জমা",
+            value = BanglaFormatters.formatBdt(totals.approvedJoma),
+            bgColor = INCOME_BG,
+            accentColor = INCOME_GREEN,
+            baseTypeface = baseTypeface,
+            boldTypeface = boldTypeface
+        )
+        drawStatBox(
+            canvas = canvas,
+            rect = RectF(MARGIN_X + 2 * (statW + gap), y, IMAGE_WIDTH - MARGIN_X, y + statRowHeight),
+            label = "মোট বকেয়া (Dues)",
+            value = BanglaFormatters.formatBdt(totals.dues),
+            bgColor = if (totals.dues > 0.0) EXPENSE_BG else INCOME_BG,
+            accentColor = if (totals.dues > 0.0) EXPENSE_RED else INCOME_GREEN,
+            baseTypeface = baseTypeface,
+            boldTypeface = boldTypeface
+        )
+        y += statRowHeight + 28f
+
+        val tableWidth = IMAGE_WIDTH - 2 * MARGIN_X
+        val tableCardHeight = 74f + tableHeaderHeight +
+            (shownRows.size * tableRowHeight) + emptyRowHeight + totalBarHeight + overflowHeight
+        drawCard(canvas, RectF(MARGIN_X, y, IMAGE_WIDTH - MARGIN_X, y + tableCardHeight))
+
+        val tableHeadingPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = boldTypeface
+            color = TEXT_PRIMARY
+            textSize = 27f
+        }
+        canvas.drawText(tableHeading, MARGIN_X + 24f, y + 48f, tableHeadingPaint)
+        y += 74f
+
+        val colWidths = floatArrayOf(
+            tableWidth * 0.08f,
+            tableWidth * 0.36f,
+            tableWidth * 0.19f,
+            tableWidth * 0.19f,
+            tableWidth * 0.18f
+        )
+        val headers = listOf("SL", col2Header, "TP+Vat", "জমা", "Dues")
+        drawTableHeaderRow(canvas, MARGIN_X, y, tableWidth, tableHeaderHeight, colWidths, headers, boldTypeface)
+        y += tableHeaderHeight
+
+        if (shownRows.isEmpty()) {
+            val emptyPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = baseTypeface
+                color = TEXT_SECONDARY
+                textSize = 24f
+                textAlign = Paint.Align.CENTER
+            }
+            canvas.drawText("কোনো রিপোর্ট তথ্য পাওয়া যায়নি", IMAGE_WIDTH / 2f, y + 62f, emptyPaint)
+            y += emptyRowHeight
+        } else {
+            val cellPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = baseTypeface
+                color = TEXT_PRIMARY
+                textSize = 21f
+            }
+            val subCellPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = baseTypeface
+                color = TEXT_SECONDARY
+                textSize = 17f
+            }
+            val numPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = boldTypeface
+                color = TEXT_PRIMARY
+                textSize = 20f
+                textAlign = Paint.Align.RIGHT
+            }
+            val jomaPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = boldTypeface
+                color = INCOME_GREEN
+                textSize = 20f
+                textAlign = Paint.Align.RIGHT
+            }
+            val duesPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = boldTypeface
+                color = EXPENSE_RED
+                textSize = 20f
+                textAlign = Paint.Align.RIGHT
+            }
+            val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = BORDER_COLOR
+                strokeWidth = 1.2f
+            }
+
+            shownRows.forEachIndexed { idx, row ->
+                val rowBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = if (idx % 2 == 1) ROW_ALT_BG else CARD_WHITE
+                }
+                canvas.drawRect(MARGIN_X, y, MARGIN_X + tableWidth, y + tableRowHeight, rowBgPaint)
+                canvas.drawLine(MARGIN_X, y + tableRowHeight, MARGIN_X + tableWidth, y + tableRowHeight, linePaint)
+
+                val titleY = y + 28f
+                val subY = y + 51f
+                val numY = y + 39f
+                var cx = MARGIN_X
+
+                canvas.drawText(BanglaFormatters.toBanglaDigits(row.sl), cx + 12f, numY, cellPaint)
+                cx += colWidths[0]
+
+                canvas.drawText(ellipsize(row.name, cellPaint, colWidths[1] - 16f), cx + 8f, titleY, cellPaint)
+                canvas.drawText(ellipsize(row.subLabel, subCellPaint, colWidths[1] - 16f), cx + 8f, subY, subCellPaint)
+                cx += colWidths[1]
+
+                canvas.drawText(BanglaFormatters.formatBdt(row.tpPlusVat), cx + colWidths[2] - 10f, numY, numPaint)
+                cx += colWidths[2]
+
+                canvas.drawText(BanglaFormatters.formatBdt(row.joma), cx + colWidths[3] - 10f, numY, jomaPaint)
+                cx += colWidths[3]
+
+                canvas.drawText(
+                    BanglaFormatters.formatBdt(row.dues),
+                    cx + colWidths[4] - 12f,
+                    numY,
+                    if (row.dues > 0.0) duesPaint else jomaPaint
+                )
+
+                y += tableRowHeight
+            }
+
+            val totalRowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = INCOME_BG }
+            canvas.drawRect(MARGIN_X, y, MARGIN_X + tableWidth, y + totalBarHeight, totalRowPaint)
+            val totalLabelPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = boldTypeface
+                color = BRAND_DEEP
+                textSize = 21f
+            }
+            val ty = y + 40f
+            canvas.drawText("সর্বমোট", MARGIN_X + 16f, ty, totalLabelPaint)
+            val col2End = MARGIN_X + colWidths[0] + colWidths[1] + colWidths[2]
+            val col3End = col2End + colWidths[3]
+            val col4End = MARGIN_X + tableWidth
+            canvas.drawText(BanglaFormatters.formatBdt(totals.totalTpPlusVat), col2End - 10f, ty, numPaint)
+            canvas.drawText(BanglaFormatters.formatBdt(totals.approvedJoma), col3End - 10f, ty, jomaPaint)
+            canvas.drawText(
+                BanglaFormatters.formatBdt(totals.dues),
+                col4End - 12f,
+                ty,
+                if (totals.dues > 0.0) duesPaint else jomaPaint
+            )
+            y += totalBarHeight
+
+            if (rows.size > maxRows) {
+                val morePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                    typeface = baseTypeface
+                    color = TEXT_SECONDARY
+                    textSize = 20f
+                    textAlign = Paint.Align.CENTER
+                }
+                canvas.drawText(
+                    "... আরো ${BanglaFormatters.toBanglaDigits((rows.size - maxRows).toString())}টি সারি রয়েছে",
+                    IMAGE_WIDTH / 2f,
+                    y + 28f,
+                    morePaint
+                )
+                y += overflowHeight
+            }
         }
 
         drawFooter(canvas, y + 48f, baseTypeface)

@@ -142,13 +142,13 @@ fun AppLoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(vertical = 16.dp),
+                .padding(vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(18.dp))
+                    .size(54.dp)
+                    .clip(RoundedCornerShape(16.dp))
                     .background(BrandHeroStart),
                 contentAlignment = Alignment.Center
             ) {
@@ -156,11 +156,11 @@ fun AppLoginScreen(
                     imageVector = Icons.Outlined.AccountBalanceWallet,
                     contentDescription = stringResource(R.string.app_name),
                     tint = Color.White,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = stringResource(R.string.app_name),
@@ -170,7 +170,7 @@ fun AppLoginScreen(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -178,7 +178,7 @@ fun AppLoginScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline)
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "লগইন",
                         style = MaterialTheme.typography.titleLarge,

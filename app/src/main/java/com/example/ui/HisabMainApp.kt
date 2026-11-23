@@ -1,9 +1,11 @@
 package com.example.ui
 
+import android.accounts.AccountManager
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -37,11 +39,14 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,6 +76,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -79,6 +85,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.R
 import com.example.auth.AppLockCredentialStore
+import com.example.data.CloudAutoSyncRepository
+import com.example.data.DriveTokenResult
 import com.example.data.GoogleDriveBackupClient
 import com.example.data.GoogleDriveBackupStore
 import com.example.data.LocalTransactionStore
@@ -90,7 +98,10 @@ import com.example.data.OnlinePaymentStore
 import com.example.data.ReportPictureRenderer
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.CommonStatusCodes
 import com.example.model.HisabTransaction
+import com.example.model.ReportAnalyticsCalculator
+import com.example.model.ReportCategory
 import com.example.model.TxType
 import com.example.ui.components.DeleteTransactionDialog
 import com.example.ui.components.StylishBottomNavBar
@@ -107,6 +118,7 @@ import com.example.ui.screens.SalesUploadScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.TransactionModalSheet
 import com.example.ui.screens.TransactionsScreen
+import com.example.ui.screens.reportCategoryIcon
 import com.example.ui.theme.BrandDeep
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -115,6 +127,7 @@ import kotlinx.coroutines.withContext
 
 private enum class DrivePendingAction {
     CONNECT,
+    SWITCH_ACCOUNT,
     BACKUP_MANUAL,
     BACKUP_SILENT,
     RESTORE
@@ -129,7 +142,14 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 @Composable
 fun HisabMainApp(
     credentialStore: AppLockCredentialStore,
-    onAppLogout: () -> Unit
+    onAppLogout: () -> Unit,
+    cloudSyncRepository: CloudAutoSyncRepository? = null,
+    syncOwnerUid: String = "local",
+    onCloudSignOut: () -> Unit = {},
+    isCloudSigningIn: Boolean = false,
+    cloudAuthError: String? = null,
+    onCloudSignIn: () -> Unit = {},
+    onSwitchCloudAccount: () -> Unit = onCloudSignOut
 ) {
     val context = LocalContext.current
     val localStore = remember(context) { LocalTransactionStore(context) }
@@ -140,7 +160,7 @@ fun HisabMainApp(
     val memberAppLinkStore = remember(context) { MemberAppLinkStore(context) }
     val driveBackupStore = remember(context) { GoogleDriveBackupStore(context) }
     val viewModel: LocalHisabViewModel = viewModel(
-        key = "local_hisab",
+        key = "local_hisab_$syncOwnerUid",
         factory = viewModelFactory {
             initializer {
                 LocalHisabViewModel(
@@ -151,7 +171,8 @@ fun HisabMainApp(
                     monthlySalesStore = monthlySalesStore,
                     reservedAdminLoginId = credentialStore.getLoginId(),
                     memberAppLinkStore = memberAppLinkStore,
-                    driveBackupStore = driveBackupStore
+                    driveBackupStore = driveBackupStore,
+                    cloudSyncRepository = cloudSyncRepository
                 )
             }
         }
@@ -163,6 +184,7 @@ fun HisabMainApp(
     val monthlySales by viewModel.monthlySales.collectAsStateWithLifecycle()
     val controls by viewModel.controls.collectAsStateWithLifecycle()
     val driveState by viewModel.driveState.collectAsStateWithLifecycle()
+    val cloudSyncState by viewModel.cloudSyncState.collectAsStateWithLifecycle()
     val autoBackupRevision by viewModel.autoBackupRevision.collectAsStateWithLifecycle()
     val aiVoiceState by viewModel.aiVoiceState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
@@ -175,24 +197,51 @@ fun HisabMainApp(
     var showChangePasswordDialog by remember { mutableStateOf(false) }
     var showQuickAddMemberSheet by remember { mutableStateOf(false) }
     var showMemberAppLinkDialog by remember { mutableStateOf(false) }
+    var showReportPopup by remember { mutableStateOf(false) }
+    var exportPictureCategory by remember { mutableStateOf(ReportCategory.MONTHLY) }
     var memberAppDownloadUrl by remember { mutableStateOf(memberAppLinkStore.getDownloadUrl()) }
     var appLoginId by remember { mutableStateOf(credentialStore.getLoginId()) }
     var pendingDriveAction by remember { mutableStateOf<DrivePendingAction?>(null) }
+    var pendingDriveEmail by remember { mutableStateOf("") }
 
-    val executeDriveWithToken: (DrivePendingAction, String) -> Unit = { action, token ->
+    val executeDriveWithToken: (DrivePendingAction, String, String) -> Unit = { action, token, hintEmail ->
+        val onUnauthorized: suspend () -> Unit = {
+            GoogleDriveBackupClient.clearCachedToken(context, token)
+        }
         when (action) {
-            DrivePendingAction.CONNECT -> viewModel.completeDriveConnect(token)
-            DrivePendingAction.BACKUP_MANUAL -> viewModel.backupAllToGoogleDrive(token, silent = false)
-            DrivePendingAction.BACKUP_SILENT -> viewModel.backupAllToGoogleDrive(token, silent = true)
-            DrivePendingAction.RESTORE -> viewModel.restoreAllFromGoogleDrive(token)
+            DrivePendingAction.CONNECT,
+            DrivePendingAction.SWITCH_ACCOUNT -> viewModel.completeDriveConnect(
+                accessToken = token,
+                hintEmail = hintEmail,
+                onUnauthorized = onUnauthorized
+            )
+            DrivePendingAction.BACKUP_MANUAL -> viewModel.backupAllToGoogleDrive(
+                accessToken = token,
+                silent = false,
+                hintEmail = hintEmail,
+                onUnauthorized = onUnauthorized
+            )
+            DrivePendingAction.BACKUP_SILENT -> viewModel.backupAllToGoogleDrive(
+                accessToken = token,
+                silent = true,
+                hintEmail = hintEmail,
+                onUnauthorized = onUnauthorized
+            )
+            DrivePendingAction.RESTORE -> viewModel.restoreAllFromGoogleDrive(
+                accessToken = token,
+                hintEmail = hintEmail,
+                onUnauthorized = onUnauthorized
+            )
         }
     }
 
-    val authResolutionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartIntentSenderForResult()
+    val driveConsentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
     ) { activityResult ->
         val action = pendingDriveAction
+        val email = pendingDriveEmail
         pendingDriveAction = null
+        pendingDriveEmail = ""
         if (action == null) return@rememberLauncherForActivityResult
         val isInteractive = action != DrivePendingAction.BACKUP_SILENT
         if (activityResult.resultCode != Activity.RESULT_OK) {
@@ -201,76 +250,318 @@ fun HisabMainApp(
             }
             return@rememberLauncherForActivityResult
         }
-        try {
-            val authClient = context.findActivity()?.let { Identity.getAuthorizationClient(it) }
-                ?: Identity.getAuthorizationClient(context)
-            val authResult = authClient.getAuthorizationResultFromIntent(activityResult.data)
-            val accessToken = authResult.accessToken
-            if (!accessToken.isNullOrBlank()) {
-                executeDriveWithToken(action, accessToken)
-            } else if (isInteractive) {
-                viewModel.showMessage("Google Drive টোকেন পাওয়া যায়নি")
+        scope.launch {
+            when (val res = GoogleDriveBackupClient.acquireAccessTokenViaGoogleAuthUtil(context, email)) {
+                is DriveTokenResult.Success -> {
+                    executeDriveWithToken(action, res.accessToken, res.accountEmail)
+                }
+                is DriveTokenResult.NeedsConsent -> {
+                    if (isInteractive) {
+                        viewModel.showMessage("Google Drive অনুমোদন সম্পূর্ণ হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন।")
+                    }
+                }
+                is DriveTokenResult.Failure -> {
+                    if (isInteractive) {
+                        viewModel.showMessage(res.message)
+                    }
+                }
             }
-        } catch (e: ApiException) {
+        }
+    }
+
+    val accountPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { activityResult ->
+        val action = pendingDriveAction
+        pendingDriveAction = null
+        pendingDriveEmail = ""
+        if (action == null) return@rememberLauncherForActivityResult
+        val isInteractive = action != DrivePendingAction.BACKUP_SILENT
+        if (activityResult.resultCode != Activity.RESULT_OK) {
             if (isInteractive) {
-                viewModel.showMessage("Google Drive সংযোগ ব্যর্থ হয়েছে (${e.statusCode})")
+                viewModel.showMessage("Google অ্যাকাউন্ট নির্বাচন বাতিল করা হয়েছে")
             }
-        } catch (e: Exception) {
+            return@rememberLauncherForActivityResult
+        }
+        val chosenEmail = activityResult.data
+            ?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
+            ?.trim()
+            .orEmpty()
+        if (chosenEmail.isEmpty()) {
             if (isInteractive) {
-                viewModel.showMessage(e.localizedMessage ?: "Google Drive সংযোগ ব্যর্থ হয়েছে")
+                viewModel.showMessage("কোনো Gmail অ্যাকাউন্ট নির্বাচন করা যায়নি")
             }
+            return@rememberLauncherForActivityResult
+        }
+        scope.launch {
+            when (val res = GoogleDriveBackupClient.acquireAccessTokenViaGoogleAuthUtil(context, chosenEmail)) {
+                is DriveTokenResult.Success -> {
+                    executeDriveWithToken(action, res.accessToken, res.accountEmail)
+                }
+                is DriveTokenResult.NeedsConsent -> {
+                    if (isInteractive) {
+                        pendingDriveAction = action
+                        pendingDriveEmail = res.accountEmail
+                        runCatching {
+                            driveConsentLauncher.launch(res.intent)
+                        }.onFailure { err ->
+                            pendingDriveAction = null
+                            pendingDriveEmail = ""
+                            viewModel.showMessage(
+                                err.localizedMessage ?: "Google Drive অনুমোদন স্ক্রিন খোলা যায়নি"
+                            )
+                        }
+                    }
+                }
+                is DriveTokenResult.Failure -> {
+                    if (isInteractive) {
+                        viewModel.showMessage(res.message)
+                    }
+                }
+            }
+        }
+    }
+
+    val launchNativeDriveFallback: (DrivePendingAction, String) -> Unit = { action, preferredEmail ->
+        val isInteractive = action != DrivePendingAction.BACKUP_SILENT
+        val targetEmail = if (action == DrivePendingAction.SWITCH_ACCOUNT) "" else preferredEmail.trim()
+        if (targetEmail.isNotEmpty()) {
+            scope.launch {
+                when (val res = GoogleDriveBackupClient.acquireAccessTokenViaGoogleAuthUtil(context, targetEmail)) {
+                    is DriveTokenResult.Success -> {
+                        executeDriveWithToken(action, res.accessToken, res.accountEmail)
+                    }
+                    is DriveTokenResult.NeedsConsent -> {
+                        if (isInteractive) {
+                            pendingDriveAction = action
+                            pendingDriveEmail = res.accountEmail
+                            runCatching {
+                                driveConsentLauncher.launch(res.intent)
+                            }.onFailure { err ->
+                                pendingDriveAction = null
+                                pendingDriveEmail = ""
+                                viewModel.showMessage(
+                                    err.localizedMessage ?: "Google Drive অনুমোদন স্ক্রিন খোলা যায়নি"
+                                )
+                            }
+                        }
+                    }
+                    is DriveTokenResult.Failure -> {
+                        if (isInteractive) {
+                            if (res.isNetworkError) {
+                                viewModel.showMessage(res.message)
+                            } else {
+                                pendingDriveAction = action
+                                pendingDriveEmail = ""
+                                runCatching {
+                                    accountPickerLauncher.launch(
+                                        GoogleDriveBackupClient.createGoogleAccountPickerIntent(null)
+                                    )
+                                }.onFailure {
+                                    pendingDriveAction = null
+                                    viewModel.showMessage(res.message)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (isInteractive) {
+            pendingDriveAction = action
+            pendingDriveEmail = ""
+            runCatching {
+                accountPickerLauncher.launch(
+                    GoogleDriveBackupClient.createGoogleAccountPickerIntent(
+                        driveState.connectedEmail.takeIf { it.isNotBlank() }
+                    )
+                )
+            }.onFailure { err ->
+                pendingDriveAction = null
+                viewModel.showMessage(
+                    err.localizedMessage ?: "Google অ্যাকাউন্ট নির্বাচন স্ক্রিন খোলা যায়নি"
+                )
+            }
+        }
+    }
+
+    val authResolutionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { activityResult ->
+        val action = pendingDriveAction
+        val preferredEmail = pendingDriveEmail
+        pendingDriveAction = null
+        pendingDriveEmail = ""
+        if (action == null) return@rememberLauncherForActivityResult
+        val isInteractive = action != DrivePendingAction.BACKUP_SILENT
+        val authClient = context.findActivity()?.let { Identity.getAuthorizationClient(it) }
+            ?: Identity.getAuthorizationClient(context)
+
+        if (activityResult.resultCode == Activity.RESULT_OK && activityResult.data != null) {
+            try {
+                val authResult = authClient.getAuthorizationResultFromIntent(activityResult.data)
+                val accessToken = authResult.accessToken
+                if (!accessToken.isNullOrBlank()) {
+                    executeDriveWithToken(action, accessToken, preferredEmail)
+                    return@rememberLauncherForActivityResult
+                }
+            } catch (e: ApiException) {
+                Log.w("DriveAuth", "AuthorizationClient resolution ApiException (${e.statusCode}): ${e.message}")
+            } catch (e: Exception) {
+                Log.w("DriveAuth", "AuthorizationClient resolution parse failed: ${e.message}")
+            }
+        } else if (activityResult.data != null) {
+            try {
+                authClient.getAuthorizationResultFromIntent(activityResult.data)
+            } catch (e: ApiException) {
+                Log.w(
+                    "DriveAuth",
+                    "AuthorizationClient non-OK (resultCode=${activityResult.resultCode}, status=${e.statusCode}): ${e.message}"
+                )
+                if (e.statusCode == CommonStatusCodes.NETWORK_ERROR && isInteractive) {
+                    viewModel.showMessage("ইন্টারনেট সংযোগ নেই। নেটওয়ার্ক চালু করে আবার চেষ্টা করুন।")
+                    return@rememberLauncherForActivityResult
+                }
+            } catch (_: Exception) {
+                // Fall through to native GoogleAuthUtil / AccountManager flow
+            }
+        } else {
+            Log.w(
+                "DriveAuth",
+                "AuthorizationClient returned resultCode=${activityResult.resultCode} with null data; falling back to GoogleAuthUtil"
+            )
+        }
+
+        if (isInteractive) {
+            launchNativeDriveFallback(action, preferredEmail)
         }
     }
 
     val requestDriveAuthAndRun: (DrivePendingAction) -> Unit = { action ->
         val isInteractive = action != DrivePendingAction.BACKUP_SILENT
-        val activity = context.findActivity()
-        val authClient = if (activity != null) {
-            Identity.getAuthorizationClient(activity)
+        val forceAccountChooser = action == DrivePendingAction.CONNECT ||
+            action == DrivePendingAction.SWITCH_ACCOUNT
+        val preferredEmail = if (forceAccountChooser) {
+            ""
         } else {
-            Identity.getAuthorizationClient(context)
+            driveState.connectedEmail.trim()
         }
-        val request = GoogleDriveBackupClient.buildAuthorizationRequest()
-        authClient.authorize(request)
-            .addOnSuccessListener { result ->
-                if (result.hasResolution()) {
-                    val pendingIntent = result.pendingIntent
-                    if (isInteractive && pendingIntent != null) {
-                        pendingDriveAction = action
-                        authResolutionLauncher.launch(
-                            IntentSenderRequest.Builder(pendingIntent.intentSender).build()
-                        )
-                    }
-                } else {
-                    val token = result.accessToken
-                    if (!token.isNullOrBlank()) {
-                        executeDriveWithToken(action, token)
-                    } else if (isInteractive) {
-                        viewModel.showMessage("Google Drive অনুমোদন পাওয়া যায়নি")
+
+        if (forceAccountChooser) {
+            launchNativeDriveFallback(action, "")
+        } else {
+            val activity = context.findActivity()
+            val authClient = if (activity != null) {
+                Identity.getAuthorizationClient(activity)
+            } else {
+                Identity.getAuthorizationClient(context)
+            }
+            val request = GoogleDriveBackupClient.buildAuthorizationRequest(
+                accountEmail = preferredEmail.takeIf { it.isNotBlank() }
+            )
+            authClient.authorize(request)
+                .addOnSuccessListener { result ->
+                    if (result.hasResolution()) {
+                        val pendingIntent = result.pendingIntent
+                        if (isInteractive && pendingIntent != null) {
+                            pendingDriveAction = action
+                            pendingDriveEmail = preferredEmail
+                            runCatching {
+                                authResolutionLauncher.launch(
+                                    IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                                )
+                            }.onFailure {
+                                pendingDriveAction = null
+                                pendingDriveEmail = ""
+                                launchNativeDriveFallback(action, preferredEmail)
+                            }
+                        }
+                    } else {
+                        val token = result.accessToken
+                        if (!token.isNullOrBlank()) {
+                            executeDriveWithToken(action, token, preferredEmail)
+                        } else if (isInteractive || preferredEmail.isNotBlank()) {
+                            launchNativeDriveFallback(action, preferredEmail)
+                        }
                     }
                 }
-            }
-            .addOnFailureListener { err ->
-                if (isInteractive) {
-                    viewModel.showMessage(
-                        err.localizedMessage ?: "Google Drive সেবা এই ডিভাইসে পাওয়া যায়নি"
-                    )
+                .addOnFailureListener { err ->
+                    Log.w("DriveAuth", "AuthorizationClient.authorize failed: ${err.message}")
+                    if (isInteractive || preferredEmail.isNotBlank()) {
+                        launchNativeDriveFallback(action, preferredEmail)
+                    }
                 }
-            }
+        }
     }
 
     val pictureExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("image/png")
     ) { uri: Uri? ->
         if (uri != null) {
+            val targetCategory = exportPictureCategory
             scope.launch {
                 val ok = withContext(Dispatchers.IO) {
                     runCatching {
-                        val bitmap = ReportPictureRenderer.renderHisabReportBitmap(
-                            context = context,
-                            transactions = transactions,
-                            selectedMonth = controls.reportMonth
-                        )
+                        val bitmap = when (targetCategory) {
+                            ReportCategory.MONTHLY -> ReportPictureRenderer.renderHisabReportBitmap(
+                                context = context,
+                                transactions = transactions,
+                                selectedMonth = controls.reportMonth
+                            )
+                            ReportCategory.MPO_WISE -> {
+                                val res = ReportAnalyticsCalculator.buildMpoReport(
+                                    members = members,
+                                    monthlySales = monthlySales,
+                                    submissions = takaJomaList,
+                                    selectedMonth = controls.reportMonth,
+                                    periodScope = controls.reportPeriodScope,
+                                    onlyMpoDesignation = true
+                                )
+                                val totals = ReportAnalyticsCalculator.calculateMemberTotals(res.items)
+                                ReportPictureRenderer.renderMpoWiseReportBitmap(
+                                    context = context,
+                                    items = res.items,
+                                    totals = totals,
+                                    selectedMonth = controls.reportMonth,
+                                    periodScope = controls.reportPeriodScope
+                                )
+                            }
+                            ReportCategory.AM_WISE -> {
+                                val groups = ReportAnalyticsCalculator.buildAmWiseReport(
+                                    members = members,
+                                    monthlySales = monthlySales,
+                                    submissions = takaJomaList,
+                                    selectedMonth = controls.reportMonth,
+                                    periodScope = controls.reportPeriodScope
+                                )
+                                val totals = ReportAnalyticsCalculator.calculateGroupTotals(groups)
+                                ReportPictureRenderer.renderGroupedSummaryReportBitmap(
+                                    context = context,
+                                    category = ReportCategory.AM_WISE,
+                                    groups = groups,
+                                    totals = totals,
+                                    selectedMonth = controls.reportMonth,
+                                    periodScope = controls.reportPeriodScope
+                                )
+                            }
+                            ReportCategory.REGION_WISE -> {
+                                val groups = ReportAnalyticsCalculator.buildRegionWiseReport(
+                                    members = members,
+                                    monthlySales = monthlySales,
+                                    submissions = takaJomaList,
+                                    selectedMonth = controls.reportMonth,
+                                    periodScope = controls.reportPeriodScope
+                                )
+                                val totals = ReportAnalyticsCalculator.calculateGroupTotals(groups)
+                                ReportPictureRenderer.renderGroupedSummaryReportBitmap(
+                                    context = context,
+                                    category = ReportCategory.REGION_WISE,
+                                    groups = groups,
+                                    totals = totals,
+                                    selectedMonth = controls.reportMonth,
+                                    periodScope = controls.reportPeriodScope
+                                )
+                            }
+                        }
                         context.contentResolver.openOutputStream(uri)?.use { out ->
                             ReportPictureRenderer.writeBitmapAsPng(bitmap, out)
                         } ?: run {
@@ -280,7 +571,7 @@ fun HisabMainApp(
                     }.getOrDefault(false)
                 }
                 viewModel.showMessage(
-                    if (ok) "রিপোর্ট ছবি (PNG) সংরক্ষিত হয়েছে" else "ছবি সংরক্ষণ ব্যর্থ হয়েছে"
+                    if (ok) "${targetCategory.title} ছবি (PNG) সংরক্ষিত হয়েছে" else "ছবি সংরক্ষণ ব্যর্থ হয়েছে"
                 )
             }
         }
@@ -393,13 +684,37 @@ fun HisabMainApp(
                     StylishBottomNavBar(
                         items = HisabTab.entries.map { tab ->
                             val selected = controls.selectedTab == tab
+                            val isReportsTab = tab == HisabTab.REPORTS
                             StylishNavTab(
                                 id = tab.name,
                                 label = tab.label,
                                 icon = tabIcon(tab, selected),
                                 selected = selected,
                                 testTag = "nav_${tab.name.lowercase()}",
-                                onClick = { viewModel.selectTab(tab) }
+                                onClick = {
+                                    if (isReportsTab) {
+                                        showReportPopup = true
+                                    } else {
+                                        showReportPopup = false
+                                        viewModel.selectTab(tab)
+                                    }
+                                },
+                                popupContent = if (isReportsTab) {
+                                    {
+                                        ReportNavbarPopupMenu(
+                                            expanded = showReportPopup,
+                                            selectedCategory = controls.selectedReportCategory,
+                                            isReportsTabActive = controls.selectedTab == HisabTab.REPORTS,
+                                            onDismiss = { showReportPopup = false },
+                                            onSelectCategory = { category ->
+                                                showReportPopup = false
+                                                viewModel.openReportCategory(category)
+                                            }
+                                        )
+                                    }
+                                } else {
+                                    null
+                                }
                             )
                         }
                     )
@@ -419,18 +734,40 @@ fun HisabMainApp(
                     ) {
                         HisabTab.entries.forEach { tab ->
                             val selected = controls.selectedTab == tab
-                            NavigationRailItem(
-                                selected = selected,
-                                onClick = { viewModel.selectTab(tab) },
-                                icon = {
-                                    Icon(
-                                        imageVector = tabIcon(tab, selected),
-                                        contentDescription = tab.label
+                            val isReportsTab = tab == HisabTab.REPORTS
+                            Box {
+                                NavigationRailItem(
+                                    selected = selected,
+                                    onClick = {
+                                        if (isReportsTab) {
+                                            showReportPopup = true
+                                        } else {
+                                            showReportPopup = false
+                                            viewModel.selectTab(tab)
+                                        }
+                                    },
+                                    icon = {
+                                        Icon(
+                                            imageVector = tabIcon(tab, selected),
+                                            contentDescription = tab.label
+                                        )
+                                    },
+                                    label = { Text(tab.label) },
+                                    modifier = Modifier.testTag("rail_${tab.name.lowercase()}")
+                                )
+                                if (isReportsTab) {
+                                    ReportNavbarPopupMenu(
+                                        expanded = showReportPopup,
+                                        selectedCategory = controls.selectedReportCategory,
+                                        isReportsTabActive = controls.selectedTab == HisabTab.REPORTS,
+                                        onDismiss = { showReportPopup = false },
+                                        onSelectCategory = { category ->
+                                            showReportPopup = false
+                                            viewModel.openReportCategory(category)
+                                        }
                                     )
-                                },
-                                label = { Text(tab.label) },
-                                modifier = Modifier.testTag("rail_${tab.name.lowercase()}")
-                            )
+                                }
+                            }
                         }
                     }
                 }
@@ -471,8 +808,22 @@ fun HisabMainApp(
                             selectedMonth = controls.reportMonth,
                             onShiftMonth = viewModel::shiftReportMonth,
                             onExportPicture = {
-                                pictureExportLauncher.launch("hisab-report-${controls.reportMonth}.png")
-                            }
+                                exportPictureCategory = controls.selectedReportCategory
+                                val fileSlug = when (controls.selectedReportCategory) {
+                                    ReportCategory.MONTHLY -> "hisab-report-${controls.reportMonth}.png"
+                                    ReportCategory.MPO_WISE -> "mpo-report-${controls.reportMonth}.png"
+                                    ReportCategory.AM_WISE -> "am-report-${controls.reportMonth}.png"
+                                    ReportCategory.REGION_WISE -> "region-report-${controls.reportMonth}.png"
+                                }
+                                pictureExportLauncher.launch(fileSlug)
+                            },
+                            members = members,
+                            monthlySales = monthlySales,
+                            memberTakaJomaList = takaJomaList,
+                            selectedCategory = controls.selectedReportCategory,
+                            periodScope = controls.reportPeriodScope,
+                            onSelectCategory = viewModel::openReportCategory,
+                            onSelectPeriodScope = viewModel::setReportPeriodScope
                         )
 
                         HisabTab.ACCOUNTS -> AccountsScreen(
@@ -492,6 +843,7 @@ fun HisabMainApp(
                                 transactionCount = transactions.size,
                                 isBusy = controls.isSaving,
                                 driveState = driveState,
+                                cloudSyncState = cloudSyncState,
                                 aiVoiceState = aiVoiceState,
                                 onOpenMemberList = { viewModel.openSettingsSubPage(SettingsSubPage.MEMBER_LIST) },
                                 onOpenMemberTakaJoma = { viewModel.openSettingsSubPage(SettingsSubPage.MEMBER_TAKA_JOMA) },
@@ -503,9 +855,25 @@ fun HisabMainApp(
                                 onExportJson = { jsonExportLauncher.launch("rafiqul-hisab-full-backup.json") },
                                 onRestoreJson = { jsonRestoreLauncher.launch(arrayOf("application/json", "*/*")) },
                                 onExportPicture = {
+                                    exportPictureCategory = ReportCategory.MONTHLY
                                     pictureExportLauncher.launch("hisab-report-${controls.reportMonth}.png")
                                 },
-                                onConnectGoogleDrive = { requestDriveAuthAndRun(DrivePendingAction.CONNECT) },
+                                onToggleCloudAutoSync = viewModel::setCloudAutoSyncEnabled,
+                                onSyncCloudNow = viewModel::syncCloudNow,
+                                onCloudSignOut = onCloudSignOut,
+                                isCloudSigningIn = isCloudSigningIn,
+                                cloudAuthError = cloudAuthError,
+                                onCloudSignIn = onCloudSignIn,
+                                onSwitchCloudAccount = onSwitchCloudAccount,
+                                onConnectGoogleDrive = {
+                                    requestDriveAuthAndRun(
+                                        if (driveState.isConnected) {
+                                            DrivePendingAction.SWITCH_ACCOUNT
+                                        } else {
+                                            DrivePendingAction.CONNECT
+                                        }
+                                    )
+                                },
                                 onBackupToGoogleDrive = { requestDriveAuthAndRun(DrivePendingAction.BACKUP_MANUAL) },
                                 onRestoreFromGoogleDrive = { requestDriveAuthAndRun(DrivePendingAction.RESTORE) },
                                 onToggleDriveAutoBackup = viewModel::setDriveAutoBackup,
@@ -584,6 +952,11 @@ fun HisabMainApp(
             },
             onSuccess = {
                 appLoginId = credentialStore.getLoginId()
+                viewModel.syncAdminCredentialsToCloud(
+                    loginId = appLoginId,
+                    passwordHash = credentialStore.getPasswordHash(),
+                    isDefaultPassword = credentialStore.isUsingDefaultPassword()
+                )
                 showChangePasswordDialog = false
                 viewModel.showMessage("পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে")
             }
@@ -931,4 +1304,90 @@ private fun tabIcon(tab: HisabTab, selected: Boolean): ImageVector = when (tab) 
     HisabTab.REPORTS -> if (selected) Icons.Filled.BarChart else Icons.Outlined.BarChart
     HisabTab.ACCOUNTS -> if (selected) Icons.Filled.AccountBalance else Icons.Outlined.AccountBalance
     HisabTab.SETTINGS -> if (selected) Icons.Filled.Settings else Icons.Outlined.Settings
+}
+
+@Composable
+private fun ReportNavbarPopupMenu(
+    expanded: Boolean,
+    selectedCategory: ReportCategory,
+    isReportsTabActive: Boolean,
+    onDismiss: () -> Unit,
+    onSelectCategory: (ReportCategory) -> Unit
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        offset = DpOffset(x = 0.dp, y = (-8).dp),
+        shape = RoundedCornerShape(16.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.testTag("navbar_report_popup_menu")
+    ) {
+        Text(
+            text = "রিপোর্ট তালিকা",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        HorizontalDivider(
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+        )
+        ReportCategory.entries.forEachIndexed { index, category ->
+            val isActiveItem = isReportsTabActive && selectedCategory == category
+            DropdownMenuItem(
+                leadingIcon = {
+                    Icon(
+                        imageVector = reportCategoryIcon(category),
+                        contentDescription = null,
+                        tint = if (isActiveItem) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                trailingIcon = if (isActiveItem) {
+                    {
+                        Icon(
+                            imageVector = Icons.Outlined.Check,
+                            contentDescription = "নির্বাচিত",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                } else {
+                    null
+                },
+                text = {
+                    Column(modifier = Modifier.padding(vertical = 2.dp)) {
+                        Text(
+                            text = category.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (isActiveItem) FontWeight.Bold else FontWeight.SemiBold,
+                            color = if (isActiveItem) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = category.subtitle,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
+                onClick = { onSelectCategory(category) },
+                modifier = Modifier
+                    .background(
+                        if (isActiveItem) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                        else Color.Transparent
+                    )
+                    .testTag(category.menuTestTag)
+            )
+            if (index < ReportCategory.entries.lastIndex) {
+                HorizontalDivider(
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+            }
+        }
+    }
 }

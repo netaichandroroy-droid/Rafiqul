@@ -43,12 +43,94 @@ service cloud.firestore {
 
     function isValidTransaction(data) {
       return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             (!('ownerScope' in data) || (
+               data.ownerScope is string &&
+               data.ownerScope.size() >= 1 &&
+               data.ownerScope.size() <= 128 &&
+               data.ownerScope.matches('^[a-zA-Z0-9_\\-]+$')
+             )) &&
              data.type in ['income', 'expense'] &&
              data.amount is number && data.amount > 0 && data.amount <= 1000000000 &&
              data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
              data.note is string && data.note.size() <= 200 &&
              data.date is string && data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
              data.account in ['cash', 'bank'];
+    }
+
+    function isValidMember(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.active is bool &&
+             (!('designation' in data) || (data.designation is string && data.designation.size() <= 100)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 40)) &&
+             (!('depot' in data) || (data.depot is string && data.depot.size() <= 100)) &&
+             (!('code' in data) || (data.code is string && data.code.size() <= 50)) &&
+             (!('area' in data) || (data.area is string && data.area.size() <= 100)) &&
+             (!('clientCreatedAtMs' in data) || (data.clientCreatedAtMs is number && data.clientCreatedAtMs >= 0)) &&
+             (!('passwordHash' in data) || (
+               data.passwordHash is string &&
+               data.passwordHash.size() <= 256 &&
+               (data.passwordHash.size() == 0 || data.passwordHash.matches('^pbkdf2_sha256\\$[0-9]+\\$[A-Za-z0-9+/=]+\\$[A-Za-z0-9+/=]+$'))
+             )) &&
+             (!('defaultPassword' in data) || data.defaultPassword is bool) &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 120)) &&
+             (!('address' in data) || (data.address is string && data.address.size() <= 250)) &&
+             (!('joiningDate' in data) || (data.joiningDate is string && data.joiningDate.size() <= 40)) &&
+             (!('salesAmount' in data) || (data.salesAmount is number && data.salesAmount >= 0 && data.salesAmount <= 1000000000));
+    }
+
+    function isValidTakaJoma(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.memberId is string && data.memberId.size() >= 1 && data.memberId.size() <= 128 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.amount is number && data.amount > 0 && data.amount <= 1000000000 &&
+             data.date is string && data.date.size() >= 1 && data.date.size() <= 40 &&
+             data.submittedByRole in ['ADMIN', 'MEMBER'] &&
+             data.approvalStatus in ['PENDING', 'APPROVED', 'REJECTED'] &&
+             (!('code' in data) || (data.code is string && data.code.size() <= 50)) &&
+             (!('depot' in data) || (data.depot is string && data.depot.size() <= 100)) &&
+             (!('designation' in data) || (data.designation is string && data.designation.size() <= 100)) &&
+             (!('area' in data) || (data.area is string && data.area.size() <= 100)) &&
+             (!('bankName' in data) || (data.bankName is string && data.bankName.size() <= 120)) &&
+             (!('note' in data) || (data.note is string && data.note.size() <= 300)) &&
+             (!('slipHash' in data) || (data.slipHash is string && data.slipHash.size() <= 128)) &&
+             (!('clientCreatedAtMs' in data) || (data.clientCreatedAtMs is number && data.clientCreatedAtMs >= 0)) &&
+             (!('reviewedAtMs' in data) || (data.reviewedAtMs is number && data.reviewedAtMs >= 0));
+    }
+
+    function isValidMonthlySales(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.yearMonth is string && data.yearMonth.matches('^[0-9]{4}-[0-9]{2}$') &&
+             data.code is string && data.code.size() <= 50 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+             (data.code.size() > 0 || data.name.size() > 0) &&
+             data.tpSales is number && data.tpSales >= 0 && data.tpSales <= 1000000000 &&
+             data.tpPlusVat is number && data.tpPlusVat >= 0 && data.tpPlusVat <= 1000000000 &&
+             (!('clientCreatedAtMs' in data) || (data.clientCreatedAtMs is number && data.clientCreatedAtMs >= 0));
+    }
+
+    function isValidAppConfig(configId, data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             (
+               (configId == 'online_payment' &&
+                data.keys().hasAll(['userId', 'onlinePaymentEnabled', 'accountsJson', 'createdAt', 'updatedAt']) &&
+                data.keys().hasOnly(['userId', 'onlinePaymentEnabled', 'accountsJson', 'createdAt', 'updatedAt']) &&
+                data.onlinePaymentEnabled is bool &&
+                data.accountsJson is string && data.accountsJson.size() <= 10000) ||
+               (configId == 'member_app_link' &&
+                data.keys().hasAll(['userId', 'downloadUrl', 'createdAt', 'updatedAt']) &&
+                data.keys().hasOnly(['userId', 'downloadUrl', 'createdAt', 'updatedAt']) &&
+                data.downloadUrl is string && data.downloadUrl.size() <= 500 &&
+                (data.downloadUrl.size() == 0 || data.downloadUrl.matches('^https?://.*'))) ||
+               (configId == 'admin_auth' &&
+                data.keys().hasAll(['userId', 'loginId', 'passwordHash', 'defaultPassword', 'createdAt', 'updatedAt']) &&
+                data.keys().hasOnly(['userId', 'loginId', 'passwordHash', 'defaultPassword', 'createdAt', 'updatedAt']) &&
+                data.loginId is string && data.loginId.size() >= 3 && data.loginId.size() <= 30 &&
+                data.loginId.matches('^[a-zA-Z0-9_.-]+$') &&
+                data.passwordHash is string && data.passwordHash.size() >= 32 && data.passwordHash.size() <= 256 &&
+                data.passwordHash.matches('^pbkdf2_sha256\\$[0-9]+\\$[A-Za-z0-9+/=]+\\$[A-Za-z0-9+/=]+$') &&
+                data.defaultPassword is bool)
+             );
     }
 
     match /users/{userId} {
@@ -85,7 +167,7 @@ service cloud.firestore {
                          isValidId(transactionId) &&
                          incoming().userId == request.auth.uid &&
                          incoming().keys().hasAll(['userId', 'type', 'amount', 'category', 'note', 'date', 'account', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'type', 'amount', 'category', 'note', 'date', 'account', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'ownerScope', 'type', 'amount', 'category', 'note', 'date', 'account', 'createdAt', 'updatedAt']) &&
                          isValidTransaction(incoming()) &&
                          incoming().createdAt is timestamp &&
                          incoming().createdAt <= request.time &&
@@ -99,9 +181,146 @@ service cloud.firestore {
                          incoming().createdAt == existing().createdAt &&
                          incoming().updatedAt is timestamp &&
                          incoming().updatedAt <= request.time &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['type', 'amount', 'category', 'note', 'date', 'account', 'updatedAt']);
+                         incoming().diff(existing()).affectedKeys().hasOnly(['ownerScope', 'type', 'amount', 'category', 'note', 'date', 'account', 'updatedAt']);
 
         allow delete: if isOwner(userId) && isValidId(transactionId);
+      }
+
+      match /members/{memberId} {
+        allow get: if isOwner(userId) && isValidId(memberId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(memberId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'name', 'active', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'designation', 'phone', 'depot', 'code', 'area',
+                           'active', 'clientCreatedAtMs', 'passwordHash', 'defaultPassword',
+                           'email', 'address', 'joiningDate', 'salesAmount', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidMember(incoming()) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time;
+
+        allow update: if isOwner(userId) &&
+                         isValidId(memberId) &&
+                         isValidMember(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'designation', 'phone', 'depot', 'code', 'area',
+                           'active', 'clientCreatedAtMs', 'passwordHash', 'defaultPassword',
+                           'email', 'address', 'joiningDate', 'salesAmount', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(memberId);
+      }
+
+      match /takaJoma/{submissionId} {
+        allow get: if isOwner(userId) && isValidId(submissionId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(submissionId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll([
+                           'userId', 'memberId', 'name', 'amount', 'date',
+                           'submittedByRole', 'approvalStatus', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'memberId', 'name', 'code', 'depot', 'designation', 'area',
+                           'bankName', 'amount', 'date', 'note', 'slipHash', 'submittedByRole',
+                           'clientCreatedAtMs', 'approvalStatus', 'reviewedAtMs', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTakaJoma(incoming()) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time;
+
+        allow update: if isOwner(userId) &&
+                         isValidId(submissionId) &&
+                         isValidTakaJoma(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'memberId', 'name', 'code', 'depot', 'designation', 'area',
+                           'bankName', 'amount', 'date', 'note', 'slipHash', 'submittedByRole',
+                           'clientCreatedAtMs', 'approvalStatus', 'reviewedAtMs', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(submissionId);
+      }
+
+      match /monthlySales/{recordId} {
+        allow get: if isOwner(userId) && isValidId(recordId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(recordId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll([
+                           'userId', 'yearMonth', 'code', 'name',
+                           'tpSales', 'tpPlusVat', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'yearMonth', 'code', 'name',
+                           'tpSales', 'tpPlusVat', 'clientCreatedAtMs', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidMonthlySales(incoming()) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time;
+
+        allow update: if isOwner(userId) &&
+                         isValidId(recordId) &&
+                         isValidMonthlySales(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'yearMonth', 'code', 'name',
+                           'tpSales', 'tpPlusVat', 'clientCreatedAtMs', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(recordId);
+      }
+
+      match /appConfig/{configId} {
+        allow get: if isOwner(userId) && isValidId(configId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(configId) &&
+                         incoming().userId == request.auth.uid &&
+                         isValidAppConfig(configId, incoming()) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time;
+
+        allow update: if isOwner(userId) &&
+                         isValidId(configId) &&
+                         isValidAppConfig(configId, incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'onlinePaymentEnabled', 'accountsJson', 'downloadUrl',
+                           'loginId', 'passwordHash', 'defaultPassword', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(configId);
       }
     }
   }
