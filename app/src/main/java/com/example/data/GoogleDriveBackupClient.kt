@@ -4,6 +4,8 @@ import android.accounts.Account
 import android.accounts.AccountManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.provider.OpenableColumns
 import com.google.android.gms.auth.GoogleAuthException
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.auth.UserRecoverableAuthException
@@ -87,7 +89,7 @@ object GoogleDriveBackupClient {
     ): DriveTokenResult {
         val cleanEmail = accountEmail.trim()
         if (cleanEmail.isEmpty()) {
-            return DriveTokenResult.Failure("Gmail অ্যাকাউন্ট পাওয়া যায়নি।")
+            return DriveTokenResult.Failure("Gmail account not found.")
         }
         return withContext(Dispatchers.IO) {
             try {
@@ -100,30 +102,30 @@ object GoogleDriveBackupClient {
                 if (token.isNotBlank()) {
                     DriveTokenResult.Success(token, cleanEmail)
                 } else {
-                    DriveTokenResult.Failure("Google Drive টোকেন পাওয়া যায়নি।")
+                    DriveTokenResult.Failure("Could not obtain Google Drive access token.")
                 }
             } catch (recoverable: UserRecoverableAuthException) {
                 val consentIntent = recoverable.intent
                 if (consentIntent != null) {
                     DriveTokenResult.NeedsConsent(consentIntent, cleanEmail)
                 } else {
-                    DriveTokenResult.Failure("Google Drive অনুমোদন স্ক্রিন খোলা যায়নি।")
+                    DriveTokenResult.Failure("Could not open Google Drive authorization screen.")
                 }
             } catch (_: IOException) {
                 DriveTokenResult.Failure(
-                    message = "ইন্টারনেট সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।",
+                    message = "Please check your internet connection and try again.",
                     isNetworkError = true
                 )
             } catch (authErr: GoogleAuthException) {
                 val detail = authErr.localizedMessage.orEmpty().trim()
                 val msg = if (detail.isNotEmpty()) {
-                    "Google Drive অনুমোদন ব্যর্থ হয়েছে: $detail"
+                    "Google Drive authorization failed: $detail"
                 } else {
-                    "Google Drive অনুমোদন ব্যর্থ হয়েছে।"
+                    "Google Drive authorization failed."
                 }
                 DriveTokenResult.Failure(msg)
             } catch (e: Exception) {
-                DriveTokenResult.Failure(e.localizedMessage ?: "Google Drive সংযোগ ব্যর্থ হয়েছে।")
+                DriveTokenResult.Failure(e.localizedMessage ?: "Google Drive connection failed.")
             }
         }
     }
@@ -240,7 +242,7 @@ object GoogleDriveBackupClient {
                 ?: knownFileId?.trim()?.takeIf { it.isNotEmpty() }?.let {
                     DriveFileMeta(id = it, name = BACKUP_FILE_NAME)
                 }
-                ?: throw IllegalStateException("Google Drive-এ এখনো কোনো ব্যাকআপ ফাইল পাওয়া যায়নি।")
+                ?: throw IllegalStateException("No backup file found in Google Drive yet.")
 
             val url = "https://www.googleapis.com/drive/v3/files/${meta.id}?alt=media"
             val request = Request.Builder()
@@ -255,7 +257,7 @@ object GoogleDriveBackupClient {
                     throw buildDriveException(response.code, body)
                 }
                 if (body.isBlank()) {
-                    throw IllegalStateException("Google Drive-এর ব্যাকআপ ফাইলটি খালি।")
+                    throw IllegalStateException("The Google Drive backup file is empty.")
                 }
                 meta to body
             }
@@ -309,6 +311,88 @@ object GoogleDriveBackupClient {
         }
     }
 
+    fun persistSafPermission(context: Context, uri: Uri): Boolean {
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        return runCatching {
+            context.applicationContext.contentResolver.takePersistableUriPermission(uri, flags)
+            true
+        }.recoverCatching {
+            context.applicationContext.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            true
+        }.getOrDefault(false)
+    }
+
+    fun releaseSafPermission(context: Context, uriString: String) {
+        if (uriString.isBlank()) return
+        runCatching {
+            val uri = Uri.parse(uriString)
+            val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            context.applicationContext.contentResolver.releasePersistableUriPermission(uri, flags)
+        }
+    }
+
+    fun resolveSafDisplayName(context: Context, uri: Uri): String {
+        val name = runCatching {
+            context.applicationContext.contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.DISPLAY_NAME),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) cursor.getString(idx)?.trim() else null
+                } else {
+                    null
+                }
+            }
+        }.getOrNull().orEmpty()
+        return name.ifBlank { BACKUP_FILE_NAME }
+    }
+
+    fun writeJsonToSafUri(
+        context: Context,
+        uriString: String,
+        jsonPayload: String
+    ): Result<String> {
+        return runCatching {
+            val uri = Uri.parse(uriString)
+            val resolver = context.applicationContext.contentResolver
+            val bytes = jsonPayload.toByteArray(Charsets.UTF_8)
+            val outStream = runCatching { resolver.openOutputStream(uri, "wt") }.getOrNull()
+                ?: resolver.openOutputStream(uri, "w")
+                ?: resolver.openOutputStream(uri)
+                ?: throw IllegalStateException("Write permission for the Google Drive file was denied. Please link the file again.")
+            outStream.use { out ->
+                out.write(bytes)
+                out.flush()
+            }
+            resolveSafDisplayName(context, uri)
+        }
+    }
+
+    fun readJsonFromSafUri(
+        context: Context,
+        uriString: String
+    ): Result<Pair<String, String>> {
+        return runCatching {
+            val uri = Uri.parse(uriString)
+            val resolver = context.applicationContext.contentResolver
+            val text = resolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use {
+                it.readText()
+            } ?: throw IllegalStateException("Could not read the Google Drive file.")
+            if (text.isBlank()) {
+                throw IllegalStateException("The selected Google Drive file is empty.")
+            }
+            val displayName = resolveSafDisplayName(context, uri)
+            displayName to text
+        }
+    }
+
     private fun buildDriveException(code: Int, body: String): IllegalStateException {
         val message = extractDriveError(code, body)
         return if (code == 401) {
@@ -323,10 +407,10 @@ object GoogleDriveBackupClient {
             JSONObject(body).optJSONObject("error")?.optString("message")
         }.getOrNull().orEmpty()
         return when (code) {
-            401 -> "Google Drive অনুমোদনের মেয়াদ শেষ হয়েছে। অনুগ্রহ করে আবার সংযুক্ত করুন।"
-            403 -> "Google Drive অনুমতি পাওয়া যায়নি। অনুগ্রহ করে আবার সংযুক্ত করুন।"
-            404 -> "Google Drive-এ ব্যাকআপ ফাইল খুঁজে পাওয়া যায়নি।"
-            else -> if (message.isNotBlank()) "Google Drive ত্রুটি ($code): $message" else "Google Drive সংযোগ ব্যর্থ হয়েছে ($code)।"
+            401 -> "Google Drive authorization has expired. Please reconnect."
+            403 -> "Google Drive permission was denied. Please reconnect."
+            404 -> "Backup file not found in Google Drive."
+            else -> if (message.isNotBlank()) "Google Drive error ($code): $message" else "Google Drive connection failed ($code)."
         }
     }
 }

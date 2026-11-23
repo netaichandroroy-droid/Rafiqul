@@ -43,7 +43,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.CloudSyncUiState
-import com.example.model.BanglaFormatters
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.ExpenseSurface
 import com.example.ui.theme.IncomeEmerald
@@ -95,7 +94,7 @@ fun CloudAutoSyncCard(
                             cloudSyncState.autoSyncEnabled -> Icons.Outlined.CloudSync
                             else -> Icons.Outlined.CloudDone
                         },
-                        contentDescription = "অ্যাপ অটো-সিঙ্ক",
+                        contentDescription = "Cloud Auto-Sync",
                         tint = if (cloudSyncState.isConnected && cloudSyncState.autoSyncEnabled) {
                             IncomeEmerald
                         } else {
@@ -107,13 +106,13 @@ fun CloudAutoSyncCard(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Google অ্যাকাউন্ট ও অটো-সিঙ্ক",
+                        text = "Google Account & Auto-Sync",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "যেকোনো Gmail দিয়ে সাইন-ইন করে সব ডিভাইসে হিসাব অটো-সিঙ্ক রাখুন",
+                        text = "Sign in with any Gmail to keep your records synced across devices",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -136,9 +135,9 @@ fun CloudAutoSyncCard(
                 ) {
                     Text(
                         text = when {
-                            !cloudSyncState.isConnected -> "অফলাইন"
-                            cloudSyncState.autoSyncEnabled -> "চালু"
-                            else -> "বিরতি"
+                            !cloudSyncState.isConnected -> "Offline"
+                            cloudSyncState.autoSyncEnabled -> "Active"
+                            else -> "Paused"
                         },
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
@@ -170,11 +169,11 @@ fun CloudAutoSyncCard(
             ) {
                 Text(
                     text = if (cloudSyncState.accountEmail.isNotBlank()) {
-                        "Google অ্যাকাউন্ট: ${cloudSyncState.accountEmail}"
+                        "Google Account: ${cloudSyncState.accountEmail}"
                     } else if (cloudSyncState.isConnected) {
-                        "Google ক্লাউড অ্যাকাউন্ট সংযুক্ত আছে"
+                        "Google account connected"
                     } else {
-                        "কোনো Google অ্যাকাউন্ট সংযুক্ত নেই"
+                        "No Google account connected"
                     },
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
@@ -189,12 +188,12 @@ fun CloudAutoSyncCard(
                 Text(
                     text = if (cloudSyncState.isConnected) {
                         if (cloudSyncState.lastSyncedAtMs > 0L) {
-                            "শেষ অটো-সিঙ্ক: ${formatCloudSyncTime(cloudSyncState.lastSyncedAtMs)}"
+                            "Last synced: ${formatCloudSyncTime(cloudSyncState.lastSyncedAtMs)}"
                         } else {
-                            "সিঙ্কের জন্য প্রস্তুত"
+                            "Ready to sync"
                         }
                     } else {
-                        "যেকোনো Gmail দিয়ে সাইন-ইন করলে ক্লাউড অটো-সিঙ্ক চালু হবে"
+                        "Sign in with any Gmail account to turn on automatic cloud sync"
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -238,7 +237,7 @@ fun CloudAutoSyncCard(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("সাইন-ইন হচ্ছে...", fontWeight = FontWeight.Bold)
+                    Text("Signing in...", fontWeight = FontWeight.Bold)
                 } else {
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.Login,
@@ -247,7 +246,7 @@ fun CloudAutoSyncCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "যেকোনো Gmail দিয়ে সাইন-ইন করুন",
+                        text = "Sign in with Google",
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -264,13 +263,13 @@ fun CloudAutoSyncCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "স্বয়ংক্রিয় রিয়েল-টাইম সিঙ্ক",
+                        text = "Real-time Auto-Sync",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "যে কোনো পরিবর্তন সাথে সাথে ক্লাউডে আপডেট হবে",
+                        text = "Automatically syncs every update to cloud storage",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -309,7 +308,7 @@ fun CloudAutoSyncCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "এখনই সিঙ্ক করুন",
+                        text = "Sync Now",
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -326,12 +325,12 @@ fun CloudAutoSyncCard(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.SwitchAccount,
-                        contentDescription = "Google অ্যাকাউন্ট পরিবর্তন বা সাইন-আউট",
+                        contentDescription = "Manage Google Account",
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "অ্যাকাউন্ট",
+                        text = "Account",
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1
                     )
@@ -343,9 +342,9 @@ fun CloudAutoSyncCard(
     if (showAccountMenuDialog) {
         AlertDialog(
             onDismissRequest = { showAccountMenuDialog = false },
-            title = { Text("Google অ্যাকাউন্ট পরিচালনা") },
+            title = { Text("Manage Google Account") },
             text = {
-                Text("আপনি অন্য যেকোনো Gmail অ্যাকাউন্টে পরিবর্তন করতে পারেন অথবা বর্তমান Google অ্যাকাউন্ট সাইন-আউট করতে পারেন।")
+                Text("Switch to another Gmail account or sign out of the current Google account.")
             },
             confirmButton = {
                 Button(
@@ -355,7 +354,7 @@ fun CloudAutoSyncCard(
                     },
                     modifier = Modifier.testTag("confirm_cloud_switch_account_button")
                 ) {
-                    Text("অন্য Gmail দিন")
+                    Text("Switch Gmail")
                 }
             },
             dismissButton = {
@@ -367,10 +366,10 @@ fun CloudAutoSyncCard(
                         },
                         modifier = Modifier.testTag("confirm_cloud_sign_out_button")
                     ) {
-                        Text("সাইন-আউট", color = MaterialTheme.colorScheme.error)
+                        Text("Sign Out", color = MaterialTheme.colorScheme.error)
                     }
                     TextButton(onClick = { showAccountMenuDialog = false }) {
-                        Text("বাতিল")
+                        Text("Cancel")
                     }
                 }
             }
@@ -380,6 +379,6 @@ fun CloudAutoSyncCard(
 
 private fun formatCloudSyncTime(timestampMs: Long): String {
     if (timestampMs <= 0L) return "-"
-    val sdf = SimpleDateFormat("dd/MM/yyyy hh:mm a", Locale("bn", "BD"))
-    return BanglaFormatters.toBanglaDigits(sdf.format(Date(timestampMs)))
+    val sdf = SimpleDateFormat("dd/MM/yyyy hh:mm a", Locale.ENGLISH)
+    return sdf.format(Date(timestampMs))
 }

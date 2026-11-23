@@ -217,7 +217,7 @@ fun TransactionItemRow(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Edit,
-                        contentDescription = "সম্পাদনা",
+                        contentDescription = "Edit",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
@@ -232,7 +232,7 @@ fun TransactionItemRow(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.DeleteOutline,
-                        contentDescription = "মুছুন",
+                        contentDescription = "Delete",
                         tint = semanticColor,
                         modifier = Modifier.size(18.dp)
                     )
@@ -250,7 +250,7 @@ fun TransactionItemRow(
 
 @Composable
 fun EmptyTransactionsState(
-    message: String = "কোনো লেনদেন নেই। উপরে বা নিচে থেকে আয় বা খরচ যোগ করুন।",
+    message: String = "No transactions yet. Add an income or expense entry above or below.",
     modifier: Modifier = Modifier
 ) {
     Column(

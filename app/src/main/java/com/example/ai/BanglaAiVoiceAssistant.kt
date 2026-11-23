@@ -33,20 +33,20 @@ enum class FemaleAiVoiceOption(
 ) {
     AOEDE(
         voiceId = "Aoede",
-        bnLabel = "মধুর নারী কণ্ঠ",
-        subtitle = "সুমধুর ও শান্ত কণ্ঠ"
+        bnLabel = "Warm Female Voice",
+        subtitle = "Warm & soothing tone"
     ),
     KORE(
         voiceId = "Kore",
-        bnLabel = "স্পষ্ট নারী কণ্ঠ",
-        subtitle = "পরিষ্কার ও দৃঢ় উচ্চারণ"
+        bnLabel = "Clear Female Voice",
+        subtitle = "Crisp & expressive tone"
     )
 }
 
 enum class AiVoiceScope(val bnLabel: String) {
-    ALL_MEMBERS("সকল মেম্বার"),
-    ONLY_DUES("শুধু বকেয়া"),
-    SINGLE_MEMBER("একজন মেম্বার")
+    ALL_MEMBERS("All Members"),
+    ONLY_DUES("Dues Only"),
+    SINGLE_MEMBER("Single Member")
 }
 
 sealed interface AiVoiceStatus {
@@ -93,12 +93,12 @@ class BanglaAiVoiceAssistant {
             modelName = SCRIPT_MODEL,
             systemInstruction = content {
                 text(
-                    "আপনি রফিকুল হিসাব খাতা অ্যাপের মিষ্টি ও মধুর কণ্ঠের নারী সহকারী। " +
-                        "আপনাকে দেওয়া মেম্বারদের সেলস (টিপি প্লাস ভ্যাট), অনুমোদিত জমা টাকা এবং বকেয়া (ডিউস) হিসাব " +
-                        "খুব সুন্দর, ভদ্র, প্রাণবন্ত এবং স্বাভাবিক বাংলা ভাষায় পাঠ করার উপযোগী সংক্ষিপ্ত বিবরণ আকারে লিখতে হবে। " +
-                        "কোনো মার্কডাউন চিহ্ন (*, #, বুলেট পয়েন্ট) বা ইংরেজি কোড লিখবেন না। " +
-                        "সহজ বাংলা পূর্ণবাক্যে লিখুন যাতে নারী কণ্ঠে সরাসরি পড়ে শোনানো যায়। " +
-                        "শুধুমাত্র প্রদত্ত সঠিক তথ্য ও অঙ্ক ব্যবহার করবেন; নিজে থেকে কোনো সংখ্যা বানাবেন না।"
+                    "You are a warm and polite female voice assistant for the Rafiqul Islam ledger app. " +
+                        "Write a concise, natural, and easy-to-read English spoken summary from the provided member " +
+                        "TP+VAT sales, approved deposits, and dues figures. " +
+                        "Do not use any markdown symbols (*, #, bullet points) or code blocks. " +
+                        "Write in clear complete English sentences suitable for reading aloud smoothly. " +
+                        "Use only the exact figures and facts provided; never invent or alter any numbers."
                 )
             }
         )
@@ -133,7 +133,7 @@ class BanglaAiVoiceAssistant {
 
         if (allSummaries.isEmpty()) {
             return Result.failure(
-                IllegalStateException("এখনো কোনো মেম্বার বা সেলস তথ্য যোগ করা হয়নি।")
+                IllegalStateException("No members or sales records have been added yet.")
             )
         }
 
@@ -149,7 +149,7 @@ class BanglaAiVoiceAssistant {
 
         if (targetSummaries.isEmpty()) {
             return Result.failure(
-                IllegalStateException("বর্তমানে কোনো মেম্বারের বকেয়া (Dues) নেই।")
+                IllegalStateException("No members currently have any dues.")
             )
         }
 
@@ -161,7 +161,7 @@ class BanglaAiVoiceAssistant {
             }
             val scriptText = scriptResponse.text?.trim().orEmpty()
             if (scriptText.isEmpty()) {
-                throw IllegalStateException("AI বাংলা হিসাবের বিবরণ তৈরি করতে পারেনি।")
+                throw IllegalStateException("Could not generate the voice summary script.")
             }
 
             onStatus(AiVoiceStatus.GeneratingAudio)
@@ -169,8 +169,8 @@ class BanglaAiVoiceAssistant {
                 FemaleAiVoiceOption.AOEDE -> aoedeTtsModel
                 FemaleAiVoiceOption.KORE -> koreTtsModel
             }
-            val ttsPrompt = "নিচের বাংলা হিসাব বিবরণটি খুব মিষ্টি, শান্ত, আন্তরিক ও সুস্পষ্ট বাংলাদেশি নারী কণ্ঠে " +
-                "স্বাভাবিক গতিতে পড়ে শোনান। বাড়তি কোনো ইংরেজি বা ভূমিকা যোগ করবেন না:\n\n$scriptText"
+            val ttsPrompt = "Please read the following English ledger summary aloud in a warm, calm, clear, " +
+                "and natural female voice at a steady pace. Do not add any extra introduction:\n\n$scriptText"
 
             val ttsResponse = withTimeout(TIMEOUT_MS) {
                 ttsModel.generateContent(ttsPrompt)
@@ -179,7 +179,7 @@ class BanglaAiVoiceAssistant {
                 part.inlineData.isNotEmpty() &&
                     (part.mimeType.startsWith("audio/", ignoreCase = true) ||
                         part.mimeType.isBlank())
-            } ?: throw IllegalStateException("AI ভয়েস অডিও পাওয়া যায়নি।")
+            } ?: throw IllegalStateException("Could not generate voice audio.")
 
             Result.success(
                 AiVoiceResult(
@@ -189,17 +189,17 @@ class BanglaAiVoiceAssistant {
                 )
             )
         } catch (e: TimeoutCancellationException) {
-            Log.e(TAG, "Firebase AI voice generation timed out", e)
+            Log.e(TAG, "Voice generation timed out", e)
             Result.failure(
-                IllegalStateException("AI ভয়েস তৈরিতে সময় বেশি লেগেছে (৬০ সেকেন্ড)। অনুগ্রহ করে আবার চেষ্টা করুন।", e)
+                IllegalStateException("Voice generation took too long (60s). Please try again.", e)
             )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "Firebase AI voice generation failed", e)
+            Log.e(TAG, "Voice generation failed", e)
             Result.failure(
                 IllegalStateException(
-                    e.localizedMessage ?: "AI ভয়েস তৈরি করা যায়নি। ইন্টারনেট সংযোগ পরীক্ষা করুন।",
+                    e.localizedMessage ?: "Could not generate voice summary. Please check your internet connection.",
                     e
                 )
             )
@@ -295,34 +295,34 @@ class BanglaAiVoiceAssistant {
         val omittedCount = (summaries.size - capList.size).coerceAtLeast(0)
 
         val sb = StringBuilder()
-        sb.appendLine("দয়া করে নিচের মেম্বার হিসাবের তথ্যগুলো ব্যবহার করে সুন্দর, মিষ্টি নারী কণ্ঠে বাংলায় শোনানোর জন্য একটি সংক্ষিপ্ত ও প্রাঞ্জল রিপোর্ট লিখুন।")
-        sb.appendLine("সম্ভাষণ দিয়ে শুরু করুন, তারপর মোট সেলস (টিপি প্লাস ভ্যাট), মোট অনুমোদিত জমা টাকা এবং মোট বকেয়া জানান। এরপর প্রতিটি মেম্বারের নাম, সেলস, জমা এবং বকেয়া পরিষ্কার বাংলায় বলুন।")
+        sb.appendLine("Please write a brief, clear, and pleasant spoken English summary using the member ledger details below.")
+        sb.appendLine("Start with a polite greeting, then state Total TP+VAT sales, Total Approved Deposit, and Total Dues. Afterwards, summarize each member's name, sales, deposit, and dues clearly.")
         sb.appendLine()
-        sb.appendLine("রিপোর্টের ধরন: ${scope.bnLabel}")
-        sb.appendLine("মোট মেম্বার সংখ্যা: ${summaries.size} জন")
-        sb.appendLine("সর্বমোট সেলস (টিপি প্লাস ভ্যাট): ${totals.totalSales.roundToLong()} টাকা")
-        sb.appendLine("সর্বমোট অনুমোদিত জমা টাকা: ${totals.totalApprovedJoma.roundToLong()} টাকা")
-        sb.appendLine("সর্বমোট বকেয়া (ডিউস): ${totals.totalDues.roundToLong()} টাকা")
+        sb.appendLine("Report scope: ${scope.bnLabel}")
+        sb.appendLine("Total members: ${summaries.size}")
+        sb.appendLine("Total TP+VAT sales: ${totals.totalSales.roundToLong()} BDT")
+        sb.appendLine("Total approved deposit: ${totals.totalApprovedJoma.roundToLong()} BDT")
+        sb.appendLine("Total dues: ${totals.totalDues.roundToLong()} BDT")
         sb.appendLine()
-        sb.appendLine("মেম্বার অনুযায়ী বিস্তারিত:")
+        sb.appendLine("Member breakdown:")
         capList.forEachIndexed { index, m ->
-            val areaPart = if (m.area.isNotBlank()) ", এরিয়া: ${m.area}" else ""
-            val codePart = if (m.code.isNotBlank()) " (কোড ${m.code})" else ""
-            val pendingPart = if (m.pendingJoma > 0.0) ", অপেক্ষমাণ জমা: ${m.pendingJoma.roundToLong()} টাকা" else ""
-            val advancePart = if (m.advance > 0.0) ", অগ্রিম: ${m.advance.roundToLong()} টাকা" else ""
+            val areaPart = if (m.area.isNotBlank()) ", Area: ${m.area}" else ""
+            val codePart = if (m.code.isNotBlank()) " (Code ${m.code})" else ""
+            val pendingPart = if (m.pendingJoma > 0.0) ", Pending deposit: ${m.pendingJoma.roundToLong()} BDT" else ""
+            val advancePart = if (m.advance > 0.0) ", Advance: ${m.advance.roundToLong()} BDT" else ""
             sb.appendLine(
-                "${index + 1}. নাম: ${m.name}$codePart$areaPart — " +
-                    "টিপি প্লাস ভ্যাট সেলস: ${m.totalSales.roundToLong()} টাকা, " +
-                    "অনুমোদিত জমা টাকা: ${m.approvedJoma.roundToLong()} টাকা, " +
-                    "বকেয়া: ${m.dues.roundToLong()} টাকা$pendingPart$advancePart।"
+                "${index + 1}. Name: ${m.name}$codePart$areaPart — " +
+                    "TP+VAT sales: ${m.totalSales.roundToLong()} BDT, " +
+                    "Approved deposit: ${m.approvedJoma.roundToLong()} BDT, " +
+                    "Dues: ${m.dues.roundToLong()} BDT$pendingPart$advancePart."
             )
         }
         if (omittedCount > 0) {
             val remainingDues = summaries.drop(capList.size).sumOf { it.dues }.roundToLong()
-            sb.appendLine("এছাড়া আরও $omittedCount জন মেম্বার রয়েছেন, যাদের সম্মিলিত বকেয়া $remainingDues টাকা।")
+            sb.appendLine("Additionally, there are $omittedCount more members with combined dues of $remainingDues BDT.")
         }
         sb.appendLine()
-        sb.appendLine("নির্দেশনা: সংখ্যা ও টাকার অঙ্কগুলো স্বাভাবিক বাংলা শব্দ বা স্পষ্ট বাংলা সংখ্যায় এমনভাবে লিখুন যেন নারী ভয়েস মডেল মধুরভাবে পড়তে পারে। কোনো বুলেট, তারকা বা মার্কডাউন চিহ্ন রাখবেন না।")
+        sb.appendLine("Instruction: Write amounts as clear spoken English phrases without any bullet points, asterisks, or markdown symbols.")
         return sb.toString()
     }
 }

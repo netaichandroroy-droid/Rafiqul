@@ -9,47 +9,49 @@ import java.util.Locale
 
 object BanglaFormatters {
 
-    private val banglaDigits = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
+    private val englishMonths = listOf(
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December"
+    )
 
-    private val banglaMonths = listOf(
-        "জানুয়ারি",
-        "ফেব্রুয়ারি",
-        "মার্চ",
-        "এপ্রিল",
-        "মে",
-        "জুন",
-        "জুলাই",
-        "আগস্ট",
-        "সেপ্টেম্বর",
-        "অক্টোবর",
-        "নভেম্বর",
-        "ডিসেম্বর"
+    private val shortEnglishMonths = listOf(
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec"
     )
 
     private val numberFormat = DecimalFormat("#,##,##0.##", DecimalFormatSymbols(Locale.US))
 
-    fun toBanglaDigits(input: String): String {
-        val sb = StringBuilder(input.length)
-        for (ch in input) {
-            if (ch in '0'..'9') {
-                sb.append(banglaDigits[ch - '0'])
-            } else {
-                sb.append(ch)
-            }
-        }
-        return sb.toString()
-    }
+    fun toBanglaDigits(input: String): String = input
 
     fun formatBdt(amount: Double): String {
         val isNegative = amount < 0
         val formatted = numberFormat.format(kotlin.math.abs(amount))
-        val bnFormatted = toBanglaDigits(formatted)
-        return if (isNegative) "−৳ $bnFormatted" else "৳ $bnFormatted"
+        return if (isNegative) "-৳ $formatted" else "৳ $formatted"
     }
 
     fun formatSignedBdt(amount: Double, type: TxType): String {
-        val formatted = toBanglaDigits(numberFormat.format(kotlin.math.abs(amount)))
-        return if (type == TxType.INCOME) "+৳ $formatted" else "−৳ $formatted"
+        val formatted = numberFormat.format(kotlin.math.abs(amount))
+        return if (type == TxType.INCOME) "+৳ $formatted" else "-৳ $formatted"
     }
 
     fun todayIso(): String {
@@ -81,21 +83,21 @@ object BanglaFormatters {
 
     fun formatBanglaDate(isoDate: String): String {
         val parts = isoDate.split("-")
-        if (parts.size != 3) return toBanglaDigits(isoDate)
+        if (parts.size != 3) return isoDate
         val year = parts[0]
-        val monthIdx = parts[1].toIntOrNull()?.minus(1) ?: return toBanglaDigits(isoDate)
-        val day = parts[2].toIntOrNull() ?: return toBanglaDigits(isoDate)
-        if (monthIdx !in banglaMonths.indices) return toBanglaDigits(isoDate)
-        return "${toBanglaDigits(day.toString())} ${banglaMonths[monthIdx]} ${toBanglaDigits(year)}"
+        val monthIdx = parts[1].toIntOrNull()?.minus(1) ?: return isoDate
+        val day = parts[2].toIntOrNull() ?: return isoDate
+        if (monthIdx !in shortEnglishMonths.indices) return isoDate
+        return "$day ${shortEnglishMonths[monthIdx]} $year"
     }
 
     fun formatBanglaMonth(yearMonth: String): String {
         val parts = yearMonth.split("-")
-        if (parts.size != 2) return toBanglaDigits(yearMonth)
+        if (parts.size != 2) return yearMonth
         val year = parts[0]
-        val monthIdx = parts[1].toIntOrNull()?.minus(1) ?: return toBanglaDigits(yearMonth)
-        if (monthIdx !in banglaMonths.indices) return toBanglaDigits(yearMonth)
-        return "${banglaMonths[monthIdx]} ${toBanglaDigits(year)}"
+        val monthIdx = parts[1].toIntOrNull()?.minus(1) ?: return yearMonth
+        if (monthIdx !in englishMonths.indices) return yearMonth
+        return "${englishMonths[monthIdx]} $year"
     }
 
     fun shiftYearMonth(yearMonth: String, deltaMonths: Int): String {

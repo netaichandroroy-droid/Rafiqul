@@ -96,11 +96,11 @@ fun AppContent(initialLoginId: String = "") {
         }
     }
 
-    val isAdminSession = activeSession == AppSession.Admin
+    var remoteSyncTick by remember { mutableStateOf(0) }
 
-    LaunchedEffect(isAdminSession, firebaseAuth) {
-        if (isAdminSession && firebaseAuth != null && runCatching { firebaseAuth.currentUser }.getOrNull() == null) {
-            delay(350)
+    LaunchedEffect(firebaseAuth) {
+        if (firebaseAuth != null && runCatching { firebaseAuth.currentUser }.getOrNull() == null) {
+            delay(250)
             attemptAutoSignIn(
                 context = context,
                 credentialManager = credentialManager,
@@ -115,16 +115,22 @@ fun AppContent(initialLoginId: String = "") {
     }
 
     val uid = currentUser?.uid.orEmpty()
-    val cloudSyncRepository = remember(context, uid, isAdminSession) {
-        if (isAdminSession && uid.isNotBlank()) {
+    val cloudSyncRepository = remember(context, uid) {
+        if (uid.isNotBlank()) {
             runCatching { CloudAutoSyncRepository(context) }.getOrNull()
         } else {
             null
         }
     }
 
-    DisposableEffect(uid, isAdminSession, cloudSyncRepository) {
-        if (isAdminSession && uid.isNotBlank() && cloudSyncRepository != null) {
+    LaunchedEffect(cloudSyncRepository) {
+        cloudSyncRepository?.remoteUpdates?.collect {
+            remoteSyncTick++
+        }
+    }
+
+    DisposableEffect(uid, cloudSyncRepository) {
+        if (uid.isNotBlank() && cloudSyncRepository != null) {
             runCatching { cloudSyncRepository.startAutoSync(uid) }
         }
         onDispose {
@@ -185,6 +191,7 @@ fun AppContent(initialLoginId: String = "") {
         signOutFromGoogleCloud(
             credentialManager = credentialManager,
             scope = scope,
+            context = context,
             onBeforeSignOut = {
                 cloudSyncRepository?.stopAutoSync()
             },
@@ -197,7 +204,7 @@ fun AppContent(initialLoginId: String = "") {
 
     when (val session = activeSession) {
         AppSession.LoggedOut -> {
-            val downloadUrl = remember(activeSession) {
+            val downloadUrl = remember(activeSession, remoteSyncTick) {
                 memberAppLinkStore.getEffectiveMemberLink()
             }
             AppLoginScreen(
@@ -216,12 +223,12 @@ fun AppContent(initialLoginId: String = "") {
                             }
 
                             is MemberLoginResult.Inactive -> {
-                                "আপনার সদস্য অ্যাকাউন্টটি নিষ্ক্রিয় আছে। অ্যাডমিনের সাথে যোগাযোগ করুন।"
+                                "Your member account is inactive. Please contact the admin."
                             }
 
                             MemberLoginResult.WrongPassword,
                             MemberLoginResult.NotFound -> {
-                                "লগইন আইডি অথবা পাসওয়ার্ড সঠিক নয়।"
+                                "Invalid Login ID or password."
                             }
                         }
                     }
@@ -250,7 +257,7 @@ fun AppContent(initialLoginId: String = "") {
         }
 
         is AppSession.MemberUser -> {
-            val member = remember(session.memberId) {
+            val member = remember(session.memberId, remoteSyncTick) {
                 memberStore.findById(session.memberId)?.takeIf { it.isActive }
             }
             if (member == null) {
@@ -259,14 +266,19 @@ fun AppContent(initialLoginId: String = "") {
                     activeSession = AppSession.LoggedOut
                 }
             } else {
-                MemberMainApp(
-                    initialMember = member,
-                    credentialStore = credentialStore,
-                    onMemberLogout = {
-                        credentialStore.logout()
-                        activeSession = AppSession.LoggedOut
-                    }
-                )
+                val memberSyncOwnerKey = uid.ifBlank { "local" }
+                key("${session.memberId}_$memberSyncOwnerKey") {
+                    MemberMainApp(
+                        initialMember = member,
+                        credentialStore = credentialStore,
+                        onMemberLogout = {
+                            credentialStore.logout()
+                            activeSession = AppSession.LoggedOut
+                        },
+                        cloudSyncRepository = cloudSyncRepository,
+                        syncOwnerUid = memberSyncOwnerKey
+                    )
+                }
             }
         }
     }

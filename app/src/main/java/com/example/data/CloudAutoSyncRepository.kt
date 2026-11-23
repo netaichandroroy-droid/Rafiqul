@@ -23,6 +23,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.Source
 import com.google.firebase.firestore.snapshots
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -43,6 +44,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 data class CloudSyncUiState(
     val autoSyncEnabled: Boolean = true,
@@ -70,9 +72,11 @@ class CloudAutoSyncRepository(
     private val onlinePaymentStore = OnlinePaymentStore(appContext)
     private val memberAppLinkStore = MemberAppLinkStore(appContext)
     private val credentialStore = AppLockCredentialStore(appContext)
+    private val driveBackupStore = GoogleDriveBackupStore(appContext)
 
     private val localWriteLock = Any()
     private val knownDocIds = ConcurrentHashMap.newKeySet<String>()
+    private val isFlushingPending = AtomicBoolean(false)
 
     private var syncScope: CoroutineScope? = null
     private var activeSyncJob: Job? = null
@@ -94,7 +98,7 @@ class CloudAutoSyncRepository(
 
     private fun requireUserId(): String {
         return auth.currentUser?.uid?.takeIf { it.isNotBlank() }
-            ?: throw IllegalStateException("ক্লাউড সিঙ্কের জন্য Google সাইন-ইন প্রয়োজন।")
+            ?: throw IllegalStateException("Google Sign-In is required for cloud sync.")
     }
 
     fun isAutoSyncActive(): Boolean {
@@ -155,7 +159,7 @@ class CloudAutoSyncRepository(
                 _syncState.update {
                     it.copy(
                         isSyncing = false,
-                        errorMessage = t.localizedMessage ?: "ক্লাউড সিঙ্ক শুরু করা যায়নি"
+                        errorMessage = t.localizedMessage ?: "Could not start cloud sync"
                     )
                 }
             }
@@ -187,7 +191,7 @@ class CloudAutoSyncRepository(
             _syncState.update {
                 it.copy(
                     isSyncing = false,
-                    errorMessage = e.localizedMessage ?: "সিঙ্ক ব্যর্থ হয়েছে"
+                    errorMessage = e.localizedMessage ?: "Sync failed"
                 )
             }
             Result.failure(e)
@@ -199,13 +203,117 @@ class CloudAutoSyncRepository(
             pushMissingLocalRecords(uid, overwriteExisting = false)
             syncPrefs.markSeededForUid(uid)
             markSyncedNow()
+        } else if (syncPrefs.hasPendingMutations()) {
+            flushPendingMutations(uid)
+            markSyncedNow()
         } else {
             _syncState.update { it.copy(isSyncing = false) }
         }
     }
 
+    private fun triggerPendingFlushIfNeeded(uid: String) {
+        if (!syncPrefs.hasPendingMutations()) return
+        if (auth.currentUser?.uid != uid || !syncPrefs.isAutoSyncEnabled()) return
+        val scope = syncScope ?: return
+        if (isFlushingPending.get()) return
+        scope.launch {
+            flushPendingMutations(uid)
+        }
+    }
+
+    private suspend fun flushPendingMutations(uid: String) {
+        if (auth.currentUser?.uid != uid) return
+        if (!isFlushingPending.compareAndSet(false, true)) return
+        try {
+            // Transactions
+            syncPrefs.getPendingDeletes(COL_TRANSACTIONS).forEach { id ->
+                deleteTransaction(id)
+            }
+            val localTxById = localTxStore.loadAll().associateBy { sanitizeId(it.id) }
+            syncPrefs.getPendingUpserts(COL_TRANSACTIONS).forEach { id ->
+                val tx = localTxById[id]
+                if (tx != null) {
+                    upsertTransaction(tx)
+                } else {
+                    syncPrefs.clearPendingUpsert(COL_TRANSACTIONS, id)
+                }
+            }
+
+            // Members
+            syncPrefs.getPendingDeletes(COL_MEMBERS).forEach { id ->
+                deleteMember(id)
+            }
+            val localMembersById = memberStore.loadAll().associateBy { sanitizeId(it.id) }
+            syncPrefs.getPendingUpserts(COL_MEMBERS).forEach { id ->
+                val member = localMembersById[id]
+                if (member != null) {
+                    upsertMember(member)
+                } else {
+                    syncPrefs.clearPendingUpsert(COL_MEMBERS, id)
+                }
+            }
+
+            // Taka Joma
+            syncPrefs.getPendingDeletes(COL_TAKA_JOMA).forEach { id ->
+                deleteTakaJoma(id)
+            }
+            val localTakaById = takaJomaStore.loadAll().associateBy { sanitizeId(it.id) }
+            syncPrefs.getPendingUpserts(COL_TAKA_JOMA).forEach { id ->
+                val entry = localTakaById[id]
+                if (entry != null) {
+                    upsertTakaJoma(entry)
+                } else {
+                    syncPrefs.clearPendingUpsert(COL_TAKA_JOMA, id)
+                }
+            }
+
+            // Monthly Sales
+            syncPrefs.getPendingDeletes(COL_MONTHLY_SALES).forEach { id ->
+                deleteMonthlySales(id)
+            }
+            val localSalesById = monthlySalesStore.loadAll().associateBy { sanitizeId(it.id) }
+            syncPrefs.getPendingUpserts(COL_MONTHLY_SALES).forEach { id ->
+                val record = localSalesById[id]
+                if (record != null) {
+                    upsertMonthlySales(record)
+                } else {
+                    syncPrefs.clearPendingUpsert(COL_MONTHLY_SALES, id)
+                }
+            }
+
+            // App Config
+            syncPrefs.getPendingUpserts(COL_APP_CONFIG).forEach { docId ->
+                when (docId) {
+                    DOC_ONLINE_PAYMENT -> syncOnlinePaymentConfig(onlinePaymentStore.load())
+                    DOC_MEMBER_APP_LINK -> syncMemberAppLink(memberAppLinkStore.getDownloadUrl())
+                    DOC_ADMIN_AUTH -> syncAdminCredentials(
+                        loginId = credentialStore.getLoginId(),
+                        passwordHash = credentialStore.getPasswordHash(),
+                        isDefaultPassword = credentialStore.isUsingDefaultPassword()
+                    )
+                    DOC_DRIVE_BACKUP -> syncDriveBackupConfig(driveBackupStore.loadStatus())
+                    else -> syncPrefs.clearPendingUpsert(COL_APP_CONFIG, docId)
+                }
+            }
+        } finally {
+            isFlushingPending.set(false)
+        }
+    }
+
     private suspend fun pushMissingLocalRecords(uid: String, overwriteExisting: Boolean) {
         val userDoc = db.collection("users").document(uid)
+
+        // Apply any queued deletes first so local removals stay deleted
+        syncPrefs.getPendingDeletes(COL_TRANSACTIONS).forEach { deleteTransaction(it) }
+        syncPrefs.getPendingDeletes(COL_MEMBERS).forEach { deleteMember(it) }
+        syncPrefs.getPendingDeletes(COL_TAKA_JOMA).forEach { deleteTakaJoma(it) }
+        syncPrefs.getPendingDeletes(COL_MONTHLY_SALES).forEach { deleteMonthlySales(it) }
+
+        val pendingTxUpserts = syncPrefs.getPendingUpserts(COL_TRANSACTIONS)
+        val pendingMemberUpserts = syncPrefs.getPendingUpserts(COL_MEMBERS)
+        val pendingTakaUpserts = syncPrefs.getPendingUpserts(COL_TAKA_JOMA)
+        val pendingSalesUpserts = syncPrefs.getPendingUpserts(COL_MONTHLY_SALES)
+        val pendingConfigUpserts = syncPrefs.getPendingUpserts(COL_APP_CONFIG)
 
         // 1. Transactions
         val txCollection = userDoc.collection(COL_TRANSACTIONS)
@@ -219,7 +327,7 @@ class CloudAutoSyncRepository(
         cloudTxIds.forEach { knownDocIds.add("$COL_TRANSACTIONS/$it") }
         localTxStore.loadAll().forEach { tx ->
             val docId = sanitizeId(tx.id)
-            if (overwriteExisting || !cloudTxIds.contains(docId)) {
+            if (overwriteExisting || !cloudTxIds.contains(docId) || pendingTxUpserts.contains(docId)) {
                 upsertTransaction(tx)
             }
         }
@@ -234,10 +342,12 @@ class CloudAutoSyncRepository(
         }
         val cloudMemberIds = cloudMemberSnap.documents.mapTo(HashSet()) { it.id }
         cloudMemberIds.forEach { knownDocIds.add("$COL_MEMBERS/$it") }
-        memberStore.loadAll().forEach { member ->
-            val docId = sanitizeId(member.id)
-            if (overwriteExisting || !cloudMemberIds.contains(docId)) {
-                upsertMember(member)
+        localMembers@ run {
+            memberStore.loadAll().forEach { member ->
+                val docId = sanitizeId(member.id)
+                if (overwriteExisting || !cloudMemberIds.contains(docId) || pendingMemberUpserts.contains(docId)) {
+                    upsertMember(member)
+                }
             }
         }
 
@@ -253,7 +363,7 @@ class CloudAutoSyncRepository(
         cloudTakaIds.forEach { knownDocIds.add("$COL_TAKA_JOMA/$it") }
         takaJomaStore.loadAll().forEach { entry ->
             val docId = sanitizeId(entry.id)
-            if (overwriteExisting || !cloudTakaIds.contains(docId)) {
+            if (overwriteExisting || !cloudTakaIds.contains(docId) || pendingTakaUpserts.contains(docId)) {
                 upsertTakaJoma(entry)
             }
         }
@@ -270,7 +380,7 @@ class CloudAutoSyncRepository(
         cloudSalesIds.forEach { knownDocIds.add("$COL_MONTHLY_SALES/$it") }
         monthlySalesStore.loadAll().forEach { record ->
             val docId = sanitizeId(record.id)
-            if (overwriteExisting || !cloudSalesIds.contains(docId)) {
+            if (overwriteExisting || !cloudSalesIds.contains(docId) || pendingSalesUpserts.contains(docId)) {
                 upsertMonthlySales(record)
             }
         }
@@ -285,18 +395,24 @@ class CloudAutoSyncRepository(
         }
         val cloudConfigIds = cloudConfigSnap.documents.mapTo(HashSet()) { it.id }
         cloudConfigIds.forEach { knownDocIds.add("$COL_APP_CONFIG/$it") }
-        if (overwriteExisting || !cloudConfigIds.contains(DOC_ONLINE_PAYMENT)) {
+        if (overwriteExisting || !cloudConfigIds.contains(DOC_ONLINE_PAYMENT) || pendingConfigUpserts.contains(DOC_ONLINE_PAYMENT)) {
             syncOnlinePaymentConfig(onlinePaymentStore.load())
         }
-        if (overwriteExisting || !cloudConfigIds.contains(DOC_MEMBER_APP_LINK)) {
+        if (overwriteExisting || !cloudConfigIds.contains(DOC_MEMBER_APP_LINK) || pendingConfigUpserts.contains(DOC_MEMBER_APP_LINK)) {
             syncMemberAppLink(memberAppLinkStore.getDownloadUrl())
         }
-        if (overwriteExisting || !cloudConfigIds.contains(DOC_ADMIN_AUTH)) {
+        if (overwriteExisting || !cloudConfigIds.contains(DOC_ADMIN_AUTH) || pendingConfigUpserts.contains(DOC_ADMIN_AUTH)) {
             syncAdminCredentials(
                 loginId = credentialStore.getLoginId(),
                 passwordHash = credentialStore.getPasswordHash(),
                 isDefaultPassword = credentialStore.isUsingDefaultPassword()
             )
+        }
+        val driveStatus = driveBackupStore.loadStatus()
+        if ((driveStatus.oauthConnected && (overwriteExisting || !cloudConfigIds.contains(DOC_DRIVE_BACKUP))) ||
+            pendingConfigUpserts.contains(DOC_DRIVE_BACKUP)
+        ) {
+            syncDriveBackupConfig(driveStatus)
         }
     }
 
@@ -311,15 +427,32 @@ class CloudAutoSyncRepository(
                 if (snapshot.metadata.isFromCache && snapshot.isEmpty && !syncPrefs.isSeededForUid(uid)) {
                     return@collect
                 }
-                val parsed = snapshot.documents.mapNotNull { doc ->
+                val pendingDeletes = syncPrefs.getPendingDeletes(COL_TRANSACTIONS)
+                val pendingUpserts = syncPrefs.getPendingUpserts(COL_TRANSACTIONS)
+                val remote = snapshot.documents.mapNotNull { doc ->
                     knownDocIds.add("$COL_TRANSACTIONS/${doc.id}")
-                    doc.toHisabTransactionOrNull()
-                }.sortedWith(
-                    compareByDescending<HisabTransaction> { it.date }
-                        .thenByDescending { it.createdAt?.seconds ?: 0L }
-                )
+                    if (doc.id in pendingDeletes) null else doc.toHisabTransactionOrNull()
+                }
                 synchronized(localWriteLock) {
-                    localTxStore.saveAll(parsed)
+                    val merged = if (pendingUpserts.isEmpty()) {
+                        remote
+                    } else {
+                        val byId = remote.associateByTo(LinkedHashMap()) { sanitizeId(it.id) }
+                        localTxStore.loadAll().forEach { localTx ->
+                            val key = sanitizeId(localTx.id)
+                            if (key in pendingUpserts && key !in pendingDeletes) {
+                                byId[key] = localTx
+                            }
+                        }
+                        byId.values.toList()
+                    }.sortedWith(
+                        compareByDescending<HisabTransaction> { it.date }
+                            .thenByDescending { it.createdAt?.seconds ?: 0L }
+                    )
+                    localTxStore.saveAll(merged)
+                }
+                if (!snapshot.metadata.isFromCache) {
+                    triggerPendingFlushIfNeeded(uid)
                 }
                 markSyncedNow()
                 _remoteUpdates.tryEmit(Unit)
@@ -337,13 +470,31 @@ class CloudAutoSyncRepository(
                 if (snapshot.metadata.isFromCache && snapshot.isEmpty && !syncPrefs.isSeededForUid(uid)) {
                     return@collect
                 }
+                val pendingDeletes = syncPrefs.getPendingDeletes(COL_MEMBERS)
+                val pendingUpserts = syncPrefs.getPendingUpserts(COL_MEMBERS)
                 synchronized(localWriteLock) {
-                    val existingPhotos = memberStore.loadAll().associate { it.id to it.profilePhotoPath }
-                    val parsed = snapshot.documents.mapNotNull { doc ->
+                    val existingLocal = memberStore.loadAll()
+                    val existingPhotos = existingLocal.associate { it.id to it.profilePhotoPath }
+                    val remote = snapshot.documents.mapNotNull { doc ->
                         knownDocIds.add("$COL_MEMBERS/${doc.id}")
-                        doc.toMemberOrNull(existingPhotos[doc.id].orEmpty())
+                        if (doc.id in pendingDeletes) null else doc.toMemberOrNull(existingPhotos[doc.id].orEmpty())
+                    }
+                    val merged = if (pendingUpserts.isEmpty()) {
+                        remote
+                    } else {
+                        val byId = remote.associateByTo(LinkedHashMap()) { sanitizeId(it.id) }
+                        existingLocal.forEach { localMember ->
+                            val key = sanitizeId(localMember.id)
+                            if (key in pendingUpserts && key !in pendingDeletes) {
+                                byId[key] = localMember
+                            }
+                        }
+                        byId.values.toList()
                     }.sortedBy { it.createdAtMs }
-                    memberStore.saveAll(parsed)
+                    memberStore.saveAll(merged)
+                }
+                if (!snapshot.metadata.isFromCache) {
+                    triggerPendingFlushIfNeeded(uid)
                 }
                 markSyncedNow()
                 _remoteUpdates.tryEmit(Unit)
@@ -361,13 +512,31 @@ class CloudAutoSyncRepository(
                 if (snapshot.metadata.isFromCache && snapshot.isEmpty && !syncPrefs.isSeededForUid(uid)) {
                     return@collect
                 }
+                val pendingDeletes = syncPrefs.getPendingDeletes(COL_TAKA_JOMA)
+                val pendingUpserts = syncPrefs.getPendingUpserts(COL_TAKA_JOMA)
                 synchronized(localWriteLock) {
-                    val existingPhotos = takaJomaStore.loadAll().associate { it.id to it.photoPath }
-                    val parsed = snapshot.documents.mapNotNull { doc ->
+                    val existingLocal = takaJomaStore.loadAll()
+                    val existingPhotos = existingLocal.associate { it.id to it.photoPath }
+                    val remote = snapshot.documents.mapNotNull { doc ->
                         knownDocIds.add("$COL_TAKA_JOMA/${doc.id}")
-                        doc.toMemberTakaJomaOrNull(existingPhotos[doc.id].orEmpty())
+                        if (doc.id in pendingDeletes) null else doc.toMemberTakaJomaOrNull(existingPhotos[doc.id].orEmpty())
                     }
-                    takaJomaStore.saveAll(parsed)
+                    val merged = if (pendingUpserts.isEmpty()) {
+                        remote
+                    } else {
+                        val byId = remote.associateByTo(LinkedHashMap()) { sanitizeId(it.id) }
+                        existingLocal.forEach { localEntry ->
+                            val key = sanitizeId(localEntry.id)
+                            if (key in pendingUpserts && key !in pendingDeletes) {
+                                byId[key] = localEntry
+                            }
+                        }
+                        byId.values.toList()
+                    }.sortedByDescending { it.createdAtMs }
+                    takaJomaStore.saveAll(merged)
+                }
+                if (!snapshot.metadata.isFromCache) {
+                    triggerPendingFlushIfNeeded(uid)
                 }
                 markSyncedNow()
                 _remoteUpdates.tryEmit(Unit)
@@ -385,12 +554,30 @@ class CloudAutoSyncRepository(
                 if (snapshot.metadata.isFromCache && snapshot.isEmpty && !syncPrefs.isSeededForUid(uid)) {
                     return@collect
                 }
+                val pendingDeletes = syncPrefs.getPendingDeletes(COL_MONTHLY_SALES)
+                val pendingUpserts = syncPrefs.getPendingUpserts(COL_MONTHLY_SALES)
                 synchronized(localWriteLock) {
-                    val parsed = snapshot.documents.mapNotNull { doc ->
+                    val existingLocal = monthlySalesStore.loadAll()
+                    val remote = snapshot.documents.mapNotNull { doc ->
                         knownDocIds.add("$COL_MONTHLY_SALES/${doc.id}")
-                        doc.toMonthlySalesOrNull()
+                        if (doc.id in pendingDeletes) null else doc.toMonthlySalesOrNull()
                     }
-                    monthlySalesStore.saveAll(parsed)
+                    val merged = if (pendingUpserts.isEmpty()) {
+                        remote
+                    } else {
+                        val byId = remote.associateByTo(LinkedHashMap()) { sanitizeId(it.id) }
+                        existingLocal.forEach { localRecord ->
+                            val key = sanitizeId(localRecord.id)
+                            if (key in pendingUpserts && key !in pendingDeletes) {
+                                byId[key] = localRecord
+                            }
+                        }
+                        byId.values.toList()
+                    }.sortedByDescending { it.createdAtMs }
+                    monthlySalesStore.saveAll(merged)
+                }
+                if (!snapshot.metadata.isFromCache) {
+                    triggerPendingFlushIfNeeded(uid)
                 }
                 markSyncedNow()
                 _remoteUpdates.tryEmit(Unit)
@@ -408,10 +595,12 @@ class CloudAutoSyncRepository(
                 if (snapshot.metadata.isFromCache && snapshot.isEmpty) {
                     return@collect
                 }
+                val pendingConfigUpserts = syncPrefs.getPendingUpserts(COL_APP_CONFIG)
                 var changed = false
                 synchronized(localWriteLock) {
                     snapshot.documents.forEach { doc ->
                         knownDocIds.add("$COL_APP_CONFIG/${doc.id}")
+                        if (doc.id in pendingConfigUpserts) return@forEach
                         val data = doc.data ?: return@forEach
                         when (doc.id) {
                             DOC_ONLINE_PAYMENT -> {
@@ -448,8 +637,29 @@ class CloudAutoSyncRepository(
                                     changed = true
                                 }
                             }
+
+                            DOC_DRIVE_BACKUP -> {
+                                val driveConnected = data["driveConnected"] as? Boolean ?: false
+                                val driveEmail = (data["driveEmail"] as? String)?.trim().orEmpty()
+                                val driveFileId = (data["driveFileId"] as? String)?.trim().orEmpty()
+                                val driveAutoBackup = data["driveAutoBackupEnabled"] as? Boolean ?: true
+                                val lastBackupAtMs = (data["lastBackupAtMs"] as? Number)?.toLong()?.coerceAtLeast(0L) ?: 0L
+                                val lastBackupSummary = (data["lastBackupSummary"] as? String)?.trim().orEmpty()
+                                driveBackupStore.applySyncedDriveConfig(
+                                    isConnected = driveConnected,
+                                    connectedEmail = driveEmail,
+                                    driveFileId = driveFileId,
+                                    autoBackupEnabled = driveAutoBackup,
+                                    lastBackupAtMs = lastBackupAtMs,
+                                    lastBackupSummary = lastBackupSummary
+                                )
+                                changed = true
+                            }
                         }
                     }
+                }
+                if (!snapshot.metadata.isFromCache) {
+                    triggerPendingFlushIfNeeded(uid)
                 }
                 if (changed) {
                     markSyncedNow()
@@ -471,7 +681,7 @@ class CloudAutoSyncRepository(
             _syncState.update {
                 it.copy(
                     isSyncing = false,
-                    errorMessage = exceptionToLog.localizedMessage ?: "রিয়েল-টাইম সিঙ্ক ত্রুটি"
+                    errorMessage = exceptionToLog.localizedMessage ?: "Real-time sync error"
                 )
             }
         }
@@ -493,13 +703,13 @@ class CloudAutoSyncRepository(
         val docId = sanitizeId(tx.id)
         val uid = auth.currentUser?.uid
         if (uid.isNullOrBlank()) {
-            return@withContext Result.failure(IllegalStateException("Google সাইন-ইন সক্রিয় নেই।"))
+            return@withContext Result.failure(IllegalStateException("Google Sign-In is not active."))
         }
         val boundedAmount = tx.amount
         if (boundedAmount.isNaN() || boundedAmount <= 0.0 || boundedAmount > MAX_AMOUNT) {
-            return@withContext Result.failure(IllegalArgumentException("টাকার পরিমাণ সঠিক নয়।"))
+            return@withContext Result.failure(IllegalArgumentException("Invalid transaction amount."))
         }
-        val cleanCategory = tx.category.trim().ifBlank { "অন্যান্য" }.take(60)
+        val cleanCategory = tx.category.trim().ifBlank { "Other" }.take(60)
         val cleanNote = tx.note.trim().take(200)
         val cleanDate = if (ISO_DATE_REGEX.matches(tx.date.trim())) {
             tx.date.trim()
@@ -535,10 +745,10 @@ class CloudAutoSyncRepository(
     suspend fun upsertMember(member: Member): Result<Unit> = withContext(Dispatchers.IO) {
         val docId = sanitizeId(member.id)
         val uid = auth.currentUser?.uid
-            ?: return@withContext Result.failure(IllegalStateException("Google সাইন-ইন সক্রিয় নেই।"))
+            ?: return@withContext Result.failure(IllegalStateException("Google Sign-In is not active."))
         val cleanName = member.name.trim().take(100)
         if (cleanName.isEmpty()) {
-            return@withContext Result.failure(IllegalArgumentException("সদস্যের নাম আবশ্যক।"))
+            return@withContext Result.failure(IllegalArgumentException("Member name is required."))
         }
         val cleanHash = member.passwordHash.trim().takeIf {
             it.isEmpty() || PBKDF2_REGEX.matches(it)
@@ -576,11 +786,11 @@ class CloudAutoSyncRepository(
     suspend fun upsertTakaJoma(entry: MemberTakaJoma): Result<Unit> = withContext(Dispatchers.IO) {
         val docId = sanitizeId(entry.id)
         val uid = auth.currentUser?.uid
-            ?: return@withContext Result.failure(IllegalStateException("Google সাইন-ইন সক্রিয় নেই।"))
+            ?: return@withContext Result.failure(IllegalStateException("Google Sign-In is not active."))
         val cleanName = entry.name.trim().take(100)
         val cleanMemberId = entry.memberId.trim().ifBlank { "admin_manual" }.take(128)
         if (cleanName.isEmpty() || entry.amount.isNaN() || entry.amount <= 0.0 || entry.amount > MAX_AMOUNT) {
-            return@withContext Result.failure(IllegalArgumentException("টাকা জমার তথ্য সঠিক নয়।"))
+            return@withContext Result.failure(IllegalArgumentException("Invalid deposit entry."))
         }
         val cleanRole = if (entry.submittedByRole.equals("ADMIN", ignoreCase = true)) "ADMIN" else "MEMBER"
         val cleanDate = entry.date.trim().ifBlank { BanglaFormatters.todayIso() }.take(40)
@@ -617,12 +827,12 @@ class CloudAutoSyncRepository(
     suspend fun upsertMonthlySales(record: MonthlySalesRecord): Result<Unit> = withContext(Dispatchers.IO) {
         val docId = sanitizeId(record.id)
         val uid = auth.currentUser?.uid
-            ?: return@withContext Result.failure(IllegalStateException("Google সাইন-ইন সক্রিয় নেই।"))
+            ?: return@withContext Result.failure(IllegalStateException("Google Sign-In is not active."))
         val cleanMonth = record.yearMonth.trim()
         val cleanCode = record.code.trim().take(50)
         val cleanName = record.name.trim().ifBlank { cleanCode }.take(120)
         if (!YEAR_MONTH_REGEX.matches(cleanMonth) || cleanName.isEmpty()) {
-            return@withContext Result.failure(IllegalArgumentException("সেলস মাস বা নাম সঠিক নয়।"))
+            return@withContext Result.failure(IllegalArgumentException("Invalid sales month or member name."))
         }
         val cleanTp = record.tpSales.takeIf { !it.isNaN() }?.coerceIn(0.0, MAX_AMOUNT) ?: 0.0
         val cleanVat = record.tpPlusVat.takeIf { !it.isNaN() }?.coerceIn(0.0, MAX_AMOUNT) ?: 0.0
@@ -649,7 +859,7 @@ class CloudAutoSyncRepository(
 
     suspend fun syncOnlinePaymentConfig(config: OnlinePaymentConfig): Result<Unit> = withContext(Dispatchers.IO) {
         val uid = auth.currentUser?.uid
-            ?: return@withContext Result.failure(IllegalStateException("Google সাইন-ইন সক্রিয় নেই।"))
+            ?: return@withContext Result.failure(IllegalStateException("Google Sign-In is not active."))
         val accountsJson = serializeAccountsJson(config.accounts).take(10000)
         val updateMap = mapOf(
             "onlinePaymentEnabled" to config.isOnlinePaymentEnabled,
@@ -665,10 +875,10 @@ class CloudAutoSyncRepository(
 
     suspend fun syncMemberAppLink(downloadUrl: String): Result<Unit> = withContext(Dispatchers.IO) {
         val uid = auth.currentUser?.uid
-            ?: return@withContext Result.failure(IllegalStateException("Google সাইন-ইন সক্রিয় নেই।"))
+            ?: return@withContext Result.failure(IllegalStateException("Google Sign-In is not active."))
         val cleaned = downloadUrl.trim().take(500)
         if (cleaned.isNotEmpty() && !MemberAppLinkStore.isValidHttpUrl(cleaned)) {
-            return@withContext Result.failure(IllegalArgumentException("অবৈধ লিঙ্ক URL।"))
+            return@withContext Result.failure(IllegalArgumentException("Invalid link URL."))
         }
         val updateMap = mapOf(
             "downloadUrl" to cleaned,
@@ -687,11 +897,11 @@ class CloudAutoSyncRepository(
         isDefaultPassword: Boolean
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val uid = auth.currentUser?.uid
-            ?: return@withContext Result.failure(IllegalStateException("Google সাইন-ইন সক্রিয় নেই।"))
+            ?: return@withContext Result.failure(IllegalStateException("Google Sign-In is not active."))
         val cleanId = loginId.trim()
         val cleanHash = passwordHash.trim()
         if (!LOGIN_ID_REGEX.matches(cleanId) || !PBKDF2_REGEX.matches(cleanHash)) {
-            return@withContext Result.failure(IllegalArgumentException("লগইন তথ্য সিঙ্ক ফরম্যাট সঠিক নয়।"))
+            return@withContext Result.failure(IllegalArgumentException("Invalid credential sync format."))
         }
         val updateMap = mapOf(
             "loginId" to cleanId,
@@ -706,6 +916,29 @@ class CloudAutoSyncRepository(
         return@withContext upsertDoc(COL_APP_CONFIG, DOC_ADMIN_AUTH, createMap, updateMap)
     }
 
+    suspend fun syncDriveBackupConfig(status: GoogleDriveBackupStatus): Result<Unit> = withContext(Dispatchers.IO) {
+        val uid = auth.currentUser?.uid
+            ?: return@withContext Result.failure(IllegalStateException("Google Sign-In is not active."))
+        val cleanEmail = status.connectedEmail.trim().take(120)
+        val cleanFileId = status.driveFileId.trim().take(200)
+        val cleanSummary = status.lastBackupSummary.trim().take(250)
+        val cleanBackupMs = status.lastBackupAtMs.coerceAtLeast(0L)
+        val updateMap = mapOf(
+            "driveConnected" to status.oauthConnected,
+            "driveEmail" to cleanEmail,
+            "driveFileId" to cleanFileId,
+            "driveAutoBackupEnabled" to status.autoBackupEnabled,
+            "lastBackupAtMs" to cleanBackupMs,
+            "lastBackupSummary" to cleanSummary,
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        val createMap = updateMap + mapOf(
+            "userId" to uid,
+            "createdAt" to FieldValue.serverTimestamp()
+        )
+        return@withContext upsertDoc(COL_APP_CONFIG, DOC_DRIVE_BACKUP, createMap, updateMap)
+    }
+
     private suspend fun upsertDoc(
         collectionName: String,
         docId: String,
@@ -714,6 +947,7 @@ class CloudAutoSyncRepository(
     ): Result<Unit> {
         var docPath = "users/${auth.currentUser?.uid ?: "unauthenticated"}/$collectionName/$docId"
         var isUpdate = false
+        syncPrefs.markPendingUpsert(collectionName, docId)
         return try {
             val uid = requireUserId()
             val docRef = db.collection("users").document(uid).collection(collectionName).document(docId)
@@ -722,9 +956,13 @@ class CloudAutoSyncRepository(
             val alreadyExists = if (knownDocIds.contains(key)) {
                 true
             } else {
-                docRef.get().awaitGmsTask().exists().also { exists ->
-                    if (exists) knownDocIds.add(key)
+                val existsRemoteOrCached = try {
+                    docRef.get().awaitGmsTask().exists()
+                } catch (_: FirebaseFirestoreException) {
+                    runCatching { docRef.get(Source.CACHE).awaitGmsTask().exists() }.getOrDefault(false)
                 }
+                if (existsRemoteOrCached) knownDocIds.add(key)
+                existsRemoteOrCached
             }
             if (alreadyExists) {
                 isUpdate = true
@@ -742,6 +980,7 @@ class CloudAutoSyncRepository(
                 docRef.set(createData).awaitGmsTask()
             }
             knownDocIds.add(key)
+            syncPrefs.clearPendingUpsert(collectionName, docId)
             markSyncedNow()
             Result.success(Unit)
         } catch (e: CancellationException) {
@@ -753,7 +992,7 @@ class CloudAutoSyncRepository(
                 docPath
             )
             _syncState.update {
-                it.copy(errorMessage = e.localizedMessage ?: "ক্লাউড সিঙ্ক ব্যর্থ হয়েছে")
+                it.copy(errorMessage = e.localizedMessage ?: "Cloud sync failed")
             }
             Result.failure(e)
         }
@@ -761,12 +1000,14 @@ class CloudAutoSyncRepository(
 
     private suspend fun deleteDoc(collectionName: String, docId: String): Result<Unit> {
         var docPath = "users/${auth.currentUser?.uid ?: "unauthenticated"}/$collectionName/$docId"
+        syncPrefs.markPendingDelete(collectionName, docId)
         return try {
             val uid = requireUserId()
             val docRef = db.collection("users").document(uid).collection(collectionName).document(docId)
             docPath = docRef.path
             docRef.delete().awaitGmsTask()
             knownDocIds.remove("$collectionName/$docId")
+            syncPrefs.clearPendingDelete(collectionName, docId)
             markSyncedNow()
             Result.success(Unit)
         } catch (e: CancellationException) {
@@ -774,7 +1015,7 @@ class CloudAutoSyncRepository(
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.DELETE, docPath)
             _syncState.update {
-                it.copy(errorMessage = e.localizedMessage ?: "ক্লাউড থেকে মুছে ফেলা ব্যর্থ হয়েছে")
+                it.copy(errorMessage = e.localizedMessage ?: "Failed to delete from cloud")
             }
             Result.failure(e)
         }
@@ -918,14 +1159,15 @@ class CloudAutoSyncRepository(
     }
 
     companion object {
-        private const val COL_TRANSACTIONS = "transactions"
-        private const val COL_MEMBERS = "members"
-        private const val COL_TAKA_JOMA = "takaJoma"
-        private const val COL_MONTHLY_SALES = "monthlySales"
-        private const val COL_APP_CONFIG = "appConfig"
-        private const val DOC_ONLINE_PAYMENT = "online_payment"
-        private const val DOC_MEMBER_APP_LINK = "member_app_link"
-        private const val DOC_ADMIN_AUTH = "admin_auth"
+        const val COL_TRANSACTIONS = "transactions"
+        const val COL_MEMBERS = "members"
+        const val COL_TAKA_JOMA = "takaJoma"
+        const val COL_MONTHLY_SALES = "monthlySales"
+        const val COL_APP_CONFIG = "appConfig"
+        const val DOC_ONLINE_PAYMENT = "online_payment"
+        const val DOC_MEMBER_APP_LINK = "member_app_link"
+        const val DOC_ADMIN_AUTH = "admin_auth"
+        const val DOC_DRIVE_BACKUP = "drive_backup"
         private const val MAX_AMOUNT = 1_000_000_000.0
         private val ISO_DATE_REGEX = Regex("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
         private val YEAR_MONTH_REGEX = Regex("^[0-9]{4}-[0-9]{2}$")

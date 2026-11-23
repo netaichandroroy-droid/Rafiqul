@@ -112,7 +112,7 @@ fun SalesUploadScreen(
                     name to content
                 }
                 if (bytes == null) {
-                    onShowMessage("ফাইল পড়া যায়নি")
+                    onShowMessage("Could not read file")
                     return@launch
                 }
                 val parsed = SalesSheetParser.parseBytes(
@@ -123,7 +123,7 @@ fun SalesUploadScreen(
                 parsed.onSuccess { records ->
                     onUploadMonthSales(selectedMonth, records, replaceOnUpload) { }
                 }.onFailure { err ->
-                    onShowMessage(err.localizedMessage ?: "ফাইল পার্স করা যায়নি")
+                    onShowMessage(err.localizedMessage ?: "Could not parse file")
                 }
             }
         }
@@ -142,7 +142,7 @@ fun SalesUploadScreen(
                     }.isSuccess
                 }
                 onShowMessage(
-                    if (ok) "স্যাম্পল CSV টেমপ্লেট সংরক্ষিত হয়েছে" else "টেমপ্লেট সংরক্ষণ ব্যর্থ হয়েছে"
+                    if (ok) "Sample CSV template saved" else "Failed to save template"
                 )
             }
         }
@@ -169,7 +169,7 @@ fun SalesUploadScreen(
                     }.getOrDefault(false)
                 }
                 onShowMessage(
-                    if (ok) "মাসিক Sales Picture (PNG) সংরক্ষিত হয়েছে" else "Picture সংরক্ষণ ব্যর্থ হয়েছে"
+                    if (ok) "Monthly Sales PNG saved" else "Failed to save picture"
                 )
             }
         }
@@ -191,12 +191,12 @@ fun SalesUploadScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "মাস অনুযায়ী Sales Upload",
+                            text = "Monthly Sales Upload",
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "মাস নির্বাচন করে code, name, TP sales, TP+Vat আপলোড করুন",
+                            text = "Select a month and upload code, name, TP sales, TP+VAT sales",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -230,7 +230,7 @@ fun SalesUploadScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                contentDescription = "আগের মাস"
+                                contentDescription = "Previous month"
                             )
                         }
                         Text(
@@ -248,7 +248,7 @@ fun SalesUploadScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = "পরের মাস"
+                                contentDescription = "Next month"
                             )
                         }
                     }
@@ -267,7 +267,7 @@ fun SalesUploadScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "মোট TP sales",
+                                text = "Total TP sales",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -287,7 +287,7 @@ fun SalesUploadScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "মোট TP+Vat",
+                                text = "Total TP+VAT sales",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -308,14 +308,14 @@ fun SalesUploadScreen(
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "ফাইল আপলোড ও এন্ট্রি",
+                    text = "File Upload & Entry",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "কলাম হেডার: code, name, TP sales, TP+Vat (.csv / .xlsx বা টেবিল পেস্ট)",
+                    text = "Columns: code, name, TP sales, TP+VAT sales (.csv / .xlsx or paste table)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -328,7 +328,7 @@ fun SalesUploadScreen(
                     FilterChip(
                         selected = replaceOnUpload,
                         onClick = { replaceOnUpload = true },
-                        label = { Text("মাসের ডেটা বদলান") },
+                        label = { Text("Replace Month") },
                         modifier = Modifier.weight(1f),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -338,7 +338,7 @@ fun SalesUploadScreen(
                     FilterChip(
                         selected = !replaceOnUpload,
                         onClick = { replaceOnUpload = false },
-                        label = { Text("আগের সাথে যোগ") },
+                        label = { Text("Append") },
                         modifier = Modifier.weight(1f),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -374,7 +374,7 @@ fun SalesUploadScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("CSV / Excel (.xlsx) ফাইল আপলোড")
+                    Text("Upload CSV / Excel (.xlsx)")
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -398,7 +398,7 @@ fun SalesUploadScreen(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("টেবিল পেস্ট", maxLines = 1)
+                        Text("Paste Table", maxLines = 1)
                     }
                     OutlinedButton(
                         onClick = {
@@ -418,7 +418,7 @@ fun SalesUploadScreen(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("ম্যানুয়াল যোগ", maxLines = 1)
+                        Text("Add Manual", maxLines = 1)
                     }
                 }
 
@@ -438,7 +438,7 @@ fun SalesUploadScreen(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("স্যাম্পল শিট")
+                        Text("Sample Sheet")
                     }
                     if (monthRecords.isNotEmpty()) {
                         TextButton(
@@ -451,7 +451,7 @@ fun SalesUploadScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Picture ডাউনলোড")
+                            Text("Download PNG")
                         }
                         TextButton(
                             onClick = { showClearMonthConfirm = true },
@@ -466,7 +466,7 @@ fun SalesUploadScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(2.dp))
-                            Text("মাস মুছুন")
+                            Text("Clear Month")
                         }
                     }
                 }
@@ -476,10 +476,10 @@ fun SalesUploadScreen(
         // Uploaded Sales Table Preview Card
         item {
             MonthlySalesTableCard(
-                title = "${BanglaFormatters.formatBanglaMonth(selectedMonth)} - Sales তালিকা",
-                subtitle = "যেকোনো সারিতে ট্যাপ করে সম্পাদনা বা মুছতে পারবেন",
+                title = "${BanglaFormatters.formatBanglaMonth(selectedMonth)} — Sales List",
+                subtitle = "Tap any row to edit or delete",
                 records = monthRecords,
-                emptyMessage = "${BanglaFormatters.formatBanglaMonth(selectedMonth)}-এর কোনো Sales এখনো আপলোড করা হয়নি।",
+                emptyMessage = "No sales uploaded for ${BanglaFormatters.formatBanglaMonth(selectedMonth)} yet.",
                 onRowClick = { record -> selectedActionRecord = record }
             )
         }
@@ -529,12 +529,12 @@ fun SalesUploadScreen(
             title = { Text("${record.name} (${record.code.ifBlank { "-" }})") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("মাস: ${BanglaFormatters.formatBanglaMonth(record.yearMonth)}")
+                    Text("Month: ${BanglaFormatters.formatBanglaMonth(record.yearMonth)}")
                     Text("code: ${record.code.ifBlank { "-" }}")
                     Text("name: ${record.name}")
                     Text("TP sales: ${BanglaFormatters.formatBdt(record.tpSales)}")
                     Text(
-                        text = "TP+Vat: ${BanglaFormatters.formatBdt(record.tpPlusVat)}",
+                        text = "TP+VAT sales: ${BanglaFormatters.formatBdt(record.tpPlusVat)}",
                         fontWeight = FontWeight.Bold,
                         color = IncomeEmerald
                     )
@@ -548,7 +548,7 @@ fun SalesUploadScreen(
                         showManualDialog = true
                     }
                 ) {
-                    Text("সম্পাদনা")
+                    Text("Edit")
                 }
             },
             dismissButton = {
@@ -562,10 +562,10 @@ fun SalesUploadScreen(
                             contentColor = MaterialTheme.colorScheme.error
                         )
                     ) {
-                        Text("মুছুন")
+                        Text("Delete")
                     }
                     TextButton(onClick = { selectedActionRecord = null }) {
-                        Text("বন্ধ")
+                        Text("Close")
                     }
                 }
             }
@@ -575,9 +575,9 @@ fun SalesUploadScreen(
     if (showClearMonthConfirm) {
         AlertDialog(
             onDismissRequest = { showClearMonthConfirm = false },
-            title = { Text("মাসের সব Sales মুছবেন?") },
+            title = { Text("Clear All Sales for This Month?") },
             text = {
-                Text("${BanglaFormatters.formatBanglaMonth(selectedMonth)}-এর ${BanglaFormatters.toBanglaDigits(monthRecords.size.toString())}টি Sales রেকর্ড মুছে ফেলা হবে।")
+                Text("${monthRecords.size} sales record(s) for ${BanglaFormatters.formatBanglaMonth(selectedMonth)} will be deleted.")
             },
             confirmButton = {
                 TextButton(
@@ -589,12 +589,12 @@ fun SalesUploadScreen(
                         contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("মুছুন")
+                    Text("Clear")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearMonthConfirm = false }) {
-                    Text("বাতিল")
+                    Text("Cancel")
                 }
             }
         )
@@ -612,11 +612,11 @@ private fun PasteSalesTableDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Excel / CSV ডেটা পেস্ট করুন") },
+        title = { Text("Paste Excel / CSV Data") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Excel বা Google Sheets থেকে কপি করা ডেটা এখানে পেস্ট করুন (কলাম: code, name, TP sales, TP+Vat):",
+                    text = "Paste data copied from Excel or Google Sheets (columns: code, name, TP sales, TP+VAT sales):",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -627,7 +627,7 @@ private fun PasteSalesTableDialog(
                         errorText = null
                     },
                     placeholder = {
-                        Text("code,name,TP sales,TP+Vat\nC-101,রফিকুল ইসলাম,50000,57500")
+                        Text("code,name,TP sales,TP+VAT sales\nC-101,Rafiqul Islam,50000,57500")
                     },
                     minLines = 5,
                     maxLines = 8,
@@ -652,17 +652,17 @@ private fun PasteSalesTableDialog(
                     result.onSuccess { parsed ->
                         onImport(parsed)
                     }.onFailure { err ->
-                        errorText = err.localizedMessage ?: "সঠিক ফরম্যাটে ডেটা দিন।"
+                        errorText = err.localizedMessage ?: "Please enter data in a valid format."
                     }
                 },
                 modifier = Modifier.testTag("sales_paste_import_button")
             ) {
-                Text("আপলোড করুন")
+                Text("Upload")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("বাতিল")
+                Text("Cancel")
             }
         }
     )
@@ -688,13 +688,13 @@ private fun SalesRecordEditorDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(if (editingRecord == null) "নতুন Sales যোগ করুন" else "Sales সম্পাদনা")
+            Text(if (editingRecord == null) "Add Sales Record" else "Edit Sales Record")
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (members.isNotEmpty() && editingRecord == null) {
                     Text(
-                        text = "মেম্বার থেকে অটো-ফিল:",
+                        text = "Auto-fill from Member:",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -775,7 +775,7 @@ private fun SalesRecordEditorDialog(
                         tpVatInput = it
                         errorText = null
                     },
-                    label = { Text("TP+Vat (৳)") },
+                    label = { Text("TP+VAT sales (৳)") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     shape = RoundedCornerShape(12.dp),
@@ -801,23 +801,23 @@ private fun SalesRecordEditorDialog(
                     val tpSales = SalesSheetParser.parseAmount(tpSalesInput)
                     val tpVat = SalesSheetParser.parseAmount(tpVatInput)
                     if (cleanName.isEmpty() && cleanCode.isEmpty()) {
-                        errorText = "অনুগ্রহ করে code অথবা name লিখুন।"
+                        errorText = "Please enter a code or name."
                         return@Button
                     }
                     if (tpSales == null || tpVat == null) {
-                        errorText = "সঠিক TP sales এবং TP+Vat পরিমাণ লিখুন।"
+                        errorText = "Please enter valid TP sales and TP+VAT sales amounts."
                         return@Button
                     }
                     onSave(cleanCode, cleanName.ifBlank { cleanCode }, tpSales, tpVat)
                 },
                 modifier = Modifier.testTag("sales_manual_save_button")
             ) {
-                Text("সংরক্ষণ করুন")
+                Text("Save")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("বাতিল")
+                Text("Cancel")
             }
         }
     )

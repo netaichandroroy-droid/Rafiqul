@@ -22,14 +22,14 @@ class MemberAppLinkStore(context: Context) {
         return getDownloadUrl().ifBlank { DEFAULT_MEMBER_APP_URL }
     }
 
-    fun buildMemberInviteText(memberName: String? = null): String {
+    fun buildMemberInviteText(memberCode: String? = null): String {
         val link = getEffectiveMemberLink()
-        val idLine = if (!memberName.isNullOrBlank()) {
-            "\nLogin ID: ${memberName.trim()}\nPassword: ${memberName.trim()} (অথবা পরিবর্তিত পাসওয়ার্ড)"
+        val idLine = if (!memberCode.isNullOrBlank()) {
+            "\nLogin ID: ${memberCode.trim()}\nPassword: ${memberCode.trim()} (or your updated password)"
         } else {
-            "\nলগইন নিয়ম: মেম্বার লিস্টে থাকা আপনার নামই Login ID ও প্রাথমিক Password।"
+            "\nLogin rule: Use your member Code as both Login ID and initial Password."
         }
-        return "মেম্বার মোবাইল অ্যাপ ও লগইন লিঙ্ক: $link$idLine"
+        return "Member Mobile App & Login Link: $link$idLine"
     }
 
     fun saveDownloadUrl(rawUrl: String): Result<String> {
@@ -40,7 +40,7 @@ class MemberAppLinkStore(context: Context) {
         }
         if (cleaned.any { it.isWhitespace() }) {
             return Result.failure(
-                IllegalArgumentException("অনুগ্রহ করে সঠিক http:// বা https:// ডাউনলোড লিঙ্ক দিন।")
+                IllegalArgumentException("Please enter a valid http:// or https:// download link.")
             )
         }
         val hasExplicitScheme = HAS_SCHEME_REGEX.matches(cleaned) && !HOST_PORT_REGEX.matches(cleaned)
@@ -51,7 +51,7 @@ class MemberAppLinkStore(context: Context) {
         }
         if (!isValidHttpUrl(normalized)) {
             return Result.failure(
-                IllegalArgumentException("অনুগ্রহ করে সঠিক http:// বা https:// ডাউনলোড লিঙ্ক দিন।")
+                IllegalArgumentException("Please enter a valid http:// or https:// download link.")
             )
         }
         prefs.edit(commit = true) {
@@ -134,11 +134,11 @@ class MemberAppLinkStore(context: Context) {
                         putExtra(Intent.EXTRA_STREAM, apkUri)
                         putExtra(
                             Intent.EXTRA_SUBJECT,
-                            "মেম্বার মোবাইল অ্যাপ (APK)"
+                            "Member Mobile App (APK)"
                         )
                         putExtra(
                             Intent.EXTRA_TEXT,
-                            "মেম্বার মোবাইল অ্যাপ ও লগইন লিঙ্ক: $effectiveUrl\nলগইন নিয়ম: মেম্বার লিস্টের নামই Login ID ও প্রাথমিক Password।"
+                            "Member Mobile App & Login Link: $effectiveUrl\nLogin rule: Use your member Code as both Login ID and initial Password."
                         )
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
@@ -147,11 +147,11 @@ class MemberAppLinkStore(context: Context) {
                         type = "text/plain"
                         putExtra(
                             Intent.EXTRA_TEXT,
-                            "মেম্বার মোবাইল অ্যাপ ও লগইন লিঙ্ক: $effectiveUrl\nলগইন নিয়ম: মেম্বার লিস্টের নামই Login ID ও প্রাথমিক Password।"
+                            "Member Mobile App & Login Link: $effectiveUrl\nLogin rule: Use your member Code as both Login ID and initial Password."
                         )
                     }
                 }
-                val chooser = Intent.createChooser(intent, "মেম্বার মোবাইল অ্যাপ শেয়ার করুন").apply {
+                val chooser = Intent.createChooser(intent, "Share Member Mobile App").apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(chooser)

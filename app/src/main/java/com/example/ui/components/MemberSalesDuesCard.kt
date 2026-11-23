@@ -124,16 +124,16 @@ fun MemberSalesDuesCard(
     }
     val salesColW = remember(displayedSummaries, totals, density) {
         measureCol(
-            "TP+Vat",
+            "TP+VAT sales",
             displayedSummaries.map { BanglaFormatters.formatBdt(it.totalSales) } +
                 BanglaFormatters.formatBdt(totals.totalSales),
-            78.dp,
-            126.dp
+            90.dp,
+            142.dp
         )
     }
     val jomaColW = remember(displayedSummaries, totals, density) {
         measureCol(
-            "জমা",
+            "Deposit",
             displayedSummaries.map { BanglaFormatters.formatBdt(it.approvedJoma) } +
                 BanglaFormatters.formatBdt(totals.totalApprovedJoma),
             74.dp,
@@ -166,13 +166,13 @@ fun MemberSalesDuesCard(
                     .padding(horizontal = 14.dp)
             ) {
                 Text(
-                    text = "মেম্বার TP+Vat ও Dues হিসাব",
+                    text = "Member TP+VAT sales & Dues",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "শুধু TP+Vat থেকে অনুমোদিত টাকা জমা বাদ দিয়ে Dues হিসাব হয় (TP sales থেকে নয়)",
+                    text = "Dues = TP+VAT sales minus approved deposits (TP sales excluded)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -192,7 +192,7 @@ fun MemberSalesDuesCard(
                     color = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Text(
-                        text = "মোট TP+Vat: ${BanglaFormatters.formatBdt(totals.totalSales)}",
+                        text = "Total TP+VAT sales: ${BanglaFormatters.formatBdt(totals.totalSales)}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -204,7 +204,7 @@ fun MemberSalesDuesCard(
                     color = IncomeSurface
                 ) {
                     Text(
-                        text = "অনুমোদিত জমা: ${BanglaFormatters.formatBdt(totals.totalApprovedJoma)}",
+                        text = "Approved Deposit: ${BanglaFormatters.formatBdt(totals.totalApprovedJoma)}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = IncomeEmerald,
@@ -216,7 +216,7 @@ fun MemberSalesDuesCard(
                     color = if (totals.totalDues > 0.0) ExpenseSurface else IncomeSurface
                 ) {
                     Text(
-                        text = "মোট Dues: ${BanglaFormatters.formatBdt(totals.totalDues)}",
+                        text = "Total Dues: ${BanglaFormatters.formatBdt(totals.totalDues)}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = if (totals.totalDues > 0.0) ExpenseCrimson else IncomeEmerald,
@@ -237,7 +237,7 @@ fun MemberSalesDuesCard(
                     FilterChip(
                         selected = !onlyDuesFilter,
                         onClick = { onlyDuesFilter = false },
-                        label = { Text("সব (${BanglaFormatters.toBanglaDigits(summaries.size.toString())})") },
+                        label = { Text("All (${summaries.size})") },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.primary
@@ -247,7 +247,7 @@ fun MemberSalesDuesCard(
                     FilterChip(
                         selected = onlyDuesFilter,
                         onClick = { onlyDuesFilter = true },
-                        label = { Text("বকেয়া আছে (${BanglaFormatters.toBanglaDigits(duesCount.toString())})") },
+                        label = { Text("Has Dues ($duesCount)") },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = ExpenseSurface,
                             selectedLabelColor = ExpenseCrimson
@@ -276,9 +276,9 @@ fun MemberSalesDuesCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (summaries.isEmpty()) {
-                            "সদস্য যোগ বা Sales আপলোড করলে এখানে Sales ও Dues দেখা যাবে।"
+                            "Add members or upload a sales sheet to view sales and dues."
                         } else {
-                            "কোনো মেম্বারের বকেয়া (Dues) নেই।"
+                            "No members currently have dues."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -318,9 +318,9 @@ fun MemberSalesDuesCard(
                                 DuesVerticalBorder(borderColor)
                                 DuesHeaderCell("Name", resolvedNameW, tableHeaderStyle, TextAlign.Start)
                                 DuesVerticalBorder(borderColor)
-                                DuesHeaderCell("TP+Vat", resolvedSalesW, tableHeaderStyle, TextAlign.End)
+                                DuesHeaderCell("TP+VAT sales", resolvedSalesW, tableHeaderStyle, TextAlign.End)
                                 DuesVerticalBorder(borderColor)
-                                DuesHeaderCell("জমা", resolvedJomaW, tableHeaderStyle, TextAlign.End)
+                                DuesHeaderCell("Deposit", resolvedJomaW, tableHeaderStyle, TextAlign.End)
                                 DuesVerticalBorder(borderColor)
                                 DuesHeaderCell("Dues", resolvedDuesW, tableHeaderStyle, TextAlign.End)
                             }
@@ -376,7 +376,7 @@ fun MemberSalesDuesCard(
                                             )
                                             if (summary.pendingCount > 0) {
                                                 Text(
-                                                    text = "অপেক্ষমাণ: ${BanglaFormatters.formatBdt(summary.pendingJoma)}",
+                                                    text = "Pending: ${BanglaFormatters.formatBdt(summary.pendingJoma)}",
                                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                                     color = NagadAccent,
                                                     maxLines = 1,
@@ -459,7 +459,7 @@ fun MemberSalesDuesCard(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "মোট",
+                                        text = "Total",
                                         style = tableHeaderStyle,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
@@ -473,7 +473,7 @@ fun MemberSalesDuesCard(
                                     contentAlignment = Alignment.CenterStart
                                 ) {
                                     Text(
-                                        text = "${BanglaFormatters.toBanglaDigits(displayedSummaries.size.toString())} জন",
+                                        text = "${displayedSummaries.size} members",
                                         style = tableBodyStyle.copy(fontWeight = FontWeight.SemiBold),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -545,39 +545,39 @@ fun MemberSalesDuesCard(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     if (item.area.isNotBlank()) {
-                        Text("এরিয়া: ${item.area}")
+                        Text("Area: ${item.area}")
                     }
                     if (item.depot.isNotBlank()) {
-                        Text("ডিপো: ${item.depot}")
+                        Text("Depot: ${item.depot}")
                     }
                     if (item.uploadedTpSales > 0.0) {
                         Text(
-                            text = "TP sales (তথ্য মাত্র): ${BanglaFormatters.formatBdt(item.uploadedTpSales)}",
+                            text = "TP sales (Info): ${BanglaFormatters.formatBdt(item.uploadedTpSales)}",
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Text("আপলোডকৃত TP+Vat: ${BanglaFormatters.formatBdt(item.uploadedSales)}")
+                    Text("Uploaded TP+VAT sales: ${BanglaFormatters.formatBdt(item.uploadedSales)}")
                     if (item.manualSales > 0.0) {
-                        Text("ম্যানুয়াল Sales: ${BanglaFormatters.formatBdt(item.manualSales)}")
+                        Text("Manual Sales: ${BanglaFormatters.formatBdt(item.manualSales)}")
                     }
                     Text(
-                        text = "মোট TP+Vat (Dues ভিত্তি): ${BanglaFormatters.formatBdt(item.totalSales)}",
+                        text = "Total TP+VAT sales: ${BanglaFormatters.formatBdt(item.totalSales)}",
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "অনুমোদিত জমা (${BanglaFormatters.toBanglaDigits(item.approvedCount.toString())}টি): ${BanglaFormatters.formatBdt(item.approvedJoma)}",
+                        text = "Approved Deposits (${item.approvedCount}): ${BanglaFormatters.formatBdt(item.approvedJoma)}",
                         fontWeight = FontWeight.SemiBold,
                         color = IncomeEmerald
                     )
                     if (item.pendingJoma > 0.0) {
                         val afterPendingDues = (item.totalSales - (item.approvedJoma + item.pendingJoma)).coerceAtLeast(0.0)
                         Text(
-                            text = "অপেক্ষমাণ জমা (${BanglaFormatters.toBanglaDigits(item.pendingCount.toString())}টি): ${BanglaFormatters.formatBdt(item.pendingJoma)}",
+                            text = "Pending Deposits (${item.pendingCount}): ${BanglaFormatters.formatBdt(item.pendingJoma)}",
                             color = NagadAccent,
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            text = "অনুমোদন করলে সম্ভাব্য Dues: ${BanglaFormatters.formatBdt(afterPendingDues)}",
+                            text = "Projected Dues after approval: ${BanglaFormatters.formatBdt(afterPendingDues)}",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -585,9 +585,9 @@ fun MemberSalesDuesCard(
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     Text(
                         text = if (item.advance > 0.0) {
-                            "অগ্রিম জমা: ${BanglaFormatters.formatBdt(item.advance)}"
+                            "Advance Deposit: ${BanglaFormatters.formatBdt(item.advance)}"
                         } else {
-                            "বর্তমান বকেয়া (Dues = TP+Vat − জমা): ${BanglaFormatters.formatBdt(item.dues)}"
+                            "Current Dues (TP+VAT sales − Deposit): ${BanglaFormatters.formatBdt(item.dues)}"
                         },
                         fontWeight = FontWeight.Bold,
                         color = if (item.dues > 0.0) ExpenseCrimson else IncomeEmerald
@@ -596,7 +596,7 @@ fun MemberSalesDuesCard(
             },
             confirmButton = {
                 TextButton(onClick = { inspectingSummary = null }) {
-                    Text("বন্ধ করুন")
+                    Text("Close")
                 }
             }
         )

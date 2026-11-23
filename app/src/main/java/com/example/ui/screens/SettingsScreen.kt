@@ -75,7 +75,6 @@ import com.example.ai.AiVoiceStatus
 import com.example.ai.FemaleAiVoiceOption
 import com.example.data.CloudSyncUiState
 import com.example.data.MemberAppLinkStore
-import com.example.model.BanglaFormatters
 import com.example.model.Member
 import com.example.ui.AiVoiceUiState
 import com.example.ui.DriveUiState
@@ -122,6 +121,10 @@ fun SettingsScreen(
     onCloudSignIn: () -> Unit = {},
     onSwitchCloudAccount: () -> Unit = onCloudSignOut,
     onConnectGoogleDrive: () -> Unit = {},
+    onLinkGoogleDriveFile: () -> Unit = {},
+    onRestoreFromDriveFile: () -> Unit = {},
+    onShowDriveAccessHelp: () -> Unit = {},
+    driveAuthBlockedEmail: String? = null,
     onBackupToGoogleDrive: () -> Unit = {},
     onRestoreFromGoogleDrive: () -> Unit = {},
     onToggleDriveAutoBackup: (Boolean) -> Unit = {},
@@ -159,9 +162,9 @@ fun SettingsScreen(
 
                 SettingsListOptionRow(
                     icon = Icons.Outlined.Groups,
-                    title = "Member List (মেম্বার লিস্ট)",
-                    subtitle = "মোট ${BanglaFormatters.toBanglaDigits(memberCount.toString())} জন • সক্রিয় ${BanglaFormatters.toBanglaDigits(activeMemberCount.toString())} জন",
-                    badgeText = BanglaFormatters.toBanglaDigits(memberCount.toString()),
+                    title = "Member List",
+                    subtitle = "$memberCount total • $activeMemberCount active",
+                    badgeText = memberCount.toString(),
                     badgeBg = MaterialTheme.colorScheme.primaryContainer,
                     badgeFg = MaterialTheme.colorScheme.primary,
                     onClick = onOpenMemberList,
@@ -171,9 +174,9 @@ fun SettingsScreen(
 
                 SettingsListOptionRow(
                     icon = Icons.AutoMirrored.Outlined.ReceiptLong,
-                    title = "মেম্বার টাকা জমা ফর্ম",
-                    subtitle = "নাম, কোড, ডিপো ও জমার তালিকা",
-                    badgeText = BanglaFormatters.toBanglaDigits(takaJomaCount.toString()),
+                    title = "Member Deposit Form",
+                    subtitle = "Name, code, depot & deposit records",
+                    badgeText = takaJomaCount.toString(),
                     badgeBg = onBg,
                     badgeFg = onFg,
                     onClick = onOpenMemberTakaJoma,
@@ -183,9 +186,9 @@ fun SettingsScreen(
 
                 SettingsListOptionRow(
                     icon = Icons.Outlined.TrendingUp,
-                    title = "Sales Upload (মাস অনুযায়ী)",
-                    subtitle = "মাসভিত্তিক code, name, TP sales ও TP+Vat আপলোড",
-                    badgeText = BanglaFormatters.toBanglaDigits(salesCount.toString()),
+                    title = "Monthly Sales Upload",
+                    subtitle = "Upload monthly code, name, TP sales & TP+VAT sales",
+                    badgeText = salesCount.toString(),
                     badgeBg = MaterialTheme.colorScheme.primaryContainer,
                     badgeFg = MaterialTheme.colorScheme.primary,
                     onClick = onOpenSalesUpload,
@@ -195,9 +198,9 @@ fun SettingsScreen(
 
                 SettingsListOptionRow(
                     icon = Icons.Outlined.Payments,
-                    title = "Online Payment (অনলাইন পেমেন্ট)",
-                    subtitle = "bKash, Nagad, Rocket ও ব্যাংক পেমেন্ট সেটিংস",
-                    badgeText = if (isOnlinePaymentEnabled) "চালু" else "বন্ধ",
+                    title = "Online Payment",
+                    subtitle = "bKash, Nagad, Rocket & bank payment settings",
+                    badgeText = if (isOnlinePaymentEnabled) "ON" else "OFF",
                     badgeBg = if (isOnlinePaymentEnabled) onBg else offBg,
                     badgeFg = if (isOnlinePaymentEnabled) onFg else offFg,
                     onClick = onOpenOnlinePayment,
@@ -207,9 +210,9 @@ fun SettingsScreen(
 
                 SettingsListOptionRow(
                     icon = Icons.Outlined.PhoneAndroid,
-                    title = "মেম্বার মোবাইল অ্যাপ লিঙ্ক",
+                    title = "Member App Link",
                     subtitle = memberAppDownloadUrl.ifBlank { MemberAppLinkStore.DEFAULT_MEMBER_APP_URL },
-                    badgeText = if (memberAppDownloadUrl.isNotBlank()) "কাস্টম" else "লিংক রেডি",
+                    badgeText = if (memberAppDownloadUrl.isNotBlank()) "Custom" else "Ready",
                     badgeBg = MaterialTheme.colorScheme.primaryContainer,
                     badgeFg = MaterialTheme.colorScheme.primary,
                     onClick = onOpenMemberAppLink,
@@ -261,13 +264,13 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "বাংলা AI ভয়েস (নারী কণ্ঠ)",
+                                text = "Voice Summary Report",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "মেম্বারদের সেলস, জমা টাকা ও বাকি (Dues) মিষ্টি নারী কণ্ঠে বাংলায় শুনুন",
+                                text = "Listen to member sales, deposits, and dues read aloud",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -280,10 +283,10 @@ fun SettingsScreen(
                     ) {
                         Text(
                             text = when (aiVoiceState.status) {
-                                AiVoiceStatus.Playing -> "চলছে"
+                                AiVoiceStatus.Playing -> "Playing"
                                 AiVoiceStatus.ComposingScript,
-                                AiVoiceStatus.GeneratingAudio -> "প্রস্তুত হচ্ছে"
-                                else -> "AI Voice"
+                                AiVoiceStatus.GeneratingAudio -> "Preparing"
+                                else -> "Voice"
                             },
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
@@ -296,7 +299,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "নারী কণ্ঠ নির্বাচন:",
+                    text = "Select Voice:",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -331,7 +334,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "কোন হিসাব শুনবেন:",
+                    text = "Report Scope:",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -368,7 +371,7 @@ fun SettingsScreen(
                 if (aiVoiceState.selectedScope == AiVoiceScope.SINGLE_MEMBER && members.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "মেম্বার বাছাই করুন:",
+                        text = "Select Member:",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -421,7 +424,7 @@ fun SettingsScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("ভয়েস থামান", fontWeight = FontWeight.Bold)
+                            Text("Stop Voice", fontWeight = FontWeight.Bold)
                         }
                     } else {
                         Button(
@@ -442,9 +445,9 @@ fun SettingsScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = if (aiVoiceState.status == AiVoiceStatus.ComposingScript) {
-                                        "রিপোর্ট লেখা হচ্ছে..."
+                                        "Preparing report..."
                                     } else {
-                                        "ভয়েস তৈরি হচ্ছে..."
+                                        "Generating voice..."
                                     },
                                     fontWeight = FontWeight.Bold
                                 )
@@ -455,7 +458,7 @@ fun SettingsScreen(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("বাংলায় হিসাব শুনুন", fontWeight = FontWeight.Bold)
+                                Text("Listen to Summary", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -470,11 +473,11 @@ fun SettingsScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Replay,
-                                contentDescription = "আবার শুনুন",
+                                contentDescription = "Replay summary",
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("আবার")
+                            Text("Replay")
                         }
                     }
                 }
@@ -499,7 +502,7 @@ fun SettingsScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "${aiVoiceState.selectedVoice.bnLabel}-এ হিসাব শোনানো হচ্ছে...",
+                                    text = "Playing summary with ${aiVoiceState.selectedVoice.bnLabel}...",
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = onFg
@@ -539,7 +542,7 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "AI ভয়েস বাংলা বিবরণ:",
+                                text = "Voice Summary Transcript:",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -566,14 +569,14 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Google Drive ব্যাকআপ ও সিঙ্ক",
+                            text = "Google Drive Backup & Sync",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "লেনদেন, মেম্বার, টাকা জমা ও সেলসের সব ডেটা Google Drive-এ জমা থাকবে",
+                            text = "Keep all transactions, members, deposits & sales backed up on Google Drive",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -590,7 +593,7 @@ fun SettingsScreen(
                             color = if (driveState.isConnected) onBg else MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Text(
-                                text = if (driveState.isConnected) "সংযুক্ত" else "সংযুক্ত নয়",
+                                text = if (driveState.isConnected) "Connected" else "Not Connected",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = if (driveState.isConnected) onFg else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -611,25 +614,38 @@ fun SettingsScreen(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            Text(
-                                text = if (driveState.connectedEmail.isNotBlank()) {
-                                    "Google অ্যাকাউন্ট: ${driveState.connectedEmail}"
-                                } else {
-                                    "Google Drive অ্যাকাউন্ট সংযুক্ত আছে"
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = onFg
-                            )
+                            if (driveState.connectedEmail.isNotBlank()) {
+                                Text(
+                                    text = "Google Account: ${driveState.connectedEmail}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = onFg
+                                )
+                            }
+                            if (driveState.safDocumentUri.isNotBlank()) {
+                                Text(
+                                    text = "Linked Drive File: ${driveState.safDisplayName.ifBlank { "rafiqul-hisab-full-backup.json" }}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = onFg
+                                )
+                            } else if (driveState.connectedEmail.isBlank()) {
+                                Text(
+                                    text = "Google Drive Connected",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = onFg
+                                )
+                            }
                             if (driveState.lastBackupAtMs > 0L) {
                                 Text(
-                                    text = "শেষ ব্যাকআপ: ${formatBackupTime(driveState.lastBackupAtMs)}",
+                                    text = "Last Backup: ${formatBackupTime(driveState.lastBackupAtMs)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = onFg
                                 )
                             } else {
                                 Text(
-                                    text = "এখনো Google Drive-এ ব্যাকআপ জমা হয়নি",
+                                    text = "No backup saved to Google Drive yet",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -655,13 +671,13 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "স্বয়ংক্রিয় Google Drive ব্যাকআপ",
+                                text = "Auto Google Drive Backup",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "ডেটা পরিবর্তন হলেই নিজে থেকে ড্রাইভে সেভ হবে",
+                                text = "Automatically save changes to Google Drive",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -678,8 +694,8 @@ fun SettingsScreen(
 
                     SettingsListOptionRow(
                         icon = Icons.Outlined.CloudUpload,
-                        title = "সব ডেটা Google Drive-এ জমা দিন",
-                        subtitle = "লেনদেন, মেম্বার, টাকা জমা, সেলস ও পেমেন্ট ব্যাকআপ",
+                        title = "Back Up All Data to Google Drive",
+                        subtitle = "Save transactions, members, deposits, sales & payments",
                         enabled = !isBusy && !driveState.isSyncing,
                         iconBg = onBg,
                         iconTint = onFg,
@@ -690,8 +706,8 @@ fun SettingsScreen(
 
                     SettingsListOptionRow(
                         icon = Icons.Outlined.CloudDownload,
-                        title = "Google Drive থেকে রিস্টোর করুন",
-                        subtitle = "ড্রাইভে সংরক্ষিত সব ডেটা অ্যাপে ফিরিয়ে আনুন",
+                        title = "Restore from Google Drive",
+                        subtitle = "Restore all saved data from your Drive backup",
                         enabled = !isBusy && !driveState.isSyncing,
                         onClick = { showDriveRestoreConfirm = true },
                         testTag = "drive_restore_button"
@@ -699,9 +715,27 @@ fun SettingsScreen(
                     SettingsListDivider()
 
                     SettingsListOptionRow(
+                        icon = Icons.Outlined.CloudDone,
+                        title = if (driveState.safDocumentUri.isNotBlank()) {
+                            "Change Linked Drive File"
+                        } else {
+                            "Link Google Drive File (Any Gmail)"
+                        },
+                        subtitle = "Auto-save directly to your Google Drive folder",
+                        enabled = !isBusy && !driveState.isSyncing,
+                        onClick = onLinkGoogleDriveFile,
+                        testTag = "drive_link_saf_file_button"
+                    )
+                    SettingsListDivider()
+
+                    SettingsListOptionRow(
                         icon = Icons.Outlined.Sync,
-                        title = "Google অ্যাকাউন্ট পরিবর্তন করুন",
-                        subtitle = "অন্য Gmail বা Drive অ্যাকাউন্ট নির্বাচন করুন",
+                        title = if (driveState.oauthConnected) {
+                            "Switch Google Account"
+                        } else {
+                            "Connect Google Account"
+                        },
+                        subtitle = "Connect another Gmail or Google Drive account",
                         enabled = !isBusy && !driveState.isSyncing,
                         onClick = onConnectGoogleDrive,
                         testTag = "drive_switch_account_button"
@@ -710,8 +744,8 @@ fun SettingsScreen(
 
                     SettingsListOptionRow(
                         icon = Icons.Outlined.LinkOff,
-                        title = "Google Drive সংযোগ বিচ্ছিন্ন করুন",
-                        subtitle = "এই ডিভাইস থেকে ড্রাইভ লিঙ্ক বন্ধ করুন",
+                        title = "Disconnect Google Drive",
+                        subtitle = "Remove Drive link from this device",
                         enabled = !isBusy && !driveState.isSyncing,
                         iconBg = offBg,
                         iconTint = offFg,
@@ -720,12 +754,66 @@ fun SettingsScreen(
                         testTag = "drive_disconnect_button"
                     )
                 } else {
+                    if (!driveAuthBlockedEmail.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = offBg,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onShowDriveAccessHelp)
+                                .testTag("drive_403_notice_card")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "Direct Drive Access Unavailable ($driveAuthBlockedEmail)",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = offFg
+                                )
+                                Text(
+                                    text = "Tap \"Link Google Drive File\" below for instant backup with any Gmail, or tap here for help.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(10.dp))
                     SettingsListOptionRow(
+                        icon = Icons.Outlined.CloudUpload,
+                        title = "Link Google Drive File (Any Gmail)",
+                        subtitle = "Enable auto-backup directly to your Drive folder",
+                        badgeText = "Recommended",
+                        badgeBg = onBg,
+                        badgeFg = onFg,
+                        iconBg = onBg,
+                        iconTint = onFg,
+                        enabled = !isBusy && !driveState.isSyncing,
+                        onClick = onLinkGoogleDriveFile,
+                        testTag = "drive_link_saf_file_button"
+                    )
+                    SettingsListDivider()
+
+                    SettingsListOptionRow(
+                        icon = Icons.Outlined.CloudDownload,
+                        title = "Restore from Google Drive File",
+                        subtitle = "Select an existing backup file saved in Google Drive",
+                        enabled = !isBusy && !driveState.isSyncing,
+                        onClick = onRestoreFromDriveFile,
+                        testTag = "drive_restore_saf_file_button"
+                    )
+                    SettingsListDivider()
+
+                    SettingsListOptionRow(
                         icon = Icons.Outlined.CloudDone,
-                        title = "Google Drive যোগ করুন",
-                        subtitle = "সব ডেটা নিরাপদে গুগল ড্রাইভে সংরক্ষণ করতে সংযুক্ত করুন",
-                        badgeText = "যোগ করুন",
+                        title = "Connect Google Drive Account",
+                        subtitle = "Sign in directly with your Google account",
+                        badgeText = "Connect",
                         badgeBg = MaterialTheme.colorScheme.primaryContainer,
                         badgeFg = MaterialTheme.colorScheme.primary,
                         enabled = !isBusy && !driveState.isSyncing,
@@ -739,14 +827,14 @@ fun SettingsScreen(
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "ব্যাকআপ ও রিপোর্ট",
+                    text = "Backup & Reports",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "মোট ${BanglaFormatters.toBanglaDigits(transactionCount.toString())}টি লেনদেন সংরক্ষিত",
+                    text = "$transactionCount saved transaction(s)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -755,7 +843,7 @@ fun SettingsScreen(
                 SettingsListOptionRow(
                     icon = Icons.Outlined.Download,
                     title = stringResource(R.string.json_backup),
-                    subtitle = "সব হিসাব, মেম্বার ও সেলস ডেটা JSON ফাইলে সংরক্ষণ করুন",
+                    subtitle = "Save all transactions, members & sales data to a JSON file",
                     enabled = !isBusy,
                     onClick = onExportJson,
                     testTag = "export_json_button"
@@ -765,7 +853,7 @@ fun SettingsScreen(
                 SettingsListOptionRow(
                     icon = Icons.Outlined.FileUpload,
                     title = stringResource(R.string.restore_backup),
-                    subtitle = "JSON ব্যাকআপ ফাইল থেকে ডেটা ফিরিয়ে আনুন",
+                    subtitle = "Restore data from a saved JSON backup file",
                     enabled = !isBusy,
                     onClick = onRestoreJson,
                     testTag = "restore_json_button"
@@ -775,7 +863,7 @@ fun SettingsScreen(
                 SettingsListOptionRow(
                     icon = Icons.Outlined.Image,
                     title = stringResource(R.string.picture_export),
-                    subtitle = "হিসাব রিপোর্ট ছবি (PNG) হিসেবে ডাউনলোড করুন",
+                    subtitle = "Download account report as a PNG image",
                     enabled = !isBusy,
                     onClick = onExportPicture,
                     testTag = "settings_export_picture_button"
@@ -786,7 +874,7 @@ fun SettingsScreen(
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "অ্যাকাউন্ট ও নিরাপত্তা",
+                    text = "Account & Security",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -795,7 +883,7 @@ fun SettingsScreen(
 
                 SettingsListOptionRow(
                     icon = Icons.Outlined.Lock,
-                    title = "পাসওয়ার্ড পরিবর্তন",
+                    title = "Change Password",
                     subtitle = "Login ID: $appLoginId",
                     onClick = onOpenChangePassword,
                     testTag = "change_password_button"
@@ -804,8 +892,8 @@ fun SettingsScreen(
 
                 SettingsListOptionRow(
                     icon = Icons.AutoMirrored.Filled.Logout,
-                    title = "লগআউট",
-                    subtitle = "অ্যাপ সেশন লক করে লগইন স্ক্রিনে ফিরুন",
+                    title = "Log Out",
+                    subtitle = "Lock session and return to sign-in screen",
                     iconBg = offBg,
                     iconTint = offFg,
                     titleColor = MaterialTheme.colorScheme.error,
@@ -819,9 +907,9 @@ fun SettingsScreen(
     if (showDriveRestoreConfirm) {
         AlertDialog(
             onDismissRequest = { showDriveRestoreConfirm = false },
-            title = { Text("Google Drive থেকে রিস্টোর?") },
+            title = { Text("Restore from Google Drive?") },
             text = {
-                Text("Google Drive-এ সংরক্ষিত ব্যাকআপ থেকে আপনার সব লেনদেন, মেম্বার, টাকা জমা ও সেলস তথ্য ফিরিয়ে আনা হবে।")
+                Text("All saved transactions, members, deposits & sales will be restored from your Google Drive backup.")
             },
             confirmButton = {
                 Button(
@@ -831,12 +919,12 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.testTag("confirm_drive_restore_button")
                 ) {
-                    Text("রিস্টোর করুন")
+                    Text("Restore")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDriveRestoreConfirm = false }) {
-                    Text("বাতিল")
+                    Text("Cancel")
                 }
             }
         )
@@ -845,9 +933,9 @@ fun SettingsScreen(
     if (showDriveDisconnectConfirm) {
         AlertDialog(
             onDismissRequest = { showDriveDisconnectConfirm = false },
-            title = { Text("Google Drive বিচ্ছিন্ন করবেন?") },
+            title = { Text("Disconnect Google Drive?") },
             text = {
-                Text("Google Drive সংযোগ বিচ্ছিন্ন করলে স্বয়ংক্রিয় ব্যাকআপ বন্ধ হবে, তবে ড্রাইভে থাকা ফাইলটি মুছবে না।")
+                Text("Disconnecting stops automatic backups, while your existing backup file in Google Drive remains safe.")
             },
             confirmButton = {
                 TextButton(
@@ -857,12 +945,12 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.testTag("confirm_drive_disconnect_button")
                 ) {
-                    Text("বিচ্ছিন্ন করুন", color = MaterialTheme.colorScheme.error)
+                    Text("Disconnect", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDriveDisconnectConfirm = false }) {
-                    Text("বাতিল")
+                    Text("Cancel")
                 }
             }
         )
@@ -871,8 +959,8 @@ fun SettingsScreen(
 
 private fun formatBackupTime(timestampMs: Long): String {
     if (timestampMs <= 0L) return "-"
-    val sdf = SimpleDateFormat("dd/MM/yyyy hh:mm a", Locale("bn", "BD"))
-    return BanglaFormatters.toBanglaDigits(sdf.format(Date(timestampMs)))
+    val sdf = SimpleDateFormat("dd/MM/yyyy hh:mm a", Locale.ENGLISH)
+    return sdf.format(Date(timestampMs))
 }
 
 @Composable

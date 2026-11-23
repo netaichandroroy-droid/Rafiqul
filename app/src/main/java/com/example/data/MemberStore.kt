@@ -90,12 +90,13 @@ class MemberStore(context: Context) {
     }
 
     fun verifyMemberLogin(loginId: String, rawPassword: String): MemberLoginResult {
-        val cleanedId = normalizeMemberName(loginId)
+        val cleanedId = normalizeCredential(loginId)
         if (cleanedId.isEmpty() || rawPassword.isBlank()) return MemberLoginResult.NotFound
 
         val members = loadAll()
         val matched = members.firstOrNull {
-            normalizeMemberName(it.name).equals(cleanedId, ignoreCase = true)
+            val memberCode = normalizeCredential(it.code)
+            memberCode.isNotEmpty() && memberCode.equals(cleanedId, ignoreCase = true)
         } ?: return MemberLoginResult.NotFound
 
         if (!matched.isActive) {
@@ -107,9 +108,11 @@ class MemberStore(context: Context) {
             return MemberLoginResult.WrongPassword
         }
 
-        // Upgrade legacy member without stored PBKDF2 hash on first login
-        if (matched.passwordHash.isBlank()) {
-            val upgradedHash = PasswordHasher.hashPassword(rawPassword, minLength = 1)
+        // Upgrade legacy or pre-migration default-password member so hash stays aligned with code
+        val needsHashSync = matched.passwordHash.isBlank() ||
+            (matched.isDefaultPassword && !PasswordHasher.verifyPassword(rawPassword, matched.passwordHash))
+        if (needsHashSync) {
+            val upgradedHash = PasswordHasher.hashPassword(rawPassword.trim(), minLength = 1)
             val upgradedMember = matched.copy(passwordHash = upgradedHash, isDefaultPassword = true)
             saveAll(members.map { if (it.id == matched.id) upgradedMember else it })
             return MemberLoginResult.Success(upgradedMember)
@@ -125,15 +128,15 @@ class MemberStore(context: Context) {
     ): Result<Member> {
         val members = loadAll()
         val target = members.firstOrNull { it.id == memberId }
-            ?: return Result.failure(IllegalStateException("সদস্যের তথ্য পাওয়া যায়নি।"))
+            ?: return Result.failure(IllegalStateException("Member record not found."))
 
         if (!verifyMemberPasswordInternal(target, currentPassword)) {
-            return Result.failure(IllegalArgumentException("বর্তমান পাসওয়ার্ড সঠিক নয়।"))
+            return Result.failure(IllegalArgumentException("Current password is incorrect."))
         }
 
         if (newPassword.isBlank() || newPassword.length !in MIN_CUSTOM_PASSWORD_LENGTH..128) {
             return Result.failure(
-                IllegalArgumentException("নতুন পাসওয়ার্ড কমপক্ষে ৪ থেকে ১২৮ অক্ষরের মধ্যে হতে হবে।")
+                IllegalArgumentException("New password must be between 4 and 128 characters.")
             )
         }
 
@@ -149,7 +152,7 @@ class MemberStore(context: Context) {
     fun resetMemberPasswordToDefault(memberId: String): Member? {
         val members = loadAll()
         val target = members.firstOrNull { it.id == memberId } ?: return null
-        val defaultPassword = target.name.trim()
+        val defaultPassword = normalizeCredential(target.code)
         if (defaultPassword.isEmpty()) return null
         val resetHash = PasswordHasher.hashPassword(defaultPassword, minLength = 1)
         val updated = target.copy(passwordHash = resetHash, isDefaultPassword = true)
@@ -166,7 +169,7 @@ class MemberStore(context: Context) {
     ): Result<Member> {
         val members = loadAll()
         val target = members.firstOrNull { it.id == memberId }
-            ?: return Result.failure(IllegalStateException("সদস্যের তথ্য পাওয়া যায়নি।"))
+            ?: return Result.failure(IllegalStateException("Member record not found."))
 
         val updated = target.copy(
             phone = phone.trim(),
@@ -183,11 +186,11 @@ class MemberStore(context: Context) {
         salesAmount: Double
     ): Result<Member> {
         if (salesAmount.isNaN() || salesAmount < 0.0) {
-            return Result.failure(IllegalArgumentException("সঠিক Sales পরিমাণ লিখুন।"))
+            return Result.failure(IllegalArgumentException("Please enter a valid sales amount."))
         }
         val members = loadAll()
         val target = members.firstOrNull { it.id == memberId }
-            ?: return Result.failure(IllegalStateException("সদস্যের তথ্য পাওয়া যায়নি।"))
+            ?: return Result.failure(IllegalStateException("Member record not found."))
 
         val updated = target.copy(salesAmount = salesAmount)
         saveAll(members.map { if (it.id == memberId) updated else it })
@@ -195,11 +198,12 @@ class MemberStore(context: Context) {
     }
 
     private fun verifyMemberPasswordInternal(member: Member, rawPassword: String): Boolean {
-        val normalizedMemberName = normalizeMemberName(member.name)
+        val normalizedMemberCode = normalizeCredential(member.code)
         if (member.isDefaultPassword || member.passwordHash.isBlank()) {
-            val normalizedInput = normalizeMemberName(rawPassword)
-            if (normalizedInput.isNotEmpty() &&
-                normalizedInput.equals(normalizedMemberName, ignoreCase = true)
+            val normalizedInput = normalizeCredential(rawPassword)
+            if (normalizedMemberCode.isNotEmpty() &&
+                normalizedInput.isNotEmpty() &&
+                normalizedInput.equals(normalizedMemberCode, ignoreCase = true)
             ) {
                 return true
             }
@@ -211,7 +215,7 @@ class MemberStore(context: Context) {
         }
     }
 
-    private fun normalizeMemberName(value: String): String {
+    private fun normalizeCredential(value: String): String {
         return value.trim().replace(Regex("\\s+"), " ")
     }
 

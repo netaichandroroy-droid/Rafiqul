@@ -362,7 +362,7 @@ class MemberSalesDuesUnitTest {
         assertEquals(com.example.model.AccountType.CASH, cashTx.resolvedAccount)
         assertEquals(4500.0, cashTx.amount, 0.001)
         assertEquals(today, cashTx.date)
-        assertEquals("মেম্বার টাকা জমা", cashTx.category)
+        assertEquals("Member Deposit", cashTx.category)
 
         val bankTx = com.example.ui.LocalHisabViewModel.buildApprovedTakaJomaTransaction(
             entry = bkashEntry,

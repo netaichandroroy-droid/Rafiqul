@@ -52,7 +52,7 @@ fun ChangePasswordDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("পাসওয়ার্ড পরিবর্তন করুন") },
+        title = { Text("Change Password") },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -68,7 +68,7 @@ fun ChangePasswordDialog(
                     },
                     enabled = allowLoginIdEdit,
                     readOnly = !allowLoginIdEdit,
-                    label = { Text("লগইন আইডি (Login ID)") },
+                    label = { Text("Login ID") },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
@@ -82,7 +82,7 @@ fun ChangePasswordDialog(
                         currentPassword = it
                         errorMessage = null
                     },
-                    label = { Text("বর্তমান পাসওয়ার্ড") },
+                    label = { Text("Current Password") },
                     singleLine = true,
                     visualTransformation = if (showCurrent) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -90,7 +90,7 @@ fun ChangePasswordDialog(
                         IconButton(onClick = { showCurrent = !showCurrent }) {
                             Icon(
                                 imageVector = if (showCurrent) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                contentDescription = if (showCurrent) "লুকান" else "দেখুন"
+                                contentDescription = if (showCurrent) "Hide" else "Show"
                             )
                         }
                     },
@@ -106,7 +106,7 @@ fun ChangePasswordDialog(
                         newPassword = it
                         errorMessage = null
                     },
-                    label = { Text("নতুন পাসওয়ার্ড (কমপক্ষে ৪ অক্ষর)") },
+                    label = { Text("New Password (min 4 characters)") },
                     singleLine = true,
                     visualTransformation = if (showNew) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -114,7 +114,7 @@ fun ChangePasswordDialog(
                         IconButton(onClick = { showNew = !showNew }) {
                             Icon(
                                 imageVector = if (showNew) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                contentDescription = if (showNew) "লুকান" else "দেখুন"
+                                contentDescription = if (showNew) "Hide" else "Show"
                             )
                         }
                     },
@@ -130,7 +130,7 @@ fun ChangePasswordDialog(
                         confirmPassword = it
                         errorMessage = null
                     },
-                    label = { Text("নতুন পাসওয়ার্ড নিশ্চিত করুন") },
+                    label = { Text("Confirm New Password") },
                     singleLine = true,
                     visualTransformation = if (showNew) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -153,19 +153,19 @@ fun ChangePasswordDialog(
             Button(
                 onClick = {
                     if (newPassword != confirmPassword) {
-                        errorMessage = "নতুন পাসওয়ার্ড দুটি মিলছে না।"
+                        errorMessage = "New passwords do not match."
                         return@Button
                     }
                     val result = onChangePassword(currentPassword, newPassword, loginId)
                     if (result.isSuccess) {
                         onSuccess()
                     } else {
-                        errorMessage = result.exceptionOrNull()?.localizedMessage ?: "পাসওয়ার্ড পরিবর্তন করা যায়নি।"
+                        errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Failed to update password."
                     }
                 },
                 modifier = Modifier.testTag("change_pw_submit_button")
             ) {
-                Text("পরিবর্তন করুন")
+                Text("Update")
             }
         },
         dismissButton = {
@@ -173,7 +173,7 @@ fun ChangePasswordDialog(
                 onClick = onDismiss,
                 modifier = Modifier.testTag("change_pw_cancel_button")
             ) {
-                Text("বাতিল")
+                Text("Cancel")
             }
         }
     )

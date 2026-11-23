@@ -1,5 +1,7 @@
 package com.example.ui
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ai.AiVoiceResult
@@ -11,9 +13,11 @@ import com.example.auth.AppLockCredentialStore
 import com.example.auth.PasswordHasher
 import com.example.data.BackupExporter
 import com.example.data.CloudAutoSyncRepository
+import com.example.data.CloudSyncPrefsStore
 import com.example.data.CloudSyncUiState
 import com.example.data.DriveUnauthorizedException
 import com.example.data.GoogleDriveBackupClient
+import com.example.data.GoogleDriveBackupStatus
 import com.example.data.GoogleDriveBackupStore
 import com.example.data.LocalTransactionStore
 import com.example.data.MemberAppLinkStore
@@ -22,6 +26,8 @@ import com.example.data.MemberTakaJomaStore
 import com.example.data.MonthlySalesStore
 import com.example.data.OnlinePaymentStore
 import com.example.model.AccountType
+import com.example.model.AreaManagerRoleFilter
+import com.example.model.AsmNameReportScope
 import com.example.model.BanglaFormatters
 import com.example.model.HisabTransaction
 import com.example.model.Member
@@ -46,11 +52,11 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 
 enum class HisabTab(val label: String) {
-    HOME("হোম"),
-    TRANSACTIONS("লেনদেন"),
-    REPORTS("রিপোর্ট"),
-    ACCOUNTS("অ্যাকাউন্ট"),
-    SETTINGS("সেটিংস")
+    HOME("Home"),
+    TRANSACTIONS("Ledger"),
+    REPORTS("Reports"),
+    ACCOUNTS("Accounts"),
+    SETTINGS("Settings")
 }
 
 enum class SettingsSubPage {
@@ -66,6 +72,8 @@ data class HisabUiControls(
     val settingsSubPage: SettingsSubPage = SettingsSubPage.MAIN,
     val selectedReportCategory: ReportCategory = ReportCategory.MONTHLY,
     val reportPeriodScope: ReportPeriodScope = ReportPeriodScope.SELECTED_MONTH,
+    val asmNameScope: AsmNameReportScope = AsmNameReportScope.DEPOT_TEAM,
+    val areaRoleFilter: AreaManagerRoleFilter = AreaManagerRoleFilter.ALL,
     val filter: TxFilter = TxFilter.ALL,
     val reportMonth: String = BanglaFormatters.currentYearMonth(),
     val salesMonth: String = BanglaFormatters.currentYearMonth(),
@@ -80,7 +88,10 @@ data class DriveUiState(
     val lastBackupAtMs: Long = 0L,
     val lastBackupSummary: String = "",
     val autoBackupEnabled: Boolean = true,
-    val isSyncing: Boolean = false
+    val isSyncing: Boolean = false,
+    val oauthConnected: Boolean = false,
+    val safDocumentUri: String = "",
+    val safDisplayName: String = ""
 )
 
 data class AiVoiceUiState(
@@ -108,7 +119,8 @@ class LocalHisabViewModel(
     private val reservedAdminLoginId: String = AppLockCredentialStore.DEFAULT_LOGIN_ID,
     private val memberAppLinkStore: MemberAppLinkStore? = null,
     private val driveBackupStore: GoogleDriveBackupStore? = null,
-    private val cloudSyncRepository: CloudAutoSyncRepository? = null
+    private val cloudSyncRepository: CloudAutoSyncRepository? = null,
+    private val cloudSyncPrefs: CloudSyncPrefsStore? = null
 ) : ViewModel() {
 
     private var allTransactions: List<HisabTransaction> = localStore.loadAll()
@@ -144,7 +156,10 @@ class LocalHisabViewModel(
                 driveFileId = status.driveFileId,
                 lastBackupAtMs = status.lastBackupAtMs,
                 lastBackupSummary = status.lastBackupSummary,
-                autoBackupEnabled = status.autoBackupEnabled
+                autoBackupEnabled = status.autoBackupEnabled,
+                oauthConnected = status.oauthConnected,
+                safDocumentUri = status.safDocumentUri,
+                safDisplayName = status.safDisplayName
             )
         } ?: DriveUiState()
     )
@@ -162,14 +177,31 @@ class LocalHisabViewModel(
     val cloudSyncState: StateFlow<CloudSyncUiState> = cloudSyncRepository?.syncState
         ?: MutableStateFlow(CloudSyncUiState()).asStateFlow()
 
+    private var lastSyncedDataSignature: String = ""
+
     init {
+        lastSyncedDataSignature = computeDomainSignature()
         cloudSyncRepository?.let { repo ->
             viewModelScope.launch {
                 repo.remoteUpdates.collect {
+                    val beforeSig = lastSyncedDataSignature
                     refreshSharedData()
+                    val afterSig = computeDomainSignature()
+                    if (afterSig != beforeSig) {
+                        lastSyncedDataSignature = afterSig
+                        notifyAdminDataChanged()
+                    }
                 }
             }
         }
+    }
+
+    private fun computeDomainSignature(): String {
+        val txPart = allTransactions.joinToString(",") { "${it.id}:${it.updatedAt?.seconds ?: 0}:${it.amount}" }
+        val memberPart = _members.value.joinToString(",") { "${it.id}:${it.isActive}:${it.code}" }
+        val takaPart = takaJomaStore?.loadAll().orEmpty().joinToString(",") { "${it.id}:${it.approvalStatus}:${it.reviewedAtMs}" }
+        val salesPart = _monthlySales.value.joinToString(",") { "${it.id}:${it.tpSales}:${it.tpPlusVat}" }
+        return "${txPart.hashCode()}|${memberPart.hashCode()}|${takaPart.hashCode()}|${salesPart.hashCode()}"
     }
 
     private fun pushCloudMutation(block: suspend CloudAutoSyncRepository.() -> Unit) {
@@ -184,8 +216,8 @@ class LocalHisabViewModel(
         val repo = cloudSyncRepository ?: return
         repo.setAutoSyncEnabled(enabled)
         showMessage(
-            if (enabled) "অ্যাপ অটো-সিঙ্ক চালু হয়েছে"
-            else "অ্যাপ অটো-সিঙ্ক সাময়িকভাবে বন্ধ হয়েছে"
+            if (enabled) "Auto cloud sync enabled"
+            else "Auto cloud sync paused"
         )
     }
 
@@ -194,9 +226,9 @@ class LocalHisabViewModel(
         viewModelScope.launch {
             val res = repo.syncAllNow()
             res.onSuccess {
-                showMessage("সব ডেটা ক্লাউডে সফলভাবে সিঙ্ক হয়েছে")
+                showMessage("All data synced to cloud successfully")
             }.onFailure { err ->
-                showMessage(err.localizedMessage ?: "ক্লাউড সিঙ্ক ব্যর্থ হয়েছে")
+                showMessage(err.localizedMessage ?: "Cloud sync failed")
             }
         }
     }
@@ -206,6 +238,10 @@ class LocalHisabViewModel(
         passwordHash: String,
         isDefaultPassword: Boolean
     ) {
+        cloudSyncPrefs?.markPendingUpsert(
+            CloudAutoSyncRepository.COL_APP_CONFIG,
+            CloudAutoSyncRepository.DOC_ADMIN_AUTH
+        )
         pushCloudMutation {
             syncAdminCredentials(
                 loginId = loginId,
@@ -216,12 +252,17 @@ class LocalHisabViewModel(
     }
 
     fun syncMemberToCloud(member: Member) {
+        cloudSyncPrefs?.markPendingUpsert(
+            CloudAutoSyncRepository.COL_MEMBERS,
+            CloudAutoSyncRepository.sanitizeId(member.id)
+        )
         pushCloudMutation {
             upsertMember(member)
         }
     }
 
     private fun notifyAdminDataChanged() {
+        lastSyncedDataSignature = computeDomainSignature()
         if (isAdminSession && _driveState.value.isConnected && _driveState.value.autoBackupEnabled) {
             _autoBackupRevision.update { it + 1 }
         }
@@ -230,6 +271,10 @@ class LocalHisabViewModel(
     fun notifyMemberAppLinkUpdated() {
         notifyAdminDataChanged()
         val url = memberAppLinkStore?.getDownloadUrl().orEmpty()
+        cloudSyncPrefs?.markPendingUpsert(
+            CloudAutoSyncRepository.COL_APP_CONFIG,
+            CloudAutoSyncRepository.DOC_MEMBER_APP_LINK
+        )
         pushCloudMutation {
             syncMemberAppLink(url)
         }
@@ -259,9 +304,24 @@ class LocalHisabViewModel(
         _transactions.value = filterForOwner(allTransactions)
         _takaJomaList.value = loadScopedTakaJoma()
         _monthlySales.value = monthlySalesStore?.loadAll().orEmpty()
+        _onlinePaymentConfig.value = onlinePaymentStore.load()
         if (isAdminSession) {
             _members.value = memberStore.loadAll()
-            _onlinePaymentConfig.value = onlinePaymentStore.load()
+            driveBackupStore?.loadStatus()?.let { persisted ->
+                _driveState.update { current ->
+                    current.copy(
+                        isConnected = persisted.isConnected,
+                        connectedEmail = persisted.connectedEmail,
+                        driveFileId = persisted.driveFileId,
+                        lastBackupAtMs = persisted.lastBackupAtMs,
+                        lastBackupSummary = persisted.lastBackupSummary,
+                        autoBackupEnabled = persisted.autoBackupEnabled,
+                        oauthConnected = persisted.oauthConnected,
+                        safDocumentUri = persisted.safDocumentUri,
+                        safDisplayName = persisted.safDisplayName
+                    )
+                }
+            }
         }
     }
 
@@ -288,6 +348,14 @@ class LocalHisabViewModel(
 
     fun setReportPeriodScope(scope: ReportPeriodScope) {
         _controls.update { it.copy(reportPeriodScope = scope) }
+    }
+
+    fun setAsmNameScope(scope: AsmNameReportScope) {
+        _controls.update { it.copy(asmNameScope = scope) }
+    }
+
+    fun setAreaRoleFilter(filter: AreaManagerRoleFilter) {
+        _controls.update { it.copy(areaRoleFilter = filter) }
     }
 
     fun openSettingsSubPage(page: SettingsSubPage) {
@@ -329,7 +397,7 @@ class LocalHisabViewModel(
         onComplete: (Boolean) -> Unit
     ) {
         if (!isAdminSession && editingId != null) {
-            showMessage("মেম্বার লেনদেন এডিট করার অনুমতি নেই")
+            showMessage("Members are not allowed to edit transactions")
             onComplete(false)
             return
         }
@@ -382,14 +450,20 @@ class LocalHisabViewModel(
         localStore.saveAll(updatedAll)
         allTransactions = updatedAll
         _transactions.value = filterForOwner(updatedAll)
-        savedTx?.let { tx -> pushCloudMutation { upsertTransaction(tx) } }
+        savedTx?.let { tx ->
+            cloudSyncPrefs?.markPendingUpsert(
+                CloudAutoSyncRepository.COL_TRANSACTIONS,
+                CloudAutoSyncRepository.sanitizeId(tx.id)
+            )
+            pushCloudMutation { upsertTransaction(tx) }
+        }
         notifyAdminDataChanged()
         _controls.update {
             it.copy(
                 snackbarMessage = if (editingId == null) {
-                    "নতুন লেনদেন সংরক্ষিত হয়েছে"
+                    "New transaction saved"
                 } else {
-                    "লেনদেন হালনাগাদ হয়েছে"
+                    "Transaction updated"
                 }
             )
         }
@@ -398,7 +472,7 @@ class LocalHisabViewModel(
 
     fun deleteTransaction(transaction: HisabTransaction) {
         if (!isAdminSession) {
-            showMessage("মেম্বার লেনদেন মুছে ফেলার অনুমতি নেই")
+            showMessage("Members are not allowed to delete transactions")
             return
         }
         val isOwned = transaction.userId == DEFAULT_ADMIN_OWNER_ID || transaction.userId.isBlank()
@@ -407,9 +481,13 @@ class LocalHisabViewModel(
         localStore.saveAll(updatedAll)
         allTransactions = updatedAll
         _transactions.value = filterForOwner(updatedAll)
+        cloudSyncPrefs?.markPendingDelete(
+            CloudAutoSyncRepository.COL_TRANSACTIONS,
+            CloudAutoSyncRepository.sanitizeId(transaction.id)
+        )
         pushCloudMutation { deleteTransaction(transaction.id) }
         notifyAdminDataChanged()
-        _controls.update { it.copy(snackbarMessage = "লেনদেন মুছে ফেলা হয়েছে") }
+        _controls.update { it.copy(snackbarMessage = "Transaction deleted") }
     }
 
     fun buildFullBackupJson(): String {
@@ -431,7 +509,7 @@ class LocalHisabViewModel(
         val parsed = BackupExporter.parseFullAppBackupJson(jsonText)
         if (parsed.isFailure) {
             _controls.update {
-                it.copy(snackbarMessage = parsed.exceptionOrNull()?.message ?: "সঠিক JSON ব্যাকআপ নির্বাচন করুন")
+                it.copy(snackbarMessage = parsed.exceptionOrNull()?.message ?: "Please select a valid JSON backup")
             }
             return false
         }
@@ -446,10 +524,16 @@ class LocalHisabViewModel(
             localStore.saveAll(combinedAll)
             allTransactions = combinedAll
             _transactions.value = filterForOwner(combinedAll)
+            restored.forEach { tx ->
+                cloudSyncPrefs?.markPendingUpsert(
+                    CloudAutoSyncRepository.COL_TRANSACTIONS,
+                    CloudAutoSyncRepository.sanitizeId(tx.id)
+                )
+            }
             pushCloudMutation { restored.forEach { upsertTransaction(it) } }
             notifyAdminDataChanged()
             _controls.update {
-                it.copy(snackbarMessage = "${BanglaFormatters.toBanglaDigits(restored.size.toString())}টি লেনদেন রিস্টোর হয়েছে")
+                it.copy(snackbarMessage = "${restored.size} transactions restored")
             }
             return true
         }
@@ -461,33 +545,65 @@ class LocalHisabViewModel(
         localStore.saveAll(sortedTx)
         allTransactions = sortedTx
         _transactions.value = filterForOwner(sortedTx)
+        sortedTx.forEach {
+            cloudSyncPrefs?.markPendingUpsert(
+                CloudAutoSyncRepository.COL_TRANSACTIONS,
+                CloudAutoSyncRepository.sanitizeId(it.id)
+            )
+        }
 
         memberStore.saveAll(backup.members)
         _members.value = memberStore.loadAll()
+        backup.members.forEach {
+            cloudSyncPrefs?.markPendingUpsert(
+                CloudAutoSyncRepository.COL_MEMBERS,
+                CloudAutoSyncRepository.sanitizeId(it.id)
+            )
+        }
 
         takaJomaStore?.let { store ->
             store.saveAll(backup.memberTakaJoma)
             _takaJomaList.value = loadScopedTakaJoma()
+            backup.memberTakaJoma.forEach {
+                cloudSyncPrefs?.markPendingUpsert(
+                    CloudAutoSyncRepository.COL_TAKA_JOMA,
+                    CloudAutoSyncRepository.sanitizeId(it.id)
+                )
+            }
         }
 
         monthlySalesStore?.let { store ->
             store.saveAll(backup.monthlySales)
             _monthlySales.value = store.loadAll()
+            backup.monthlySales.forEach {
+                cloudSyncPrefs?.markPendingUpsert(
+                    CloudAutoSyncRepository.COL_MONTHLY_SALES,
+                    CloudAutoSyncRepository.sanitizeId(it.id)
+                )
+            }
         }
 
         backup.onlinePaymentConfig?.let { cfg ->
             onlinePaymentStore.save(cfg)
             _onlinePaymentConfig.value = cfg
+            cloudSyncPrefs?.markPendingUpsert(
+                CloudAutoSyncRepository.COL_APP_CONFIG,
+                CloudAutoSyncRepository.DOC_ONLINE_PAYMENT
+            )
         }
 
         backup.memberAppDownloadUrl?.let { url ->
             memberAppLinkStore?.saveDownloadUrl(url)
+            cloudSyncPrefs?.markPendingUpsert(
+                CloudAutoSyncRepository.COL_APP_CONFIG,
+                CloudAutoSyncRepository.DOC_MEMBER_APP_LINK
+            )
         }
 
         pushCloudMutation { syncAllNow() }
         notifyAdminDataChanged()
         _controls.update {
-            it.copy(snackbarMessage = "সব ডেটা রিস্টোর হয়েছে (${backup.buildBanglaSummary()})")
+            it.copy(snackbarMessage = "All data restored (${backup.buildBanglaSummary()})")
         }
         return true
     }
@@ -510,7 +626,7 @@ class LocalHisabViewModel(
             if (findErr is DriveUnauthorizedException) {
                 onUnauthorized()
                 _driveState.update { it.copy(isSyncing = false) }
-                showMessage(findErr.localizedMessage ?: "Google Drive অনুমোদনের মেয়াদ শেষ হয়েছে। অনুগ্রহ করে আবার সংযুক্ত করুন।")
+                showMessage(findErr.localizedMessage ?: "Google Drive authorization expired. Please reconnect.")
                 return@launch
             }
             driveBackupStore?.saveConnectedAccount(email)
@@ -525,13 +641,15 @@ class LocalHisabViewModel(
             _driveState.update { state ->
                 state.copy(
                     isConnected = true,
+                    oauthConnected = true,
                     connectedEmail = email.ifBlank { state.connectedEmail },
                     driveFileId = existingMeta?.id ?: state.driveFileId,
                     isSyncing = false
                 )
             }
+            syncPersistedDriveConfigToCloud()
             val emailText = if (email.isNotBlank()) " ($email)" else ""
-            showMessage("Google Drive সংযুক্ত হয়েছে$emailText")
+            showMessage("Google Drive connected$emailText")
         }
     }
 
@@ -546,10 +664,10 @@ class LocalHisabViewModel(
         val currentTaka = takaJomaStore?.loadAll() ?: _takaJomaList.value
         val currentSales = monthlySalesStore?.loadAll() ?: _monthlySales.value
         val summaryText = listOf(
-            "${BanglaFormatters.toBanglaDigits(allTransactions.size.toString())} লেনদেন",
-            "${BanglaFormatters.toBanglaDigits(_members.value.size.toString())} মেম্বার",
-            "${BanglaFormatters.toBanglaDigits(currentTaka.size.toString())} টাকা জমা",
-            "${BanglaFormatters.toBanglaDigits(currentSales.size.toString())} সেলস"
+            "${allTransactions.size} transactions",
+            "${_members.value.size} members",
+            "${currentTaka.size} deposits",
+            "${currentSales.size} sales"
         ).joinToString(" • ")
 
         viewModelScope.launch {
@@ -581,6 +699,7 @@ class LocalHisabViewModel(
                 _driveState.update { state ->
                     state.copy(
                         isConnected = true,
+                        oauthConnected = true,
                         connectedEmail = email.ifBlank { state.connectedEmail },
                         driveFileId = meta.id,
                         lastBackupAtMs = nowMs,
@@ -588,8 +707,9 @@ class LocalHisabViewModel(
                         isSyncing = false
                     )
                 }
+                syncPersistedDriveConfigToCloud()
                 if (!silent) {
-                    showMessage("সব ডেটা Google Drive-এ সফলভাবে জমা হয়েছে")
+                    showMessage("All data backed up to Google Drive")
                 }
             }.onFailure { err ->
                 if (err is DriveUnauthorizedException) {
@@ -597,7 +717,7 @@ class LocalHisabViewModel(
                 }
                 _driveState.update { it.copy(isSyncing = false) }
                 if (!silent) {
-                    showMessage(err.localizedMessage ?: "Google Drive ব্যাকআপ ব্যর্থ হয়েছে")
+                    showMessage(err.localizedMessage ?: "Google Drive backup failed")
                 }
             }
         }
@@ -630,7 +750,7 @@ class LocalHisabViewModel(
                 val restoredOk = restoreFromJson(jsonPayload)
                 if (restoredOk) {
                     val nowMs = System.currentTimeMillis()
-                    val summary = "${BanglaFormatters.toBanglaDigits(allTransactions.size.toString())} লেনদেন • ${BanglaFormatters.toBanglaDigits(_members.value.size.toString())} মেম্বার"
+                    val summary = "${allTransactions.size} transactions • ${_members.value.size} members"
                     driveBackupStore?.updateBackupMetadata(
                         fileId = meta.id,
                         timestampMs = nowMs,
@@ -640,6 +760,7 @@ class LocalHisabViewModel(
                     _driveState.update { state ->
                         state.copy(
                             isConnected = true,
+                            oauthConnected = true,
                             connectedEmail = email.ifBlank { state.connectedEmail },
                             driveFileId = meta.id,
                             lastBackupAtMs = nowMs,
@@ -647,6 +768,7 @@ class LocalHisabViewModel(
                             isSyncing = false
                         )
                     }
+                    syncPersistedDriveConfigToCloud()
                 } else {
                     _driveState.update { it.copy(isSyncing = false) }
                 }
@@ -655,7 +777,154 @@ class LocalHisabViewModel(
                     onUnauthorized()
                 }
                 _driveState.update { it.copy(isSyncing = false) }
-                showMessage(err.localizedMessage ?: "Google Drive থেকে রিস্টোর ব্যর্থ হয়েছে")
+                showMessage(err.localizedMessage ?: "Failed to restore from Google Drive")
+            }
+        }
+    }
+
+    fun connectAndBackupSafUri(
+        context: Context,
+        uri: Uri,
+        emailHint: String = ""
+    ) {
+        if (!isAdminSession) return
+        val appContext = context.applicationContext
+        val uriString = uri.toString()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                GoogleDriveBackupClient.persistSafPermission(appContext, uri)
+            }
+            val displayName = withContext(Dispatchers.IO) {
+                GoogleDriveBackupClient.resolveSafDisplayName(appContext, uri)
+            }
+            driveBackupStore?.saveSafDocument(
+                uriString = uriString,
+                displayName = displayName,
+                email = emailHint
+            )
+            _driveState.update { state ->
+                state.copy(
+                    isConnected = true,
+                    safDocumentUri = uriString,
+                    safDisplayName = displayName,
+                    connectedEmail = state.connectedEmail.ifBlank { emailHint.trim() }
+                )
+            }
+            backupAllToSafUri(
+                context = appContext,
+                uriString = uriString,
+                silent = false,
+                emailHint = emailHint
+            )
+        }
+    }
+
+    fun backupAllToSafUri(
+        context: Context,
+        uriString: String,
+        silent: Boolean = false,
+        emailHint: String = ""
+    ) {
+        if (!isAdminSession || uriString.isBlank()) return
+        val appContext = context.applicationContext
+        val jsonPayload = buildFullBackupJson()
+        val currentTaka = takaJomaStore?.loadAll() ?: _takaJomaList.value
+        val currentSales = monthlySalesStore?.loadAll() ?: _monthlySales.value
+        val summaryText = listOf(
+            "${allTransactions.size} transactions",
+            "${_members.value.size} members",
+            "${currentTaka.size} deposits",
+            "${currentSales.size} sales"
+        ).joinToString(" • ")
+
+        viewModelScope.launch {
+            _driveState.update { it.copy(isSyncing = true) }
+            val writeRes = withContext(Dispatchers.IO) {
+                GoogleDriveBackupClient.writeJsonToSafUri(appContext, uriString, jsonPayload)
+            }
+            writeRes.onSuccess { displayName ->
+                val nowMs = System.currentTimeMillis()
+                driveBackupStore?.updateSafBackupMetadata(
+                    uriString = uriString,
+                    displayName = displayName,
+                    timestampMs = nowMs,
+                    summary = summaryText,
+                    email = emailHint
+                )
+                _driveState.update { state ->
+                    state.copy(
+                        isConnected = true,
+                        safDocumentUri = uriString,
+                        safDisplayName = displayName.ifBlank { state.safDisplayName },
+                        connectedEmail = state.connectedEmail.ifBlank { emailHint.trim() },
+                        lastBackupAtMs = nowMs,
+                        lastBackupSummary = summaryText,
+                        isSyncing = false
+                    )
+                }
+                syncPersistedDriveConfigToCloud()
+                if (!silent) {
+                    showMessage("Saved all data to Google Drive file ($displayName)")
+                }
+            }.onFailure { err ->
+                _driveState.update { it.copy(isSyncing = false) }
+                if (!silent) {
+                    showMessage(err.localizedMessage ?: "Backup to Google Drive file failed. Please relink the file.")
+                }
+            }
+        }
+    }
+
+    fun restoreAllFromSafUri(
+        context: Context,
+        uriString: String,
+        persistPermission: Boolean = false,
+        emailHint: String = ""
+    ) {
+        if (!isAdminSession || uriString.isBlank()) return
+        val appContext = context.applicationContext
+        val uri = Uri.parse(uriString)
+        viewModelScope.launch {
+            _driveState.update { it.copy(isSyncing = true) }
+            val readRes = withContext(Dispatchers.IO) {
+                if (persistPermission) {
+                    GoogleDriveBackupClient.persistSafPermission(appContext, uri)
+                }
+                GoogleDriveBackupClient.readJsonFromSafUri(appContext, uriString)
+            }
+            readRes.onSuccess { (displayName, jsonText) ->
+                val restoredOk = restoreFromJson(jsonText)
+                if (restoredOk) {
+                    val nowMs = System.currentTimeMillis()
+                    val summary = "${allTransactions.size} transactions • ${_members.value.size} members"
+                    if (persistPermission || _driveState.value.safDocumentUri == uriString) {
+                        driveBackupStore?.updateSafBackupMetadata(
+                            uriString = uriString,
+                            displayName = displayName,
+                            timestampMs = nowMs,
+                            summary = summary,
+                            email = emailHint
+                        )
+                    }
+                    _driveState.update { state ->
+                        val keepSaf = persistPermission || state.safDocumentUri == uriString
+                        state.copy(
+                            isConnected = state.isConnected || keepSaf,
+                            safDocumentUri = if (keepSaf) uriString else state.safDocumentUri,
+                            safDisplayName = if (keepSaf) displayName else state.safDisplayName,
+                            connectedEmail = state.connectedEmail.ifBlank { emailHint.trim() },
+                            lastBackupAtMs = nowMs,
+                            lastBackupSummary = summary,
+                            isSyncing = false
+                        )
+                    }
+                    syncPersistedDriveConfigToCloud()
+                } else {
+                    _driveState.update { it.copy(isSyncing = false) }
+                }
+            }.onFailure { err ->
+                _driveState.update { it.copy(isSyncing = false) }
+                showMessage(err.localizedMessage ?: "Failed to restore from Google Drive file")
             }
         }
     }
@@ -664,14 +933,19 @@ class LocalHisabViewModel(
         if (!isAdminSession) return
         driveBackupStore?.setAutoBackupEnabled(enabled)
         _driveState.update { it.copy(autoBackupEnabled = enabled) }
+        syncPersistedDriveConfigToCloud()
         showMessage(
-            if (enabled) "স্বয়ংক্রিয় Google Drive ব্যাকআপ চালু হয়েছে"
-            else "স্বয়ংক্রিয় Google Drive ব্যাকআপ বন্ধ হয়েছে"
+            if (enabled) "Automatic Google Drive backup enabled"
+            else "Automatic Google Drive backup paused"
         )
     }
 
-    fun disconnectGoogleDrive() {
+    fun disconnectGoogleDrive(context: Context? = null) {
         if (!isAdminSession) return
+        val existingSafUri = _driveState.value.safDocumentUri
+        if (context != null && existingSafUri.isNotBlank()) {
+            GoogleDriveBackupClient.releaseSafPermission(context, existingSafUri)
+        }
         driveBackupStore?.disconnect()
         _driveState.update {
             DriveUiState(
@@ -681,10 +955,37 @@ class LocalHisabViewModel(
                 lastBackupAtMs = 0L,
                 lastBackupSummary = "",
                 autoBackupEnabled = true,
-                isSyncing = false
+                isSyncing = false,
+                oauthConnected = false,
+                safDocumentUri = "",
+                safDisplayName = ""
             )
         }
-        showMessage("Google Drive অ্যাকাউন্ট বিচ্ছিন্ন করা হয়েছে")
+        syncPersistedDriveConfigToCloud()
+        showMessage("Google Drive account disconnected")
+    }
+
+    private fun syncPersistedDriveConfigToCloud() {
+        val status = driveBackupStore?.loadStatus() ?: _driveState.value.let {
+            GoogleDriveBackupStatus(
+                isConnected = it.isConnected,
+                connectedEmail = it.connectedEmail,
+                driveFileId = it.driveFileId,
+                lastBackupAtMs = it.lastBackupAtMs,
+                lastBackupSummary = it.lastBackupSummary,
+                autoBackupEnabled = it.autoBackupEnabled,
+                oauthConnected = it.oauthConnected,
+                safDocumentUri = it.safDocumentUri,
+                safDisplayName = it.safDisplayName
+            )
+        }
+        cloudSyncPrefs?.markPendingUpsert(
+            CloudAutoSyncRepository.COL_APP_CONFIG,
+            CloudAutoSyncRepository.DOC_DRIVE_BACKUP
+        )
+        pushCloudMutation {
+            syncDriveBackupConfig(status)
+        }
     }
 
     fun saveMember(
@@ -712,29 +1013,34 @@ class LocalHisabViewModel(
         val cleanEmail = email.trim()
         val cleanAddress = address.trim()
         val cleanJoiningDate = joiningDate.trim()
-        val cleanCode = code.trim()
+        val cleanCode = code.trim().replace(Regex("\\s+"), " ")
         val cleanArea = area.trim()
+        if (cleanCode.isEmpty()) {
+            showMessage("Please enter a member code")
+            onComplete(false)
+            return
+        }
         if (cleanName.isEmpty()) {
-            showMessage("সদস্যের নাম লিখুন")
+            showMessage("Please enter the member name")
             onComplete(false)
             return
         }
 
-        val conflictsAdmin = cleanName.equals(reservedAdminLoginId.trim(), ignoreCase = true) ||
-            cleanName.equals(AppLockCredentialStore.DEFAULT_LOGIN_ID, ignoreCase = true)
+        val conflictsAdmin = cleanCode.equals(reservedAdminLoginId.trim(), ignoreCase = true) ||
+            cleanCode.equals(AppLockCredentialStore.DEFAULT_LOGIN_ID, ignoreCase = true)
         val conflictsMember = _members.value.any { other ->
             other.id != editingId &&
-                other.name.trim().replace(Regex("\\s+"), " ").equals(cleanName, ignoreCase = true)
+                other.code.trim().replace(Regex("\\s+"), " ").equals(cleanCode, ignoreCase = true)
         }
         if (conflictsAdmin || conflictsMember) {
-            showMessage("এই নামে ইতিমধ্যে একটি লগইন অ্যাকাউন্ট রয়েছে। ভিন্ন নাম ব্যবহার করুন।")
+            showMessage("An account already exists with this Code (Login ID). Please use a different code.")
             onComplete(false)
             return
         }
 
         var savedMember: Member? = null
         val updated = if (editingId == null) {
-            val defaultHash = PasswordHasher.hashPassword(cleanName, minLength = 1)
+            val defaultHash = PasswordHasher.hashPassword(cleanCode, minLength = 1)
             val created = Member(
                 id = UUID.randomUUID().toString(),
                 name = cleanName,
@@ -756,7 +1062,7 @@ class LocalHisabViewModel(
             _members.value.map { existing ->
                 if (existing.id == editingId) {
                     val refreshedHash = if (existing.isDefaultPassword || existing.passwordHash.isBlank()) {
-                        PasswordHasher.hashPassword(cleanName, minLength = 1)
+                        PasswordHasher.hashPassword(cleanCode, minLength = 1)
                     } else {
                         existing.passwordHash
                     }
@@ -780,13 +1086,19 @@ class LocalHisabViewModel(
         }
         memberStore.saveAll(updated)
         _members.value = updated
-        savedMember?.let { m -> pushCloudMutation { upsertMember(m) } }
+        savedMember?.let { m ->
+            cloudSyncPrefs?.markPendingUpsert(
+                CloudAutoSyncRepository.COL_MEMBERS,
+                CloudAutoSyncRepository.sanitizeId(m.id)
+            )
+            pushCloudMutation { upsertMember(m) }
+        }
         notifyAdminDataChanged()
         showMessage(
             if (editingId == null) {
-                "সদস্য যোগ হয়েছে (Login ID ও পাসওয়ার্ড: $cleanName)"
+                "Member added (Login ID & Password: $cleanCode)"
             } else {
-                "সদস্যের তথ্য হালনাগাদ হয়েছে"
+                "Member details updated"
             }
         )
         onComplete(true)
@@ -804,17 +1116,32 @@ class LocalHisabViewModel(
         }
         memberStore.saveAll(updated)
         _members.value = updated
-        target?.let { m -> pushCloudMutation { upsertMember(m) } }
+        target?.let { m ->
+            cloudSyncPrefs?.markPendingUpsert(
+                CloudAutoSyncRepository.COL_MEMBERS,
+                CloudAutoSyncRepository.sanitizeId(m.id)
+            )
+            pushCloudMutation { upsertMember(m) }
+        }
         notifyAdminDataChanged()
     }
 
     fun resetMemberPassword(memberId: String) {
         if (!isAdminSession) return
+        val target = _members.value.firstOrNull { it.id == memberId }
+        if (target != null && target.code.isBlank()) {
+            showMessage("Please set the member Code before resetting the password")
+            return
+        }
         val resetMember = memberStore.resetMemberPasswordToDefault(memberId) ?: return
         _members.value = _members.value.map { if (it.id == memberId) resetMember else it }
+        cloudSyncPrefs?.markPendingUpsert(
+            CloudAutoSyncRepository.COL_MEMBERS,
+            CloudAutoSyncRepository.sanitizeId(resetMember.id)
+        )
         pushCloudMutation { upsertMember(resetMember) }
         notifyAdminDataChanged()
-        showMessage("${resetMember.name}-এর পাসওয়ার্ড রিসেট করে '${resetMember.name}' করা হয়েছে")
+        showMessage("${resetMember.name}'s password has been reset to '${resetMember.code}'")
     }
 
     fun deleteMember(member: Member) {
@@ -822,9 +1149,13 @@ class LocalHisabViewModel(
         val updated = _members.value.filterNot { it.id == member.id }
         memberStore.saveAll(updated)
         _members.value = updated
+        cloudSyncPrefs?.markPendingDelete(
+            CloudAutoSyncRepository.COL_MEMBERS,
+            CloudAutoSyncRepository.sanitizeId(member.id)
+        )
         pushCloudMutation { deleteMember(member.id) }
         notifyAdminDataChanged()
-        showMessage("সদস্য মুছে ফেলা হয়েছে")
+        showMessage("Member deleted")
     }
 
     fun setOnlinePaymentEnabled(enabled: Boolean) {
@@ -832,9 +1163,13 @@ class LocalHisabViewModel(
         val updated = _onlinePaymentConfig.value.copy(isOnlinePaymentEnabled = enabled)
         onlinePaymentStore.save(updated)
         _onlinePaymentConfig.value = updated
+        cloudSyncPrefs?.markPendingUpsert(
+            CloudAutoSyncRepository.COL_APP_CONFIG,
+            CloudAutoSyncRepository.DOC_ONLINE_PAYMENT
+        )
         pushCloudMutation { syncOnlinePaymentConfig(updated) }
         notifyAdminDataChanged()
-        showMessage(if (enabled) "অনলাইন পেমেন্ট চালু হয়েছে" else "অনলাইন পেমেন্ট বন্ধ হয়েছে")
+        showMessage(if (enabled) "Online payment enabled" else "Online payment disabled")
     }
 
     fun togglePaymentAccountEnabled(accountId: String, enabled: Boolean) {
@@ -845,6 +1180,10 @@ class LocalHisabViewModel(
         val updated = _onlinePaymentConfig.value.copy(accounts = updatedAccounts)
         onlinePaymentStore.save(updated)
         _onlinePaymentConfig.value = updated
+        cloudSyncPrefs?.markPendingUpsert(
+            CloudAutoSyncRepository.COL_APP_CONFIG,
+            CloudAutoSyncRepository.DOC_ONLINE_PAYMENT
+        )
         pushCloudMutation { syncOnlinePaymentConfig(updated) }
         notifyAdminDataChanged()
     }
@@ -870,9 +1209,13 @@ class LocalHisabViewModel(
         val updated = _onlinePaymentConfig.value.copy(accounts = updatedAccounts)
         onlinePaymentStore.save(updated)
         _onlinePaymentConfig.value = updated
+        cloudSyncPrefs?.markPendingUpsert(
+            CloudAutoSyncRepository.COL_APP_CONFIG,
+            CloudAutoSyncRepository.DOC_ONLINE_PAYMENT
+        )
         pushCloudMutation { syncOnlinePaymentConfig(updated) }
         notifyAdminDataChanged()
-        showMessage("পেমেন্ট অ্যাকাউন্ট সংরক্ষিত হয়েছে")
+        showMessage("Payment account saved")
     }
 
     fun recordOnlinePaymentTransaction(
@@ -886,8 +1229,8 @@ class LocalHisabViewModel(
             editingId = null,
             type = type,
             amount = amount,
-            category = "অনলাইন পেমেন্ট (${channel.title})",
-            note = note.trim().ifBlank { "${channel.title} পেমেন্ট" },
+            category = "Online Payment (${channel.title})",
+            note = note.trim().ifBlank { "${channel.title} Payment" },
             date = BanglaFormatters.todayIso(),
             account = AccountType.BANK,
             onComplete = onComplete
@@ -929,7 +1272,7 @@ class LocalHisabViewModel(
         val cleanBank = bankName.trim()
         val cleanPhotoPath = photoPath.trim()
         if (cleanName.isEmpty() || cleanCode.isEmpty() || cleanDepot.isEmpty() || amount <= 0.0) {
-            showMessage("নাম, কোড, ডিপো ও টাকার পরিমাণ সঠিকভাবে পূরণ করুন")
+            showMessage("Please fill in name, code, depot, and a valid amount")
             onComplete(false)
             return
         }
@@ -969,6 +1312,16 @@ class LocalHisabViewModel(
                     linkedTx = upsertApprovedTakaJomaTransaction(entry, txDate = entry.date)
                 }
                 _takaJomaList.value = loadScopedTakaJoma()
+                cloudSyncPrefs?.markPendingUpsert(
+                    CloudAutoSyncRepository.COL_TAKA_JOMA,
+                    CloudAutoSyncRepository.sanitizeId(entry.id)
+                )
+                linkedTx?.let {
+                    cloudSyncPrefs?.markPendingUpsert(
+                        CloudAutoSyncRepository.COL_TRANSACTIONS,
+                        CloudAutoSyncRepository.sanitizeId(it.id)
+                    )
+                }
                 pushCloudMutation {
                     upsertTakaJoma(entry)
                     linkedTx?.let { upsertTransaction(it) }
@@ -976,15 +1329,15 @@ class LocalHisabViewModel(
                 notifyAdminDataChanged()
                 showMessage(
                     if (isAdminSession) {
-                        "টাকা জমা ফর্ম সফলভাবে সংরক্ষিত হয়েছে"
+                        "Deposit entry saved successfully"
                     } else {
-                        "টাকা জমা ফর্ম জমা হয়েছে (অ্যাডমিন অনুমোদনের অপেক্ষায়)"
+                        "Deposit submitted (awaiting admin approval)"
                     }
                 )
                 onComplete(true)
             }
             .onFailure { err ->
-                showMessage(err.localizedMessage ?: "এই স্লিপটি আগেও জমা দেওয়া হয়েছে। এক স্লিপ দুইবার জমা দেওয়া যাবে না।")
+                showMessage(err.localizedMessage ?: "This slip has already been submitted. Duplicate slips are not allowed.")
                 onComplete(false)
             }
     }
@@ -1013,6 +1366,21 @@ class LocalHisabViewModel(
             removeLinkedTakaJomaTransaction(entry.id)
         }
         _takaJomaList.value = loadScopedTakaJoma()
+        cloudSyncPrefs?.markPendingUpsert(
+            CloudAutoSyncRepository.COL_TAKA_JOMA,
+            CloudAutoSyncRepository.sanitizeId(reviewedEntry.id)
+        )
+        if (linkedTx != null) {
+            cloudSyncPrefs?.markPendingUpsert(
+                CloudAutoSyncRepository.COL_TRANSACTIONS,
+                CloudAutoSyncRepository.sanitizeId(linkedTx.id)
+            )
+        } else {
+            cloudSyncPrefs?.markPendingDelete(
+                CloudAutoSyncRepository.COL_TRANSACTIONS,
+                CloudAutoSyncRepository.sanitizeId("${TAKA_JOMA_TX_PREFIX}${entry.id}")
+            )
+        }
         pushCloudMutation {
             upsertTakaJoma(reviewedEntry)
             if (linkedTx != null) {
@@ -1023,16 +1391,16 @@ class LocalHisabViewModel(
         }
         notifyAdminDataChanged()
         val msg = when (status) {
-            TakaJomaStatus.APPROVED -> "${entry.name}-এর ${BanglaFormatters.formatBdt(entry.amount)} জমা অনুমোদিত হয়ে আজকের হিসাবে যোগ হয়েছে"
-            TakaJomaStatus.REJECTED -> "${entry.name}-এর জমা বাতিল করা হয়েছে"
-            TakaJomaStatus.PENDING -> "${entry.name}-এর জমা অপেক্ষমাণ করা হয়েছে"
+            TakaJomaStatus.APPROVED -> "Approved ${BanglaFormatters.formatBdt(entry.amount)} deposit for ${entry.name} and added to ledger"
+            TakaJomaStatus.REJECTED -> "Rejected deposit entry for ${entry.name}"
+            TakaJomaStatus.PENDING -> "Marked deposit entry for ${entry.name} as pending"
         }
         showMessage(msg)
     }
 
     fun deleteMemberTakaJoma(entry: MemberTakaJoma) {
         if (!isAdminSession) {
-            showMessage("মেম্বার টাকা জমা মুছে ফেলার অনুমতি নেই")
+            showMessage("Members are not allowed to delete deposit records")
             return
         }
         val store = takaJomaStore ?: return
@@ -1042,12 +1410,20 @@ class LocalHisabViewModel(
         )
         removeLinkedTakaJomaTransaction(entry.id)
         _takaJomaList.value = loadScopedTakaJoma()
+        cloudSyncPrefs?.markPendingDelete(
+            CloudAutoSyncRepository.COL_TAKA_JOMA,
+            CloudAutoSyncRepository.sanitizeId(entry.id)
+        )
+        cloudSyncPrefs?.markPendingDelete(
+            CloudAutoSyncRepository.COL_TRANSACTIONS,
+            CloudAutoSyncRepository.sanitizeId("${TAKA_JOMA_TX_PREFIX}${entry.id}")
+        )
         pushCloudMutation {
             deleteTakaJoma(entry.id)
             deleteTransaction("${TAKA_JOMA_TX_PREFIX}${entry.id}")
         }
         notifyAdminDataChanged()
-        showMessage("টাকা জমা রেকর্ড মুছে ফেলা হয়েছে")
+        showMessage("Deposit record deleted")
     }
 
     private fun upsertApprovedTakaJomaTransaction(
@@ -1111,13 +1487,25 @@ class LocalHisabViewModel(
         )
         _monthlySales.value = updated
         val monthRecords = updated.filter { it.yearMonth == yearMonth }
+        removedIds.forEach {
+            cloudSyncPrefs?.markPendingDelete(
+                CloudAutoSyncRepository.COL_MONTHLY_SALES,
+                CloudAutoSyncRepository.sanitizeId(it)
+            )
+        }
+        monthRecords.forEach {
+            cloudSyncPrefs?.markPendingUpsert(
+                CloudAutoSyncRepository.COL_MONTHLY_SALES,
+                CloudAutoSyncRepository.sanitizeId(it.id)
+            )
+        }
         pushCloudMutation {
             removedIds.forEach { deleteMonthlySales(it) }
             monthRecords.forEach { upsertMonthlySales(it) }
         }
         notifyAdminDataChanged()
         showMessage(
-            "${BanglaFormatters.formatBanglaMonth(yearMonth)}-এর ${BanglaFormatters.toBanglaDigits(records.size.toString())}টি Sales রেকর্ড আপলোড হয়েছে"
+            "Uploaded ${records.size} sales records for ${BanglaFormatters.formatBanglaMonth(yearMonth)}"
         )
         onComplete(true)
     }
@@ -1151,9 +1539,13 @@ class LocalHisabViewModel(
             createdAtMs = existing?.createdAtMs ?: System.currentTimeMillis()
         )
         _monthlySales.value = store.upsertRecord(record)
+        cloudSyncPrefs?.markPendingUpsert(
+            CloudAutoSyncRepository.COL_MONTHLY_SALES,
+            CloudAutoSyncRepository.sanitizeId(record.id)
+        )
         pushCloudMutation { upsertMonthlySales(record) }
         notifyAdminDataChanged()
-        showMessage(if (editingId == null) "নতুন Sales যোগ হয়েছে" else "Sales তথ্য হালনাগাদ হয়েছে")
+        showMessage(if (editingId == null) "Sales record added" else "Sales record updated")
         onComplete(true)
     }
 
@@ -1161,9 +1553,13 @@ class LocalHisabViewModel(
         if (!isAdminSession) return
         val store = monthlySalesStore ?: return
         _monthlySales.value = store.deleteRecord(recordId)
+        cloudSyncPrefs?.markPendingDelete(
+            CloudAutoSyncRepository.COL_MONTHLY_SALES,
+            CloudAutoSyncRepository.sanitizeId(recordId)
+        )
         pushCloudMutation { deleteMonthlySales(recordId) }
         notifyAdminDataChanged()
-        showMessage("Sales রেকর্ড মুছে ফেলা হয়েছে")
+        showMessage("Sales record deleted")
     }
 
     fun clearMonthlySales(yearMonth: String) {
@@ -1171,9 +1567,15 @@ class LocalHisabViewModel(
         val store = monthlySalesStore ?: return
         val removedIds = _monthlySales.value.filter { it.yearMonth == yearMonth }.map { it.id }
         _monthlySales.value = store.clearMonth(yearMonth)
+        removedIds.forEach {
+            cloudSyncPrefs?.markPendingDelete(
+                CloudAutoSyncRepository.COL_MONTHLY_SALES,
+                CloudAutoSyncRepository.sanitizeId(it)
+            )
+        }
         pushCloudMutation { removedIds.forEach { deleteMonthlySales(it) } }
         notifyAdminDataChanged()
-        showMessage("${BanglaFormatters.formatBanglaMonth(yearMonth)}-এর সব Sales মুছে ফেলা হয়েছে")
+        showMessage("Cleared all sales records for ${BanglaFormatters.formatBanglaMonth(yearMonth)}")
     }
 
     fun selectAiVoiceOption(option: FemaleAiVoiceOption) {
@@ -1242,7 +1644,7 @@ class LocalHisabViewModel(
                 aiVoiceAssistant.playPcmAudio(generated.audioBytes, generated.mimeType)
                 _aiVoiceState.update { it.copy(status = AiVoiceStatus.Ready) }
             }.onFailure { err ->
-                val message = err.localizedMessage ?: "AI ভয়েস চালু করা যায়নি।"
+                val message = err.localizedMessage ?: "Could not start voice summary."
                 _aiVoiceState.update {
                     it.copy(status = AiVoiceStatus.Error(message))
                 }
@@ -1293,13 +1695,13 @@ class LocalHisabViewModel(
     companion object {
         const val DEFAULT_ADMIN_OWNER_ID = "local_rafiqul"
         const val TAKA_JOMA_TX_PREFIX = "taka_joma_"
-        const val TAKA_JOMA_CATEGORY = "মেম্বার টাকা জমা"
+        const val TAKA_JOMA_CATEGORY = "Member Deposit"
 
         internal fun resolveAccountTypeForBankName(bankName: String): AccountType {
             val cleaned = bankName.trim()
             return if (cleaned.isEmpty() ||
                 cleaned.contains("Cash", ignoreCase = true) ||
-                cleaned.contains("ক্যাশ")
+                cleaned.contains("\u0995\u09CD\u09AF\u09BE\u09B6")
             ) {
                 AccountType.CASH
             } else {
@@ -1318,7 +1720,7 @@ class LocalHisabViewModel(
             }
             val methodShort = entry.bankName.substringBefore(" (").trim()
             val originalDateTag = if (entry.date.isNotBlank() && entry.date != approvedDateIso) {
-                "দাখিল: ${BanglaFormatters.formatBanglaDate(entry.date)}"
+                "Submitted: ${BanglaFormatters.formatBanglaDate(entry.date)}"
             } else {
                 null
             }

@@ -21,7 +21,7 @@ object PasswordHasher {
 
     fun hashPassword(rawPassword: String, minLength: Int = 8): String {
         require(rawPassword.length in minLength..128) {
-            "পাসওয়ার্ড $minLength থেকে ১২৮ অক্ষরের মধ্যে হতে হবে।"
+            "Password must be between $minLength and 128 characters."
         }
         val salt = ByteArray(SALT_BYTES).also { secureRandom.nextBytes(it) }
         val derived = deriveKey(

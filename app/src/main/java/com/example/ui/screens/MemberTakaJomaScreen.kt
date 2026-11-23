@@ -215,14 +215,14 @@ fun MemberTakaJomaScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "মেম্বার টাকা জমা ফর্ম",
+                            text = "Member Deposit Form",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "নাম, কোড, ডিপো, Cash/Nagad/bKash/Bank ও টাকার পরিমাণ যুক্ত করুন",
+                            text = "Enter name, code, depot, Cash/Nagad/bKash/Bank & amount",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -236,7 +236,7 @@ fun MemberTakaJomaScreen(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ReceiptLong,
-                            contentDescription = "টাকা জমা ফর্ম",
+                            contentDescription = "Member Deposit Form",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)
                         )
@@ -254,7 +254,7 @@ fun MemberTakaJomaScreen(
                         color = MaterialTheme.colorScheme.primaryContainer
                     ) {
                         Text(
-                            text = "মোট জমা: ${BanglaFormatters.toBanglaDigits(submissions.size.toString())} টি",
+                            text = "Total: ${submissions.size}",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
@@ -266,7 +266,7 @@ fun MemberTakaJomaScreen(
                         color = IncomeSurface
                     ) {
                         Text(
-                            text = "অনুমোদিত: ${BanglaFormatters.formatBdt(approvedAmount)}",
+                            text = "Approved: ${BanglaFormatters.formatBdt(approvedAmount)}",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = IncomeEmerald,
@@ -279,7 +279,7 @@ fun MemberTakaJomaScreen(
                             color = NagadSurface
                         ) {
                             Text(
-                                text = "অপেক্ষমাণ: ${BanglaFormatters.formatBdt(pendingAmount)}",
+                                text = "Pending: ${BanglaFormatters.formatBdt(pendingAmount)}",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = NagadAccent,
@@ -299,7 +299,7 @@ fun MemberTakaJomaScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "জমার তথ্য পূরণ করুন",
+                        text = "Deposit Details",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -310,7 +310,7 @@ fun MemberTakaJomaScreen(
                             color = IncomeSurface
                         ) {
                             Text(
-                                text = "মেম্বার লিস্ট অটো-ফিল",
+                                text = "Auto-filled",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = IncomeEmerald,
@@ -323,7 +323,7 @@ fun MemberTakaJomaScreen(
                 if (isAdminMode && adminMembers.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "মেম্বার লিস্ট থেকে নির্বাচন করুন (অটো পূরণ)",
+                        text = "Select from Member List (Auto-fill)",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -377,7 +377,7 @@ fun MemberTakaJomaScreen(
                             }
                         }
                     },
-                    label = { Text("নাম (Name) *") },
+                    label = { Text("Name *") },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Outlined.Person,
@@ -420,7 +420,7 @@ fun MemberTakaJomaScreen(
                                 }
                             }
                         },
-                        label = { Text("কোড (Code) *") },
+                        label = { Text("Code *") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Outlined.QrCode,
@@ -442,7 +442,7 @@ fun MemberTakaJomaScreen(
                             depot = it
                             formError = null
                         },
-                        label = { Text("ডিপো (Depot) *") },
+                        label = { Text("Depot *") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Outlined.Storefront,
@@ -471,7 +471,7 @@ fun MemberTakaJomaScreen(
                             designation = it
                             formError = null
                         },
-                        label = { Text("পদবি (Desig:)") },
+                        label = { Text("Designation") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Outlined.WorkOutline,
@@ -493,7 +493,7 @@ fun MemberTakaJomaScreen(
                             area = it
                             formError = null
                         },
-                        label = { Text("এরিয়া (Area)") },
+                        label = { Text("Area") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Outlined.LocationOn,
@@ -522,7 +522,7 @@ fun MemberTakaJomaScreen(
                             amountText = it
                             formError = null
                         },
-                        label = { Text("টাকার পরিমাণ (৳) *") },
+                        label = { Text("Amount (৳) *") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Outlined.Badge,
@@ -544,7 +544,7 @@ fun MemberTakaJomaScreen(
                     OutlinedTextField(
                         value = dateText,
                         onValueChange = { dateText = it },
-                        label = { Text("তারিখ") },
+                        label = { Text("Date") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Outlined.CalendarMonth,
@@ -569,7 +569,7 @@ fun MemberTakaJomaScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "পেমেন্ট মাধ্যম (Cash / Nagad / bKash / All Bank) *",
+                        text = "Payment Method (Cash / Nagad / bKash / Bank) *",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -641,7 +641,7 @@ fun MemberTakaJomaScreen(
                         ) {
                             Icon(
                                 imageVector = dropdownIcon,
-                                contentDescription = "পেমেন্ট মাধ্যম",
+                                contentDescription = "Payment method",
                                 tint = if (selectedBank.isNotBlank()) dropdownAccent else MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -649,7 +649,7 @@ fun MemberTakaJomaScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = selectedBank.ifBlank { "Cash, Nagad, bKash বা All Bank নির্বাচন করুন" },
+                                text = selectedBank.ifBlank { "Select Cash, Nagad, bKash or Bank" },
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = if (selectedBank.isNotBlank()) FontWeight.SemiBold else FontWeight.Normal,
                                 color = if (selectedBank.isNotBlank()) {
@@ -662,10 +662,10 @@ fun MemberTakaJomaScreen(
                             )
                             Text(
                                 text = when (selectedBankItem?.category) {
-                                    PaymentMethodCategory.CASH -> "Cash • নগদ হাত-টাকা"
-                                    PaymentMethodCategory.MFS -> "${selectedBankItem.enName} • মোবাইল ব্যাংকিং"
+                                    PaymentMethodCategory.CASH -> "Cash • Cash in hand"
+                                    PaymentMethodCategory.MFS -> "${selectedBankItem.enName} • Mobile Banking"
                                     PaymentMethodCategory.BANK -> "${selectedBankItem.enName} • ${selectedBankItem.shortCode}"
-                                    null -> "ড্রপডাউন খুলতে ট্যাপ করুন (৫৩টি মাধ্যম)"
+                                    null -> "Tap to open payment methods (${BangladeshBankDirectory.ALL_PAYMENT_METHODS.size} options)"
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -680,7 +680,7 @@ fun MemberTakaJomaScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Close,
-                                    contentDescription = "নির্বাচন বাতিল করুন",
+                                    contentDescription = "Clear selection",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -692,7 +692,7 @@ fun MemberTakaJomaScreen(
                             } else {
                                 Icons.Outlined.KeyboardArrowDown
                             },
-                            contentDescription = if (dropdownExpanded) "ড্রপডাউন বন্ধ করুন" else "ড্রপডাউন খুলুন",
+                            contentDescription = if (dropdownExpanded) "Collapse dropdown" else "Expand dropdown",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)
                         )
@@ -728,7 +728,7 @@ fun MemberTakaJomaScreen(
                                     FilterChip(
                                         selected = selectedCategoryFilter == null,
                                         onClick = { selectedCategoryFilter = null },
-                                        label = { Text("সব (${BanglaFormatters.toBanglaDigits(BangladeshBankDirectory.ALL_PAYMENT_METHODS.size.toString())})") },
+                                        label = { Text("All (${BangladeshBankDirectory.ALL_PAYMENT_METHODS.size})") },
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                             selectedLabelColor = MaterialTheme.colorScheme.primary
@@ -779,11 +779,11 @@ fun MemberTakaJomaScreen(
                             OutlinedTextField(
                                 value = bankSearchQuery,
                                 onValueChange = { bankSearchQuery = it },
-                                placeholder = { Text("খুঁজুন (Cash, Nagad, bKash, Sonali...)") },
+                                placeholder = { Text("Search (Cash, Nagad, bKash, Sonali...)") },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Outlined.Search,
-                                        contentDescription = "মাধ্যম খুঁজুন",
+                                        contentDescription = "Search methods",
                                         modifier = Modifier.size(18.dp)
                                     )
                                 },
@@ -792,7 +792,7 @@ fun MemberTakaJomaScreen(
                                         IconButton(onClick = { bankSearchQuery = "" }) {
                                             Icon(
                                                 imageVector = Icons.Outlined.Close,
-                                                contentDescription = "খোঁজা মুছুন",
+                                                contentDescription = "Clear search",
                                                 modifier = Modifier.size(18.dp)
                                             )
                                         }
@@ -838,8 +838,8 @@ fun MemberTakaJomaScreen(
                                             PaymentMethodCategory.BANK -> Icons.Outlined.AccountBalance
                                         }
                                         val subtitle = when (item.category) {
-                                            PaymentMethodCategory.CASH -> "${item.enName} • হাত নগদ"
-                                            PaymentMethodCategory.MFS -> "${item.enName} • মোবাইল ব্যাংকিং"
+                                            PaymentMethodCategory.CASH -> "${item.enName} • Cash in hand"
+                                            PaymentMethodCategory.MFS -> "${item.enName} • Mobile Banking"
                                             PaymentMethodCategory.BANK -> "${item.enName} • ${item.shortCode}"
                                         }
 
@@ -901,7 +901,7 @@ fun MemberTakaJomaScreen(
                                                 } else {
                                                     Icons.Outlined.RadioButtonUnchecked
                                                 },
-                                                contentDescription = if (isSelected) "নির্বাচিত" else "নির্বাচন করুন",
+                                                contentDescription = if (isSelected) "Selected" else "Select",
                                                 tint = if (isSelected) {
                                                     itemAccent
                                                 } else {
@@ -938,7 +938,7 @@ fun MemberTakaJomaScreen(
                                                 )
                                                 Spacer(modifier = Modifier.width(10.dp))
                                                 Text(
-                                                    text = "\"$customBank\" মাধ্যম হিসেবে নির্বাচন করুন",
+                                                    text = "Use \"$customBank\" as payment method",
                                                     style = MaterialTheme.typography.bodyMedium,
                                                     fontWeight = FontWeight.SemiBold,
                                                     color = MaterialTheme.colorScheme.primary
@@ -974,12 +974,12 @@ fun MemberTakaJomaScreen(
                         val cleanDate = dateText.trim().ifBlank { BanglaFormatters.todayIso() }
 
                         when {
-                            cleanName.isEmpty() -> formError = "অনুগ্রহ করে নাম লিখুন।"
-                            cleanCode.isEmpty() -> formError = "অনুগ্রহ করে কোড লিখুন।"
-                            cleanDepot.isEmpty() -> formError = "অনুগ্রহ করে ডিপোর নাম লিখুন।"
-                            cleanBank.isEmpty() -> formError = "অনুগ্রহ করে ড্রপডাউন থেকে Cash, Nagad, bKash বা একটি ব্যাংক নির্বাচন করুন।"
+                            cleanName.isEmpty() -> formError = "Please enter a name."
+                            cleanCode.isEmpty() -> formError = "Please enter a code."
+                            cleanDepot.isEmpty() -> formError = "Please enter a depot name."
+                            cleanBank.isEmpty() -> formError = "Please select Cash, Nagad, bKash or a bank from the dropdown."
                             parsedAmount == null || parsedAmount <= 0.0 -> {
-                                formError = "সঠিক টাকার পরিমাণ লিখুন।"
+                                formError = "Please enter a valid amount."
                             }
                             else -> {
                                 isSubmitting = true
@@ -1029,7 +1029,7 @@ fun MemberTakaJomaScreen(
                                         }
                                         formError = null
                                     } else {
-                                        formError = "জমা সংরক্ষণ করা যায়নি, আবার চেষ্টা করুন।"
+                                        formError = "Could not save deposit. Please try again."
                                     }
                                 }
                             }
@@ -1041,7 +1041,7 @@ fun MemberTakaJomaScreen(
                         .height(48.dp)
                         .testTag("taka_joma_submit_button")
                 ) {
-                    Text(if (isSubmitting) "সংরক্ষণ হচ্ছে..." else "টাকা জমা সংরক্ষণ করুন")
+                    Text(if (isSubmitting) "Saving..." else "Save Deposit")
                 }
             }
         }
@@ -1049,7 +1049,7 @@ fun MemberTakaJomaScreen(
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "জমাকৃত টাকার তালিকা",
+                    text = "Submitted Deposits",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -1057,9 +1057,9 @@ fun MemberTakaJomaScreen(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (submissions.isEmpty()) {
-                        "এখনো কোনো টাকা জমা ফর্ম সংরক্ষিত হয়নি।"
+                        "No deposit records saved yet."
                     } else {
-                        "বিস্তারিত দেখতে সারির উপর ট্যাপ করুন (অ্যাডমিন অনুমোদনের পর টাকা যোগ হবে)"
+                        "Tap a row to view details (balance updates after admin approval)"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1102,32 +1102,32 @@ fun MemberTakaJomaScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "অবস্থা:",
+                            text = "Status:",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         com.example.ui.components.TakaJomaStatusPill(status = item.resolvedStatus)
                     }
-                    Text("কোড (Code): ${item.code.ifBlank { "-" }}")
+                    Text("Code: ${item.code.ifBlank { "-" }}")
                     if (item.designation.isNotBlank()) {
-                        Text("পদবি (Desig:): ${item.designation}")
+                        Text("Designation: ${item.designation}")
                     }
                     if (item.area.isNotBlank()) {
-                        Text("এরিয়া (Area): ${item.area}")
+                        Text("Area: ${item.area}")
                     }
-                    Text("ডিপো (Depot): ${item.depot.ifBlank { "-" }}")
+                    Text("Depot: ${item.depot.ifBlank { "-" }}")
                     if (item.bankName.isNotBlank()) {
-                        Text("মাধ্যম / ব্যাংক: ${item.bankName}")
+                        Text("Method / Bank: ${item.bankName}")
                     }
-                    Text("তারিখ: ${BanglaFormatters.formatBanglaDate(item.date)}")
+                    Text("Date: ${BanglaFormatters.formatBanglaDate(item.date)}")
                     if (item.note.isNotBlank()) {
-                        Text("মন্তব্য: ${item.note}")
+                        Text("Note: ${item.note}")
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { previewSubmission = null }) {
-                    Text("বন্ধ করুন")
+                    Text("Close")
                 }
             }
         )
@@ -1137,9 +1137,9 @@ fun MemberTakaJomaScreen(
         deletingSubmission?.let { item ->
             AlertDialog(
                 onDismissRequest = { deletingSubmission = null },
-                title = { Text("জমা রেকর্ড মুছে ফেলবেন?") },
+                title = { Text("Delete Deposit Record?") },
                 text = {
-                    Text("${item.name} (Code: ${item.code}) — ${BanglaFormatters.formatBdt(item.amount)} মুছে ফেলা হবে।")
+                    Text("${item.name} (Code: ${item.code}) — ${BanglaFormatters.formatBdt(item.amount)} will be deleted.")
                 },
                 confirmButton = {
                     TextButton(
@@ -1149,12 +1149,12 @@ fun MemberTakaJomaScreen(
                         },
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Text("মুছুন")
+                        Text("Delete")
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { deletingSubmission = null }) {
-                        Text("বাতিল")
+                        Text("Cancel")
                     }
                 }
             )
@@ -1218,7 +1218,7 @@ private fun TakaJomaListRow(
             )
             if (entry.bankName.isNotBlank()) {
                 Text(
-                    text = "মাধ্যম / ব্যাংক: ${entry.bankName}",
+                    text = "Method / Bank: ${entry.bankName}",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.primary,
@@ -1263,7 +1263,7 @@ private fun TakaJomaListRow(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.DeleteOutline,
-                    contentDescription = "মুছুন",
+                    contentDescription = "Delete",
                     tint = ExpenseCrimson,
                     modifier = Modifier.size(18.dp)
                 )

@@ -102,7 +102,7 @@ class MemberTakaJomaStore(context: Context) {
         val current = loadAll()
         if (current.any { it.id == entry.id }) {
             return Result.failure(
-                IllegalStateException("এই জমা ফর্মটি ইতিমধ্যে সংরক্ষিত হয়েছে।")
+                IllegalStateException("This deposit entry is already saved.")
             )
         }
         val cleanHash = entry.slipHash.trim()
@@ -113,7 +113,7 @@ class MemberTakaJomaStore(context: Context) {
         }
         if (hasDuplicateSlip) {
             return Result.failure(
-                IllegalStateException("এই স্লিপটি আগেও জমা দেওয়া হয়েছে। এক স্লিপ দুইবার জমা দেওয়া যাবে না।")
+                IllegalStateException("This slip has already been submitted. Duplicate slips are not allowed.")
             )
         }
         val updated = sortSubmissions(listOf(entry) + current)

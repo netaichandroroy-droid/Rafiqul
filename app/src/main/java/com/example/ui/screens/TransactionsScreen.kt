@@ -77,7 +77,7 @@ fun TransactionsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "চলতি মাসের হিসাব",
+                            text = "This Month's Summary",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -93,7 +93,7 @@ fun TransactionsScreen(
                         color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Text(
-                            text = "${BanglaFormatters.toBanglaDigits(monthTransactions.size.toString())}টি লেনদেন",
+                            text = "${monthTransactions.size} entries",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -127,7 +127,7 @@ fun TransactionsScreen(
                             .testTag("monthly_summary_expense")
                     )
                     MonthlySummaryMetricBox(
-                        label = "নিট ব্যালেন্স",
+                        label = "Net Balance",
                         amount = BanglaFormatters.formatBdt(monthNetBalance),
                         containerColor = if (monthNetBalance >= 0) {
                             MaterialTheme.colorScheme.primaryContainer

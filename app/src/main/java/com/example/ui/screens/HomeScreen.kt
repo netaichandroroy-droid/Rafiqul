@@ -120,7 +120,7 @@ fun HomeScreen(
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "আজকের হিসাব (${BanglaFormatters.formatBanglaDate(todayIso)})",
+                    text = "Today's Summary (${BanglaFormatters.formatBanglaDate(todayIso)})",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -136,7 +136,7 @@ fun HomeScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "আজকের আয়",
+                                text = "Today's Income",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = incomeText
                             )
@@ -157,7 +157,7 @@ fun HomeScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "আজকের খরচ",
+                                text = "Today's Expense",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = expenseText
                             )
@@ -189,7 +189,7 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "মেম্বার অনুমোদিত জমা (আজ)",
+                            text = "Approved Member Deposits (Today)",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = incomeText,
@@ -221,7 +221,7 @@ fun HomeScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "অপেক্ষমাণ (${BanglaFormatters.toBanglaDigits(pendingMemberJomaList.size.toString())}টি অনুমোদনের পর যোগ হবে)",
+                                text = "Pending (${pendingMemberJomaList.size} awaiting approval)",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = NagadAccent,
@@ -238,7 +238,7 @@ fun HomeScreen(
                 } else {
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "* মেম্বার টাকা জমা দিলে অ্যাডমিন অনুমোদনের পর আজকের হিসাবে জমা হবে",
+                        text = "* Approved member deposits are automatically added to today's summary",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

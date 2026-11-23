@@ -179,7 +179,7 @@
     },
     "AppSyncConfig": {
       "title": "AppSyncConfig",
-      "description": "Synced app configuration document (online_payment, member_app_link, admin_auth).",
+      "description": "Synced app configuration document (online_payment, member_app_link, admin_auth, drive_backup).",
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
@@ -189,6 +189,12 @@
         "loginId": { "type": "string" },
         "passwordHash": { "type": "string" },
         "defaultPassword": { "type": "boolean" },
+        "driveConnected": { "type": "boolean" },
+        "driveEmail": { "type": "string" },
+        "driveFileId": { "type": "string" },
+        "driveAutoBackupEnabled": { "type": "boolean" },
+        "lastBackupAtMs": { "type": "number" },
+        "lastBackupSummary": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
@@ -230,7 +236,7 @@
       "schema": {
         "$ref": "#/entities/AppSyncConfig"
       },
-      "description": "User-scoped configuration documents (online_payment, member_app_link, admin_auth) for auto-sync."
+      "description": "User-scoped configuration documents (online_payment, member_app_link, admin_auth, drive_backup) for auto-sync."
     }
   }
 }

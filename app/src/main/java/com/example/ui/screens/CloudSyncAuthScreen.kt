@@ -91,7 +91,7 @@ fun CloudSyncAuthScreen(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.CloudSync,
-                    contentDescription = "ক্লাউড অটো-সিঙ্ক",
+                    contentDescription = "Cloud Auto-Sync",
                     tint = Color.White,
                     modifier = Modifier.size(38.dp)
                 )
@@ -108,7 +108,7 @@ fun CloudSyncAuthScreen(
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "অ্যাপ অটো-সিঙ্ক (App Auto-Sync)",
+                text = "App Auto-Sync",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = BrandDeep,
@@ -116,7 +116,7 @@ fun CloudSyncAuthScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "আপনার হিসাব, মেম্বার লিস্ট, টাকা জমা ও মাসিক সেলসের তথ্য সব ডিভাইসে স্বয়ংক্রিয়ভাবে সিঙ্ক রাখতে Google অ্যাকাউন্ট দিয়ে সাইন-ইন করুন।",
+                text = "Sign in with Google to automatically sync your ledger, member list, deposits, and monthly sales across all your devices.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -137,18 +137,18 @@ fun CloudSyncAuthScreen(
                 ) {
                     CloudFeatureRow(
                         icon = Icons.Outlined.Sync,
-                        title = "রিয়েল-টাইম অটো-সিঙ্ক",
-                        subtitle = "যেকোনো পরিবর্তন সাথে সাথে ক্লাউডে সংরক্ষিত হবে"
+                        title = "Real-Time Auto-Sync",
+                        subtitle = "Every update is saved immediately to your cloud ledger"
                     )
                     CloudFeatureRow(
                         icon = Icons.Outlined.Devices,
-                        title = "একাধিক ডিভাইস সাপোর্ট",
-                        subtitle = "অন্য ফোনে সাইন-ইন করলেই সব হিসাব চলে আসবে"
+                        title = "Multi-Device Access",
+                        subtitle = "Sign in on another phone to restore all your records"
                     )
                     CloudFeatureRow(
                         icon = Icons.Outlined.Lock,
-                        title = "নিরাপদ ব্যক্তিগত স্টোরেজ",
-                        subtitle = "আপনার Google অ্যাকাউন্টের বাইরে কেউ ডেটা দেখতে পাবে না"
+                        title = "Private & Secure Storage",
+                        subtitle = "Protected by your personal Google account"
                     )
 
                     if (!errorMessage.isNullOrBlank()) {
@@ -191,15 +191,15 @@ fun CloudSyncAuthScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = if (isCheckingSession) {
-                                    "সেশন যাচাই হচ্ছে..."
+                                    "Checking session..."
                                 } else {
-                                    "Google দিয়ে সাইন-ইন হচ্ছে..."
+                                    "Signing in with Google..."
                                 },
                                 fontWeight = FontWeight.Bold
                             )
                         } else {
                             Text(
-                                text = "Google দিয়ে সাইন-ইন করুন",
+                                text = "Sign in with Google",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
                             )

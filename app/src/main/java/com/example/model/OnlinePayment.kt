@@ -1,10 +1,10 @@
 package com.example.model
 
 enum class PaymentChannel(val title: String, val bnTitle: String) {
-    BKASH("bKash", "বিকাশ"),
-    NAGAD("Nagad", "নগদ"),
-    ROCKET("Rocket", "রকেট"),
-    BANK("Bank", "ব্যাংক")
+    BKASH("bKash", "bKash"),
+    NAGAD("Nagad", "Nagad"),
+    ROCKET("Rocket", "Rocket"),
+    BANK("Bank", "Bank")
 }
 
 data class OnlinePaymentAccount(

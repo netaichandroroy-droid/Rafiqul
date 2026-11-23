@@ -28,10 +28,10 @@ data class FullAppBackupData(
 ) {
     fun buildBanglaSummary(): String {
         val parts = listOf(
-            "${BanglaFormatters.toBanglaDigits(transactions.size.toString())} লেনদেন",
-            "${BanglaFormatters.toBanglaDigits(members.size.toString())} মেম্বার",
-            "${BanglaFormatters.toBanglaDigits(memberTakaJoma.size.toString())} টাকা জমা",
-            "${BanglaFormatters.toBanglaDigits(monthlySales.size.toString())} সেলস"
+            "${transactions.size} transactions",
+            "${members.size} members",
+            "${memberTakaJoma.size} deposits",
+            "${monthlySales.size} sales"
         )
         return parts.joinToString(" • ")
     }
@@ -149,7 +149,7 @@ object BackupExporter {
     fun parseFullAppBackupJson(jsonText: String): Result<FullAppBackupData> {
         val trimmed = jsonText.trim()
         if (trimmed.isEmpty()) {
-            return Result.failure(IllegalArgumentException("সঠিক JSON ব্যাকআপ ফাইল নির্বাচন করুন।"))
+            return Result.failure(IllegalArgumentException("Please select a valid JSON backup file."))
         }
 
         if (trimmed.startsWith("[")) {
@@ -180,7 +180,7 @@ object BackupExporter {
         return try {
             @Suppress("UNCHECKED_CAST")
             val root = MiniJson.parse(trimmed) as? Map<String, Any?>
-                ?: return Result.failure(IllegalArgumentException("সঠিক JSON ব্যাকআপ ফাইল নির্বাচন করুন।"))
+                ?: return Result.failure(IllegalArgumentException("Please select a valid JSON backup file."))
 
             val formatVersion = root.intValue("formatVersion", 2)
             val exportedAtMs = root.longValue("exportedAtMs", System.currentTimeMillis())
@@ -327,7 +327,7 @@ object BackupExporter {
                 root.containsKey("onlinePaymentConfig")
 
             if (!hasRecognizedStructure) {
-                Result.failure(IllegalArgumentException("সঠিক JSON ব্যাকআপ ফাইল নির্বাচন করুন।"))
+                Result.failure(IllegalArgumentException("Please select a valid JSON backup file."))
             } else {
                 Result.success(
                     FullAppBackupData(
@@ -344,7 +344,7 @@ object BackupExporter {
                 )
             }
         } catch (e: Exception) {
-            Result.failure(IllegalArgumentException("সঠিক JSON ব্যাকআপ নির্বাচন করুন।", e))
+            Result.failure(IllegalArgumentException("Please select a valid JSON backup.", e))
         }
     }
 
@@ -352,7 +352,7 @@ object BackupExporter {
         return try {
             @Suppress("UNCHECKED_CAST")
             val array = MiniJson.parse(jsonText.trim()) as? List<Any?>
-                ?: return Result.failure(IllegalArgumentException("সঠিক JSON ব্যাকআপ ফাইল নির্বাচন করুন।"))
+                ?: return Result.failure(IllegalArgumentException("Please select a valid JSON backup file."))
             val parsed = mutableListOf<ImportedTransaction>()
             for (item in array) {
                 @Suppress("UNCHECKED_CAST")
@@ -384,12 +384,12 @@ object BackupExporter {
                 )
             }
             if (parsed.isEmpty()) {
-                Result.failure(IllegalArgumentException("সঠিক JSON ব্যাকআপ ফাইল নির্বাচন করুন।"))
+                Result.failure(IllegalArgumentException("Please select a valid JSON backup file."))
             } else {
                 Result.success(parsed)
             }
         } catch (e: Exception) {
-            Result.failure(IllegalArgumentException("সঠিক JSON ব্যাকআপ নির্বাচন করুন।", e))
+            Result.failure(IllegalArgumentException("Please select a valid JSON backup.", e))
         }
     }
 

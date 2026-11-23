@@ -162,7 +162,7 @@ fun AdminMemberTakaJomaTableCard(
     }
     val methodColW = remember(visibleSubmissions, density) {
         val methods = visibleSubmissions.map { it.bankName.substringBefore(" (").ifBlank { "-" } }
-        measureCol("মাধ্যম", methods, 64.dp, 128.dp)
+        measureCol("Method", methods, 64.dp, 128.dp)
     }
     val takaColW = remember(visibleSubmissions, density) {
         measureCol("Taka", visibleSubmissions.map { BanglaFormatters.formatBdt(it.amount) }, 64.dp, 116.dp)
@@ -189,9 +189,9 @@ fun AdminMemberTakaJomaTableCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = if (pendingOnlyMode) {
-                            "অপেক্ষমাণ টাকা জমা (অনুমোদন)"
+                            "Pending Deposits (Approval)"
                         } else {
-                            "মেম্বার টাকা জমা (ফর্ম অনুযায়ী)"
+                            "Member Deposits"
                         },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
@@ -199,9 +199,9 @@ fun AdminMemberTakaJomaTableCard(
                     )
                     Text(
                         text = if (pendingOnlyMode) {
-                            "মেম্বার টাকা জমা দিলে এখানে আসবে; অনুমোদন করলে এখান থেকে সরে যাবে"
+                            "Member deposit submissions appear here until approved"
                         } else {
-                            "মেম্বারদের দাখিলকৃত টাকা ও অ্যাডমিন অনুমোদন"
+                            "Submitted member deposits and approval status"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -215,7 +215,7 @@ fun AdminMemberTakaJomaTableCard(
                             .minimumInteractiveComponentSize()
                             .testTag("admin_lenden_open_taka_joma")
                     ) {
-                        Text("+ ফর্ম")
+                        Text("+ Add Entry")
                     }
                 }
             }
@@ -234,7 +234,7 @@ fun AdminMemberTakaJomaTableCard(
                     color = IncomeSurface
                 ) {
                     Text(
-                        text = "অনুমোদিত: ${BanglaFormatters.formatBdt(approvedAmount)}",
+                        text = "Approved: ${BanglaFormatters.formatBdt(approvedAmount)}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = IncomeEmerald,
@@ -246,7 +246,7 @@ fun AdminMemberTakaJomaTableCard(
                     color = if (pendingEntries.isNotEmpty()) NagadSurface else MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Text(
-                        text = "অপেক্ষমাণ: ${BanglaFormatters.toBanglaDigits(pendingEntries.size.toString())} টি (${BanglaFormatters.formatBdt(pendingAmount)})",
+                        text = "Pending: ${pendingEntries.size} (${BanglaFormatters.formatBdt(pendingAmount)})",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = if (pendingEntries.isNotEmpty()) NagadAccent else MaterialTheme.colorScheme.primary,
@@ -266,7 +266,7 @@ fun AdminMemberTakaJomaTableCard(
                     FilterChip(
                         selected = statusFilter == TakaJomaStatusFilter.ALL,
                         onClick = { statusFilter = TakaJomaStatusFilter.ALL },
-                        label = { Text("সব (${BanglaFormatters.toBanglaDigits(submissions.size.toString())})") },
+                        label = { Text("All (${submissions.size})") },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.primary
@@ -276,7 +276,7 @@ fun AdminMemberTakaJomaTableCard(
                     FilterChip(
                         selected = statusFilter == TakaJomaStatusFilter.PENDING,
                         onClick = { statusFilter = TakaJomaStatusFilter.PENDING },
-                        label = { Text("অপেক্ষমাণ (${BanglaFormatters.toBanglaDigits(pendingEntries.size.toString())})") },
+                        label = { Text("Pending (${pendingEntries.size})") },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = NagadSurface,
                             selectedLabelColor = NagadAccent
@@ -286,7 +286,7 @@ fun AdminMemberTakaJomaTableCard(
                     FilterChip(
                         selected = statusFilter == TakaJomaStatusFilter.APPROVED,
                         onClick = { statusFilter = TakaJomaStatusFilter.APPROVED },
-                        label = { Text("অনুমোদিত (${BanglaFormatters.toBanglaDigits(approvedEntries.size.toString())})") },
+                        label = { Text("Approved (${approvedEntries.size})") },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = IncomeSurface,
                             selectedLabelColor = IncomeEmerald
@@ -315,9 +315,9 @@ fun AdminMemberTakaJomaTableCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = when {
-                            pendingOnlyMode -> "অনুমোদনের জন্য অপেক্ষমাণ কোনো টাকা জমা নেই।"
-                            submissions.isEmpty() -> "কোনো মেম্বার টাকা জমা দিলে ফর্মের হেডার অনুযায়ী এখানে যুক্ত হবে।"
-                            else -> "এই ক্যাটাগরিতে কোনো টাকা জমা এন্ট্রি নেই।"
+                            pendingOnlyMode -> "No pending deposits awaiting approval."
+                            submissions.isEmpty() -> "Member deposit submissions will appear in this table."
+                            else -> "No deposit entries match this filter."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -368,9 +368,9 @@ fun AdminMemberTakaJomaTableCard(
                                 AdminTableVerticalBorder(borderColor)
                                 AdminTableHeaderCell("Depot", depotColW, tableHeaderStyle)
                                 AdminTableVerticalBorder(borderColor)
-                                AdminTableHeaderCell("মাধ্যম", resolvedMethodW, tableHeaderStyle)
+                                AdminTableHeaderCell("Method", resolvedMethodW, tableHeaderStyle)
                                 AdminTableVerticalBorder(borderColor)
-                                AdminTableHeaderCell("Taka", resolvedTakaW, tableHeaderStyle, TextAlign.End)
+                                AdminTableHeaderCell("Amount", resolvedTakaW, tableHeaderStyle, TextAlign.End)
                                 AdminTableVerticalBorder(borderColor)
                                 AdminTableHeaderCell("Status", statusColW, tableHeaderStyle, TextAlign.Center)
                             }
@@ -415,7 +415,7 @@ fun AdminMemberTakaJomaTableCard(
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                             Text(
-                                                text = "জমা",
+                                                text = "Deposit",
                                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
                                                 color = IncomeEmerald,
                                                 fontWeight = FontWeight.Bold
@@ -591,7 +591,7 @@ fun AdminMemberTakaJomaTableCard(
                                                     .testTag("approve_taka_joma_${entry.id}")
                                             ) {
                                                 Text(
-                                                    text = "অনুমোদন",
+                                                    text = "Approve",
                                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                                     fontWeight = FontWeight.Bold,
                                                     color = Color.White,
@@ -629,27 +629,27 @@ fun AdminMemberTakaJomaTableCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "অবস্থা:",
+                            text = "Status:",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         TakaJomaStatusPill(status = status)
                     }
-                    Text("Submit তারিখ: ${BanglaFormatters.formatBanglaDate(item.date)}")
-                    Text("কোড (Code): ${item.code.ifBlank { "-" }}")
-                    Text("নাম (Name): ${item.name}")
+                    Text("Submit Date: ${BanglaFormatters.formatBanglaDate(item.date)}")
+                    Text("Code: ${item.code.ifBlank { "-" }}")
+                    Text("Name: ${item.name}")
                     if (item.designation.isNotBlank()) {
-                        Text("পদবি (Desig:): ${item.designation}")
+                        Text("Designation: ${item.designation}")
                     }
                     if (item.area.isNotBlank()) {
-                        Text("এরিয়া (Area): ${item.area}")
+                        Text("Area: ${item.area}")
                     }
-                    Text("ডিপো (Depot): ${item.depot.ifBlank { "-" }}")
+                    Text("Depot: ${item.depot.ifBlank { "-" }}")
                     if (item.bankName.isNotBlank()) {
-                        Text("মাধ্যম / ব্যাংক: ${item.bankName}")
+                        Text("Method / Bank: ${item.bankName}")
                     }
                     Text(
-                        text = "টাকা (Taka): ${BanglaFormatters.formatBdt(item.amount)}",
+                        text = "Amount: ${BanglaFormatters.formatBdt(item.amount)}",
                         fontWeight = FontWeight.Bold,
                         color = IncomeEmerald
                     )
@@ -678,7 +678,7 @@ fun AdminMemberTakaJomaTableCard(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("অনুমোদন", maxLines = 1)
+                                    Text("Approve", maxLines = 1)
                                 }
                             }
                             if (status != TakaJomaStatus.REJECTED && onRejectSubmission != null) {
@@ -701,7 +701,7 @@ fun AdminMemberTakaJomaTableCard(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("বাতিল", maxLines = 1)
+                                    Text("Reject", maxLines = 1)
                                 }
                             }
                         }
@@ -710,7 +710,7 @@ fun AdminMemberTakaJomaTableCard(
             },
             confirmButton = {
                 TextButton(onClick = { previewItem = null }) {
-                    Text("বন্ধ করুন")
+                    Text("Close")
                 }
             },
             dismissButton = {
@@ -721,7 +721,7 @@ fun AdminMemberTakaJomaTableCard(
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("মুছুন")
+                    Text("Delete")
                 }
             }
         )
@@ -730,9 +730,9 @@ fun AdminMemberTakaJomaTableCard(
     deletingItem?.let { item ->
         AlertDialog(
             onDismissRequest = { deletingItem = null },
-            title = { Text("মেম্বার জমা মুছে ফেলবেন?") },
+            title = { Text("Delete deposit entry?") },
             text = {
-                Text("${item.name} (${item.code}) — ${BanglaFormatters.formatBdt(item.amount)} মুছে ফেলা হবে।")
+                Text("${item.name} (${item.code}) — ${BanglaFormatters.formatBdt(item.amount)} will be permanently deleted.")
             },
             confirmButton = {
                 TextButton(
@@ -742,12 +742,12 @@ fun AdminMemberTakaJomaTableCard(
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("মুছুন")
+                    Text("Delete")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { deletingItem = null }) {
-                    Text("বাতিল")
+                    Text("Cancel")
                 }
             }
         )

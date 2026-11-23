@@ -129,7 +129,16 @@ service cloud.firestore {
                 data.loginId.matches('^[a-zA-Z0-9_.-]+$') &&
                 data.passwordHash is string && data.passwordHash.size() >= 32 && data.passwordHash.size() <= 256 &&
                 data.passwordHash.matches('^pbkdf2_sha256\\$[0-9]+\\$[A-Za-z0-9+/=]+\\$[A-Za-z0-9+/=]+$') &&
-                data.defaultPassword is bool)
+                data.defaultPassword is bool) ||
+               (configId == 'drive_backup' &&
+                data.keys().hasAll(['userId', 'driveConnected', 'driveEmail', 'driveFileId', 'driveAutoBackupEnabled', 'lastBackupAtMs', 'lastBackupSummary', 'createdAt', 'updatedAt']) &&
+                data.keys().hasOnly(['userId', 'driveConnected', 'driveEmail', 'driveFileId', 'driveAutoBackupEnabled', 'lastBackupAtMs', 'lastBackupSummary', 'createdAt', 'updatedAt']) &&
+                data.driveConnected is bool &&
+                data.driveEmail is string && data.driveEmail.size() <= 120 &&
+                data.driveFileId is string && data.driveFileId.size() <= 200 &&
+                data.driveAutoBackupEnabled is bool &&
+                data.lastBackupAtMs is number && data.lastBackupAtMs >= 0 &&
+                data.lastBackupSummary is string && data.lastBackupSummary.size() <= 250)
              );
     }
 
@@ -317,7 +326,10 @@ service cloud.firestore {
                          incoming().updatedAt <= request.time &&
                          incoming().diff(existing()).affectedKeys().hasOnly([
                            'onlinePaymentEnabled', 'accountsJson', 'downloadUrl',
-                           'loginId', 'passwordHash', 'defaultPassword', 'updatedAt'
+                           'loginId', 'passwordHash', 'defaultPassword',
+                           'driveConnected', 'driveEmail', 'driveFileId',
+                           'driveAutoBackupEnabled', 'lastBackupAtMs', 'lastBackupSummary',
+                           'updatedAt'
                          ]);
 
         allow delete: if isOwner(userId) && isValidId(configId);

@@ -11,6 +11,7 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
 import com.example.R
+import com.example.data.CloudSyncPrefsStore
 import com.google.android.gms.tasks.Task
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
@@ -74,7 +75,12 @@ fun attemptAutoSignIn(
         return
     }
     if (runCatching { auth.currentUser }.getOrNull() != null) {
+        CloudSyncPrefsStore(context).setExplicitGoogleSignOut(false)
         onAuthSuccess()
+        return
+    }
+    if (CloudSyncPrefsStore(context).isExplicitGoogleSignOut()) {
+        onUnauthenticated()
         return
     }
     val clientId = try {
@@ -103,6 +109,7 @@ fun attemptAutoSignIn(
             if (cred is CustomCredential && cred.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                 val token = GoogleIdTokenCredential.createFrom(cred.data).idToken
                 auth.signInWithCredential(GoogleAuthProvider.getCredential(token, null)).awaitGmsTask()
+                CloudSyncPrefsStore(context).setExplicitGoogleSignOut(false)
                 onAuthSuccess()
             } else {
                 onUnauthenticated()
@@ -126,17 +133,17 @@ fun onGoogleSignInClicked(
 ) {
     val auth = safeFirebaseAuth()
     if (auth == null || credentialManager == null) {
-        onAuthError("এই ডিভাইসে Google Sign-In সার্ভিস পাওয়া যাচ্ছে না।")
+        onAuthError("Google Sign-In service is not available on this device.")
         return
     }
     val clientId = try {
         context.getString(R.string.default_web_client_id)
     } catch (_: Throwable) {
-        onAuthError("Google Sign-In কনফিগারেশন পাওয়া যায়নি (default_web_client_id অনুপস্থিত)।")
+        onAuthError("Google Sign-In configuration is missing.")
         return
     }
     if (clientId.isBlank()) {
-        onAuthError("Google Sign-In ক্লায়েন্ট আইডি পাওয়া যায়নি।")
+        onAuthError("Google Sign-In client ID is missing.")
         return
     }
 
@@ -151,6 +158,7 @@ fun onGoogleSignInClicked(
             if (cred is CustomCredential && cred.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                 val token = GoogleIdTokenCredential.createFrom(cred.data).idToken
                 auth.signInWithCredential(GoogleAuthProvider.getCredential(token, null)).awaitGmsTask()
+                CloudSyncPrefsStore(context).setExplicitGoogleSignOut(false)
                 onAuthSuccess()
                 return@launch
             }
@@ -177,9 +185,10 @@ fun onGoogleSignInClicked(
             if (cred is CustomCredential && cred.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                 val token = GoogleIdTokenCredential.createFrom(cred.data).idToken
                 auth.signInWithCredential(GoogleAuthProvider.getCredential(token, null)).awaitGmsTask()
+                CloudSyncPrefsStore(context).setExplicitGoogleSignOut(false)
                 onAuthSuccess()
             } else {
-                onAuthError("অপ্রত্যাশিত ক্রেডেনশিয়াল ধরন পাওয়া গেছে।")
+                onAuthError("Unexpected credential type received.")
             }
         } catch (ce: CancellationException) {
             throw ce
@@ -188,10 +197,10 @@ fun onGoogleSignInClicked(
             onAuthCancelled()
         } catch (e: NoCredentialException) {
             Log.w("Auth", "No Google account found in CredentialManager: ${e.message}", e)
-            onAuthError("এই ফোনে সাইন-ইন করার মতো কোনো Gmail অ্যাকাউন্ট পাওয়া যায়নি। ফোনের Settings > Accounts-এ Gmail যোগ করে আবার চেষ্টা করুন।")
+            onAuthError("No Gmail account was found on this device. Add an account in Settings > Accounts and try again.")
         } catch (t: Throwable) {
             Log.e("Auth", "Google Sign-In failed", t)
-            onAuthError(t.localizedMessage ?: "Google Sign-In ব্যর্থ হয়েছে। আবার চেষ্টা করুন।")
+            onAuthError(t.localizedMessage ?: "Google Sign-In failed. Please try again.")
         }
     }
 }
@@ -225,9 +234,11 @@ fun switchGoogleCloudAccount(
 fun signOutFromGoogleCloud(
     credentialManager: CredentialManager?,
     scope: CoroutineScope,
+    context: Context? = null,
     onBeforeSignOut: () -> Unit = {},
     onSignOutComplete: () -> Unit = {}
 ) {
+    context?.let { CloudSyncPrefsStore(it).setExplicitGoogleSignOut(true) }
     scope.launch {
         withContext(NonCancellable) {
             try {

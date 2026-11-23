@@ -4,18 +4,20 @@ enum class TakaJomaStatus(
     val wireValue: String,
     val bnLabel: String
 ) {
-    PENDING("PENDING", "অপেক্ষমাণ"),
-    APPROVED("APPROVED", "অনুমোদিত"),
-    REJECTED("REJECTED", "বাতিল");
+    PENDING("PENDING", "Pending"),
+    APPROVED("APPROVED", "Approved"),
+    REJECTED("REJECTED", "Rejected");
 
     companion object {
         fun fromRaw(raw: String?): TakaJomaStatus {
             val cleaned = raw?.trim().orEmpty()
             return when {
                 cleaned.equals(PENDING.wireValue, ignoreCase = true) ||
-                    cleaned == PENDING.bnLabel -> PENDING
+                    cleaned.equals(PENDING.bnLabel, ignoreCase = true) ||
+                    cleaned == "\u0985\u09AA\u09C7\u0995\u09CD\u09B7\u09AE\u09BE\u09A3" -> PENDING
                 cleaned.equals(REJECTED.wireValue, ignoreCase = true) ||
-                    cleaned == REJECTED.bnLabel -> REJECTED
+                    cleaned.equals(REJECTED.bnLabel, ignoreCase = true) ||
+                    cleaned == "\u09AC\u09BE\u09A4\u09BF\u09B2" -> REJECTED
                 else -> APPROVED
             }
         }
@@ -60,24 +62,24 @@ data class BankItem(
     val category: PaymentMethodCategory = PaymentMethodCategory.BANK
 ) {
     val displayTitle: String
-        get() = "$bnName ($enName)"
+        get() = if (enName.isNotBlank()) enName else bnName
 }
 
 object BangladeshBankDirectory {
     val CASH_OPTIONS: List<BankItem> = listOf(
         BankItem(
-            bnName = "ক্যাশ",
+            bnName = "Cash",
             enName = "Cash",
             shortCode = "CASH",
             isMobileBanking = false,
-            searchAliases = "cash hand cash টাকা ক্যাশ",
+            searchAliases = "cash hand cash deposit",
             category = PaymentMethodCategory.CASH
         )
     )
 
     val MOBILE_BANKING_OPTIONS: List<BankItem> = listOf(
         BankItem(
-            bnName = "নগদ",
+            bnName = "Nagad",
             enName = "Nagad",
             shortCode = "NAGAD",
             isMobileBanking = true,
@@ -85,7 +87,7 @@ object BangladeshBankDirectory {
             category = PaymentMethodCategory.MFS
         ),
         BankItem(
-            bnName = "বিকাশ",
+            bnName = "bKash",
             enName = "bKash",
             shortCode = "BKASH",
             isMobileBanking = true,
@@ -95,56 +97,56 @@ object BangladeshBankDirectory {
     )
 
     val ALL_BANKS: List<BankItem> = listOf(
-        BankItem("সোনালী ব্যাংক", "Sonali Bank PLC", "SONALI"),
-        BankItem("জনতা ব্যাংক", "Janata Bank PLC", "JANATA"),
-        BankItem("অগ্রণী ব্যাংক", "Agrani Bank PLC", "AGRANI"),
-        BankItem("রূপালী ব্যাংক", "Rupali Bank PLC", "RUPALI"),
-        BankItem("বাংলাদেশ কৃষি ব্যাংক", "Bangladesh Krishi Bank", "BKB"),
-        BankItem("রাজশাহী কৃষি উন্নয়ন ব্যাংক", "RAKUB", "RAKUB"),
-        BankItem("বেসিক ব্যাংক", "BASIC Bank Ltd", "BASIC"),
-        BankItem("ইসলামী ব্যাংক বাংলাদেশ", "Islami Bank Bangladesh PLC", "IBBL"),
-        BankItem("ডাচ-বাংলা ব্যাংক", "Dutch-Bangla Bank PLC", "DBBL"),
-        BankItem("ব্র্যাক ব্যাংক", "BRAC Bank PLC", "BRAC"),
-        BankItem("পূবালী ব্যাংক", "Pubali Bank PLC", "PUBALI"),
-        BankItem("দি সিটি ব্যাংক", "The City Bank PLC", "CITY"),
-        BankItem("ইস্টার্ন ব্যাংক", "Eastern Bank PLC", "EBL"),
-        BankItem("প্রাইম ব্যাংক", "Prime Bank PLC", "PRIME"),
-        BankItem("ইউনাইটেড কমার্শিয়াল ব্যাংক", "UCB PLC", "UCB"),
-        BankItem("ব্যাংক এশিয়া", "Bank Asia PLC", "ASIA"),
-        BankItem("মিউচুয়াল ট্রাস্ট ব্যাংক", "Mutual Trust Bank PLC", "MTB"),
-        BankItem("ট্রাস্ট ব্যাংক", "Trust Bank PLC", "TRUST"),
-        BankItem("মার্কেন্টাইল ব্যাংক", "Mercantile Bank PLC", "MBL"),
-        BankItem("সাউথইস্ট ব্যাংক", "Southeast Bank PLC", "SEBL"),
-        BankItem("যমুনা ব্যাংক", "Jamuna Bank PLC", "JBL"),
-        BankItem("ওয়ান ব্যাংক", "ONE Bank PLC", "ONE"),
-        BankItem("ঢাকা ব্যাংক", "Dhaka Bank PLC", "DBL"),
-        BankItem("উত্তরা ব্যাংক", "Uttara Bank PLC", "UTTARA"),
-        BankItem("ন্যাশনাল ব্যাংক", "National Bank Ltd", "NBL"),
-        BankItem("আল-আরাফাহ্ ইসলামী ব্যাংক", "Al-Arafah Islami Bank PLC", "AIBL"),
-        BankItem("এক্সিম ব্যাংক", "EXIM Bank PLC", "EXIM"),
-        BankItem("শাহ্জালাল ইসলামী ব্যাংক", "Shahjalal Islami Bank PLC", "SJIBL"),
-        BankItem("ফার্স্ট সিকিউরিটি ইসলামী ব্যাংক", "First Security Islami Bank", "FSIBL"),
-        BankItem("সোশ্যাল ইসলামী ব্যাংক", "Social Islami Bank PLC", "SIBL"),
-        BankItem("এবি ব্যাংক", "AB Bank PLC", "ABBL"),
-        BankItem("এনসিসি ব্যাংক", "NCC Bank PLC", "NCC"),
-        BankItem("প্রিমিয়ার ব্যাংক", "Premier Bank PLC", "PREMIER"),
-        BankItem("স্ট্যান্ডার্ড ব্যাংক", "Standard Bank PLC", "SBL"),
-        BankItem("আইএফআইসি ব্যাংক", "IFIC Bank PLC", "IFIC"),
-        BankItem("এনআরবিসি ব্যাংক", "NRBC Bank PLC", "NRBC"),
-        BankItem("এনআরবি ব্যাংক", "NRB Bank PLC", "NRB"),
-        BankItem("মিডল্যান্ড ব্যাংক", "Midland Bank PLC", "MDB"),
-        BankItem("মধুমতি ব্যাংক", "Modhumoti Bank PLC", "MODHU"),
-        BankItem("সাউথ বাংলা এগ্রিকালচার ব্যাংক", "SBAC Bank PLC", "SBAC"),
-        BankItem("পদ্মা ব্যাংক", "Padma Bank PLC", "PADMA"),
-        BankItem("মেঘনা ব্যাংক", "Meghna Bank PLC", "MEGHNA"),
-        BankItem("সীমান্ত ব্যাংক", "Shimanto Bank PLC", "SHIMANTO"),
-        BankItem("কমিউনিটি ব্যাংক", "Community Bank Bangladesh", "CBBL"),
-        BankItem("বেঙ্গল কমার্শিয়াল ব্যাংক", "Bengal Commercial Bank", "BGCB"),
-        BankItem("গ্লোবাল ইসলামী ব্যাংক", "Global Islami Bank PLC", "GIB"),
-        BankItem("ইউনিয়ন ব্যাংক", "Union Bank PLC", "UNION"),
-        BankItem("সিটিজেনস ব্যাংক", "Citizens Bank PLC", "CITIZENS"),
-        BankItem("স্ট্যান্ডার্ড চার্টার্ড ব্যাংক", "Standard Chartered Bank", "SCB"),
-        BankItem("এইচএসবিসি ব্যাংক", "HSBC Bangladesh", "HSBC")
+        BankItem("Sonali Bank PLC", "Sonali Bank PLC", "SONALI"),
+        BankItem("Janata Bank PLC", "Janata Bank PLC", "JANATA"),
+        BankItem("Agrani Bank PLC", "Agrani Bank PLC", "AGRANI"),
+        BankItem("Rupali Bank PLC", "Rupali Bank PLC", "RUPALI"),
+        BankItem("Bangladesh Krishi Bank", "Bangladesh Krishi Bank", "BKB"),
+        BankItem("RAKUB", "RAKUB", "RAKUB"),
+        BankItem("BASIC Bank Ltd", "BASIC Bank Ltd", "BASIC"),
+        BankItem("Islami Bank Bangladesh PLC", "Islami Bank Bangladesh PLC", "IBBL"),
+        BankItem("Dutch-Bangla Bank PLC", "Dutch-Bangla Bank PLC", "DBBL"),
+        BankItem("BRAC Bank PLC", "BRAC Bank PLC", "BRAC"),
+        BankItem("Pubali Bank PLC", "Pubali Bank PLC", "PUBALI"),
+        BankItem("The City Bank PLC", "The City Bank PLC", "CITY"),
+        BankItem("Eastern Bank PLC", "Eastern Bank PLC", "EBL"),
+        BankItem("Prime Bank PLC", "Prime Bank PLC", "PRIME"),
+        BankItem("UCB PLC", "UCB PLC", "UCB"),
+        BankItem("Bank Asia PLC", "Bank Asia PLC", "ASIA"),
+        BankItem("Mutual Trust Bank PLC", "Mutual Trust Bank PLC", "MTB"),
+        BankItem("Trust Bank PLC", "Trust Bank PLC", "TRUST"),
+        BankItem("Mercantile Bank PLC", "Mercantile Bank PLC", "MBL"),
+        BankItem("Southeast Bank PLC", "Southeast Bank PLC", "SEBL"),
+        BankItem("Jamuna Bank PLC", "Jamuna Bank PLC", "JBL"),
+        BankItem("ONE Bank PLC", "ONE Bank PLC", "ONE"),
+        BankItem("Dhaka Bank PLC", "Dhaka Bank PLC", "DBL"),
+        BankItem("Uttara Bank PLC", "Uttara Bank PLC", "UTTARA"),
+        BankItem("National Bank Ltd", "National Bank Ltd", "NBL"),
+        BankItem("Al-Arafah Islami Bank PLC", "Al-Arafah Islami Bank PLC", "AIBL"),
+        BankItem("EXIM Bank PLC", "EXIM Bank PLC", "EXIM"),
+        BankItem("Shahjalal Islami Bank PLC", "Shahjalal Islami Bank PLC", "SJIBL"),
+        BankItem("First Security Islami Bank", "First Security Islami Bank", "FSIBL"),
+        BankItem("Social Islami Bank PLC", "Social Islami Bank PLC", "SIBL"),
+        BankItem("AB Bank PLC", "AB Bank PLC", "ABBL"),
+        BankItem("NCC Bank PLC", "NCC Bank PLC", "NCC"),
+        BankItem("Premier Bank PLC", "Premier Bank PLC", "PREMIER"),
+        BankItem("Standard Bank PLC", "Standard Bank PLC", "SBL"),
+        BankItem("IFIC Bank PLC", "IFIC Bank PLC", "IFIC"),
+        BankItem("NRBC Bank PLC", "NRBC Bank PLC", "NRBC"),
+        BankItem("NRB Bank PLC", "NRB Bank PLC", "NRB"),
+        BankItem("Midland Bank PLC", "Midland Bank PLC", "MDB"),
+        BankItem("Modhumoti Bank PLC", "Modhumoti Bank PLC", "MODHU"),
+        BankItem("SBAC Bank PLC", "SBAC Bank PLC", "SBAC"),
+        BankItem("Padma Bank PLC", "Padma Bank PLC", "PADMA"),
+        BankItem("Meghna Bank PLC", "Meghna Bank PLC", "MEGHNA"),
+        BankItem("Shimanto Bank PLC", "Shimanto Bank PLC", "SHIMANTO"),
+        BankItem("Community Bank Bangladesh", "Community Bank Bangladesh", "CBBL"),
+        BankItem("Bengal Commercial Bank", "Bengal Commercial Bank", "BGCB"),
+        BankItem("Global Islami Bank PLC", "Global Islami Bank PLC", "GIB"),
+        BankItem("Union Bank PLC", "Union Bank PLC", "UNION"),
+        BankItem("Citizens Bank PLC", "Citizens Bank PLC", "CITIZENS"),
+        BankItem("Standard Chartered Bank", "Standard Chartered Bank", "SCB"),
+        BankItem("HSBC Bangladesh", "HSBC Bangladesh", "HSBC")
     )
 
     val ALL_PAYMENT_METHODS: List<BankItem> = CASH_OPTIONS + MOBILE_BANKING_OPTIONS + ALL_BANKS

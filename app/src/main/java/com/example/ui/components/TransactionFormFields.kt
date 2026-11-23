@@ -108,7 +108,7 @@ fun TransactionFormFields(
             ) {
                 Column {
                     Text(
-                        text = if (isIncome) "দৈনিক আয় (BDT)" else "দৈনিক খরচ (BDT)",
+                        text = if (isIncome) "Daily Income (BDT)" else "Daily Expense (BDT)",
                         style = MaterialTheme.typography.labelSmall,
                         color = previewFg
                     )
@@ -158,7 +158,7 @@ fun TransactionFormFields(
                         onAmountChange(filtered)
                     }
                 },
-                label = { Text("পরিমাণ (BDT ৳)") },
+                label = { Text("Amount (BDT ৳)") },
                 prefix = {
                     Text(
                         text = "৳ ",
@@ -185,7 +185,7 @@ fun TransactionFormFields(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.CalendarToday,
-                    contentDescription = "তারিখ নির্বাচন",
+                    contentDescription = "Select Date",
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -199,7 +199,7 @@ fun TransactionFormFields(
         Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = "ক্যাটাগরি (Category)",
+            text = "Category",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -226,8 +226,8 @@ fun TransactionFormFields(
         OutlinedTextField(
             value = noteText,
             onValueChange = { if (it.length <= 200) onNoteChange(it) },
-            label = { Text("নোট / বিবরণ (Notes)") },
-            placeholder = { Text("যেমন: বাজার, বেতন, যাতায়াত...") },
+            label = { Text("Notes / Description") },
+            placeholder = { Text("e.g., Office supplies, salary, travel...") },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier
@@ -238,7 +238,7 @@ fun TransactionFormFields(
         Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = "অ্যাকাউন্ট",
+            text = "Account",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -304,7 +304,7 @@ fun TransactionFormFields(
                         showDatePicker = false
                     }
                 ) {
-                    Text("ঠিক আছে")
+                    Text("OK")
                 }
             },
             dismissButton = {

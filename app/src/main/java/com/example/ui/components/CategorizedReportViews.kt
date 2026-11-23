@@ -24,8 +24,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ManageAccounts
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.SupervisorAccount
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
@@ -92,13 +94,13 @@ fun ReportTotalsSummaryStrip(
                 fg = MaterialTheme.colorScheme.primary
             )
             SummaryPillChip(
-                text = "আদায়: ${BanglaFormatters.toBanglaDigits(totals.collectionPercent.toString())}%",
+                text = "Collection: ${totals.collectionPercent}%",
                 bg = IncomeSurface,
                 fg = IncomeEmerald
             )
             if (totals.pendingJoma > 0.0) {
                 SummaryPillChip(
-                    text = "অপেক্ষমাণ: ${BanglaFormatters.formatBdt(totals.pendingJoma)}",
+                    text = "Pending: ${BanglaFormatters.formatBdt(totals.pendingJoma)}",
                     bg = MaterialTheme.colorScheme.surfaceVariant,
                     fg = NagadAccent
                 )
@@ -110,19 +112,19 @@ fun ReportTotalsSummaryStrip(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             MiniReportKpiBox(
-                label = "মোট TP+Vat",
+                label = "TP+VAT sales",
                 value = BanglaFormatters.formatBdt(totals.totalTpPlusVat),
                 valueColor = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
             MiniReportKpiBox(
-                label = "মোট জমা",
+                label = "Deposit",
                 value = BanglaFormatters.formatBdt(totals.approvedJoma),
                 valueColor = IncomeEmerald,
                 modifier = Modifier.weight(1f)
             )
             MiniReportKpiBox(
-                label = "মোট বকেয়া",
+                label = "Dues",
                 value = BanglaFormatters.formatBdt(totals.dues),
                 valueColor = if (totals.dues > 0.0) ExpenseCrimson else IncomeEmerald,
                 modifier = Modifier.weight(1f)
@@ -208,7 +210,7 @@ fun ReportSearchField(
                 IconButton(onClick = { onQueryChange("") }) {
                     Icon(
                         imageVector = Icons.Outlined.Close,
-                        contentDescription = "মুছুন",
+                        contentDescription = "Clear",
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -261,7 +263,7 @@ fun MpoWiseReportSection(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "প্রতিটি MPO-এর TP+Vat, জমা ও বকেয়ার বিস্তারিত হিসাব",
+                    text = "TP+VAT sales, deposits, and dues for each MPO",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -277,7 +279,7 @@ fun MpoWiseReportSection(
 
         ReportTotalsSummaryStrip(
             totals = totals,
-            countLabel = "MPO: ${BanglaFormatters.toBanglaDigits(items.size.toString())} জন"
+            countLabel = "MPO: ${items.size}"
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -290,7 +292,7 @@ fun MpoWiseReportSection(
                 FilterChip(
                     selected = onlyMpoDesignation,
                     onClick = { onToggleOnlyMpo(true) },
-                    label = { Text("শুধু MPO পদবি") },
+                    label = { Text("MPO Only") },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                         selectedLabelColor = MaterialTheme.colorScheme.primary
@@ -300,7 +302,7 @@ fun MpoWiseReportSection(
                 FilterChip(
                     selected = !onlyMpoDesignation,
                     onClick = { onToggleOnlyMpo(false) },
-                    label = { Text("সব সদস্য") },
+                    label = { Text("All Members") },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                         selectedLabelColor = MaterialTheme.colorScheme.primary
@@ -316,7 +318,7 @@ fun MpoWiseReportSection(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "মেম্বার লিস্টে পদবি 'MPO' নির্ধারিত না থাকায় সব সদস্যের হিসাব দেখানো হচ্ছে।",
+                    text = "Showing all members because no specific MPO designation was assigned.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
@@ -328,7 +330,7 @@ fun MpoWiseReportSection(
         ReportSearchField(
             query = searchQuery,
             onQueryChange = onSearchQueryChange,
-            placeholder = "কোড, MPO নাম বা এরিয়া খুঁজুন...",
+            placeholder = "Search code, MPO name, or area...",
             testTag = "mpo_report_search_input"
         )
 
@@ -343,7 +345,7 @@ fun MpoWiseReportSection(
                 FilterChip(
                     selected = selectedAreaFilter == null,
                     onClick = { onSelectAreaFilter(null) },
-                    label = { Text("সব এরিয়া") }
+                    label = { Text("All Areas") }
                 )
                 availableAreas.forEach { areaName ->
                     val selected = selectedAreaFilter.equals(areaName, ignoreCase = true)
@@ -360,22 +362,22 @@ fun MpoWiseReportSection(
 
         if (items.isEmpty()) {
             EmptyReportNotice(
-                message = "এই সময়ের জন্য কোনো MPO সেলস বা জমা তথ্য পাওয়া যায়নি।"
+                message = "No MPO sales or deposit records found for this period."
             )
         } else {
             val slW = 36.dp
             val codeW = remember(items, density) { measureCol("Code", items.map { it.summary.code }, 48.dp, 86.dp) }
-            val nameW = remember(items, density) { measureCol("MPO ও এরিয়া", items.map { it.summary.name }, 96.dp, 165.dp) }
+            val nameW = remember(items, density) { measureCol("MPO & Area", items.map { it.summary.name }, 96.dp, 165.dp) }
             val salesW = remember(items, totals, density) {
-                measureCol("TP+Vat", items.map { BanglaFormatters.formatBdt(it.summary.totalSales) } + BanglaFormatters.formatBdt(totals.totalTpPlusVat), 76.dp, 122.dp)
+                measureCol("TP+VAT sales", items.map { BanglaFormatters.formatBdt(it.summary.totalSales) } + BanglaFormatters.formatBdt(totals.totalTpPlusVat), 90.dp, 142.dp)
             }
             val jomaW = remember(items, totals, density) {
-                measureCol("জমা", items.map { BanglaFormatters.formatBdt(it.summary.approvedJoma) } + BanglaFormatters.formatBdt(totals.approvedJoma), 74.dp, 118.dp)
+                measureCol("Deposit", items.map { BanglaFormatters.formatBdt(it.summary.approvedJoma) } + BanglaFormatters.formatBdt(totals.approvedJoma), 78.dp, 124.dp)
             }
             val duesW = remember(items, totals, density) {
-                measureCol("Dues", items.map { BanglaFormatters.formatBdt(it.summary.dues) } + BanglaFormatters.formatBdt(totals.dues), 74.dp, 118.dp)
+                measureCol("Dues", items.map { BanglaFormatters.formatBdt(it.summary.dues) } + BanglaFormatters.formatBdt(totals.dues), 74.dp, 120.dp)
             }
-            val pctW = 54.dp
+            val pctW = 72.dp
 
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val baseTotal = slW + codeW + nameW + salesW + jomaW + duesW + pctW + 8.dp
@@ -401,15 +403,15 @@ fun MpoWiseReportSection(
                             RVerticalBorder(borderColor)
                             RTableHeaderCell("Code", codeW, tableHeaderStyle, TextAlign.Center)
                             RVerticalBorder(borderColor)
-                            RTableHeaderCell("MPO ও এরিয়া", resolvedNameW, tableHeaderStyle, TextAlign.Start)
+                            RTableHeaderCell("MPO & Area", resolvedNameW, tableHeaderStyle, TextAlign.Start)
                             RVerticalBorder(borderColor)
-                            RTableHeaderCell("TP+Vat", resolvedSalesW, tableHeaderStyle, TextAlign.End)
+                            RTableHeaderCell("TP+VAT sales", resolvedSalesW, tableHeaderStyle, TextAlign.End)
                             RVerticalBorder(borderColor)
-                            RTableHeaderCell("জমা", resolvedJomaW, tableHeaderStyle, TextAlign.End)
+                            RTableHeaderCell("Deposit", resolvedJomaW, tableHeaderStyle, TextAlign.End)
                             RVerticalBorder(borderColor)
                             RTableHeaderCell("Dues", resolvedDuesW, tableHeaderStyle, TextAlign.End)
                             RVerticalBorder(borderColor)
-                            RTableHeaderCell("আদায়", pctW, tableHeaderStyle, TextAlign.Center)
+                            RTableHeaderCell("Collection", pctW, tableHeaderStyle, TextAlign.Center)
                         }
                         HorizontalDivider(thickness = 1.dp, color = borderColor)
 
@@ -510,6 +512,71 @@ fun MpoWiseReportSection(
                             }
                             HorizontalDivider(thickness = 1.dp, color = borderColor)
                         }
+
+                        // Total Footer Row
+                        Row(
+                            modifier = Modifier
+                                .height(IntrinsicSize.Min)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .testTag("mpo_report_total_row"),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RTableCell(
+                                text = "Total",
+                                width = slW,
+                                style = tableHeaderStyle,
+                                color = MaterialTheme.colorScheme.primary,
+                                textAlign = TextAlign.Center
+                            )
+                            RVerticalBorder(borderColor)
+                            RTableCell(
+                                text = "All",
+                                width = codeW,
+                                style = tableHeaderStyle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            RVerticalBorder(borderColor)
+                            RTableCell(
+                                text = "${items.size} members",
+                                width = resolvedNameW,
+                                style = tableBodyStyle.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Start
+                            )
+                            RVerticalBorder(borderColor)
+                            RTableCell(
+                                text = BanglaFormatters.formatBdt(totals.totalTpPlusVat),
+                                width = resolvedSalesW,
+                                style = tableBodyStyle.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.End
+                            )
+                            RVerticalBorder(borderColor)
+                            RTableCell(
+                                text = BanglaFormatters.formatBdt(totals.approvedJoma),
+                                width = resolvedJomaW,
+                                style = tableBodyStyle.copy(fontWeight = FontWeight.Bold),
+                                color = IncomeEmerald,
+                                textAlign = TextAlign.End
+                            )
+                            RVerticalBorder(borderColor)
+                            RTableCell(
+                                text = BanglaFormatters.formatBdt(totals.dues),
+                                width = resolvedDuesW,
+                                style = tableBodyStyle.copy(fontWeight = FontWeight.Bold),
+                                color = if (totals.dues > 0.0) ExpenseCrimson else IncomeEmerald,
+                                textAlign = TextAlign.End
+                            )
+                            RVerticalBorder(borderColor)
+                            RTableCell(
+                                text = "${BanglaFormatters.toBanglaDigits(totals.collectionPercent.toString())}%",
+                                width = pctW,
+                                style = tableBodyStyle.copy(fontWeight = FontWeight.Bold),
+                                color = BrandPrimary,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
@@ -523,35 +590,35 @@ fun MpoWiseReportSection(
             title = { Text("${s.name}${if (s.code.isNotBlank()) " (${s.code})" else ""}") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    if (item.designation.isNotBlank()) Text("পদবি: ${item.designation}")
-                    if (s.area.isNotBlank()) Text("এরিয়া: ${s.area}")
-                    if (s.depot.isNotBlank()) Text("ডিপো / রিজিয়ন: ${s.depot}")
-                    if (item.phone.isNotBlank()) Text("ফোন: ${item.phone}")
+                    if (item.designation.isNotBlank()) Text("Designation: ${item.designation}")
+                    if (s.area.isNotBlank()) Text("Area: ${s.area}")
+                    if (s.depot.isNotBlank()) Text("Depot / Region: ${s.depot}")
+                    if (item.phone.isNotBlank()) Text("Phone: ${item.phone}")
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    Text("TP sales (তথ্য): ${BanglaFormatters.formatBdt(s.uploadedTpSales)}")
-                    Text("TP+Vat (মোট বিক্রয়): ${BanglaFormatters.formatBdt(s.totalSales)}", fontWeight = FontWeight.Bold)
+                    Text("TP sales (Info): ${BanglaFormatters.formatBdt(s.uploadedTpSales)}")
+                    Text("TP+VAT sales (Total): ${BanglaFormatters.formatBdt(s.totalSales)}", fontWeight = FontWeight.Bold)
                     Text(
-                        text = "অনুমোদিত জমা (${BanglaFormatters.toBanglaDigits(s.approvedCount.toString())}টি): ${BanglaFormatters.formatBdt(s.approvedJoma)}",
+                        text = "Approved Deposits (${s.approvedCount}): ${BanglaFormatters.formatBdt(s.approvedJoma)}",
                         color = IncomeEmerald,
                         fontWeight = FontWeight.SemiBold
                     )
                     if (s.pendingJoma > 0.0) {
                         Text(
-                            text = "অপেক্ষমাণ জমা: ${BanglaFormatters.formatBdt(s.pendingJoma)}",
+                            text = "Pending Deposits: ${BanglaFormatters.formatBdt(s.pendingJoma)}",
                             color = NagadAccent
                         )
                     }
                     Text(
                         text = if (s.advance > 0.0) {
-                            "অগ্রিম জমা: ${BanglaFormatters.formatBdt(s.advance)}"
+                            "Advance Deposit: ${BanglaFormatters.formatBdt(s.advance)}"
                         } else {
-                            "বর্তমান বকেয়া (Dues): ${BanglaFormatters.formatBdt(s.dues)}"
+                            "Current Dues: ${BanglaFormatters.formatBdt(s.dues)}"
                         },
                         fontWeight = FontWeight.Bold,
                         color = if (s.dues > 0.0) ExpenseCrimson else IncomeEmerald
                     )
                     Text(
-                        text = "আদায়ের হার: ${BanglaFormatters.toBanglaDigits(item.collectionPercent.toString())}%",
+                        text = "Collection Rate: ${item.collectionPercent}%",
                         color = BrandPrimary,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -559,7 +626,7 @@ fun MpoWiseReportSection(
             },
             confirmButton = {
                 TextButton(onClick = { inspectingMember = null }) {
-                    Text("বন্ধ করুন")
+                    Text("Close")
                 }
             }
         )
@@ -572,21 +639,59 @@ fun GroupedWiseReportSection(
     groups: List<GroupedReportRow>,
     totals: ReportTotals,
     searchQuery: String,
-    onSearchQueryChange: (String) -> Unit
+    onSearchQueryChange: (String) -> Unit,
+    customTitle: String? = null,
+    customSubtitle: String? = null,
+    noticeBanner: String? = null,
+    headerFilterContent: (@Composable () -> Unit)? = null
 ) {
     var inspectingGroup by remember { mutableStateOf<GroupedReportRow?>(null) }
-    val isAm = category == ReportCategory.AM_WISE
-    val headerIcon = if (isAm) Icons.Outlined.SupervisorAccount else Icons.Outlined.Public
-    val subtitleText = if (isAm) {
-        "AM ও এরিয়া অনুযায়ী সেলস, জমা ও বকেয়ার সমন্বিত রিপোর্ট"
-    } else {
-        "রিজিয়ন / ডিপো অনুযায়ী সমন্বিত সেলস, জমা ও বকেয়ার হিসাব"
+    val headerIcon = when (category) {
+        ReportCategory.ASM_DEPOT_WISE -> Icons.Outlined.Storefront
+        ReportCategory.ASM_NAME_WISE -> Icons.Outlined.ManageAccounts
+        ReportCategory.AM_WISE -> Icons.Outlined.SupervisorAccount
+        else -> Icons.Outlined.Public
     }
-    val col2Header = if (isAm) "AM / এরিয়া" else "রিজিয়ন / ডিপো"
-    val countChipLabel = if (isAm) {
-        "AM/এরিয়া: ${BanglaFormatters.toBanglaDigits(groups.size.toString())}টি • সদস্য: ${BanglaFormatters.toBanglaDigits(totals.memberCount.toString())}"
-    } else {
-        "রিজিয়ন: ${BanglaFormatters.toBanglaDigits(groups.size.toString())}টি • সদস্য: ${BanglaFormatters.toBanglaDigits(totals.memberCount.toString())}"
+    val resolvedTitle = customTitle ?: category.title
+    val subtitleText = customSubtitle ?: when (category) {
+        ReportCategory.ASM_DEPOT_WISE -> "TP+VAT sales, deposits, dues, and total by depot"
+        ReportCategory.ASM_NAME_WISE -> "TP+VAT sales, deposits, dues, and total by ASM name"
+        ReportCategory.AM_WISE -> "TP+VAT sales, deposits, dues, and total by RSM, RSC & AM area"
+        else -> "Combined TP+VAT sales, deposits, and dues by region or depot"
+    }
+    val col2Header = when (category) {
+        ReportCategory.ASM_DEPOT_WISE -> "Depot / ASM"
+        ReportCategory.ASM_NAME_WISE -> "ASM Name"
+        ReportCategory.AM_WISE -> "Area / Lead"
+        else -> "Region / Depot"
+    }
+    val countChipLabel = when (category) {
+        ReportCategory.ASM_DEPOT_WISE ->
+            "Depots: ${groups.size} • Members: ${totals.memberCount}"
+        ReportCategory.ASM_NAME_WISE ->
+            "ASMs: ${groups.size} • Members: ${totals.memberCount}"
+        ReportCategory.AM_WISE ->
+            "Areas: ${groups.size} • Members: ${totals.memberCount}"
+        else ->
+            "Regions: ${groups.size} • Members: ${totals.memberCount}"
+    }
+    val searchPlaceholder = when (category) {
+        ReportCategory.ASM_DEPOT_WISE -> "Search depot or ASM name..."
+        ReportCategory.ASM_NAME_WISE -> "Search ASM name, code, or depot..."
+        ReportCategory.AM_WISE -> "Search area or RSM / RSC / AM name..."
+        else -> "Search region / depot or RM..."
+    }
+    val searchTestTag = when (category) {
+        ReportCategory.ASM_DEPOT_WISE -> "asm_depot_report_search_input"
+        ReportCategory.ASM_NAME_WISE -> "asm_name_report_search_input"
+        ReportCategory.AM_WISE -> "am_report_search_input"
+        else -> "region_report_search_input"
+    }
+    val emptyMessage = when (category) {
+        ReportCategory.ASM_DEPOT_WISE -> "No ASM depot records found for this period."
+        ReportCategory.ASM_NAME_WISE -> "No ASM name records found for this period."
+        ReportCategory.AM_WISE -> "No RSM / RSC / AM area records found for this period."
+        else -> "No region or depot records found for this period."
     }
 
     val borderColor = MaterialTheme.colorScheme.outline
@@ -609,7 +714,7 @@ fun GroupedWiseReportSection(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = category.title,
+                    text = resolvedTitle,
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -633,25 +738,40 @@ fun GroupedWiseReportSection(
             countLabel = countChipLabel
         )
 
+        if (headerFilterContent != null) {
+            Spacer(modifier = Modifier.height(10.dp))
+            headerFilterContent()
+        }
+
+        if (!noticeBanner.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = noticeBanner,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(10.dp))
 
         ReportSearchField(
             query = searchQuery,
             onQueryChange = onSearchQueryChange,
-            placeholder = if (isAm) "AM নাম বা এরিয়া খুঁজুন..." else "রিজিয়ন / ডিপো বা RM খুঁজুন...",
-            testTag = if (isAm) "am_report_search_input" else "region_report_search_input"
+            placeholder = searchPlaceholder,
+            testTag = searchTestTag
         )
 
         Spacer(modifier = Modifier.height(10.dp))
 
         if (groups.isEmpty()) {
-            EmptyReportNotice(
-                message = if (isAm) {
-                    "এই সময়ের জন্য কোনো AM / এরিয়া ভিত্তিক তথ্য পাওয়া যায়নি।"
-                } else {
-                    "এই সময়ের জন্য কোনো রিজিয়ন / ডিপো ভিত্তিক তথ্য পাওয়া যায়নি।"
-                }
-            )
+            EmptyReportNotice(message = emptyMessage)
         } else {
             // Visual progress summary cards for top groups
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -680,7 +800,7 @@ fun GroupedWiseReportSection(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "${group.leaderLabel} • ${BanglaFormatters.toBanglaDigits(group.memberCount.toString())} জন",
+                                        text = "${group.leaderLabel} • ${group.memberCount} members",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -690,7 +810,7 @@ fun GroupedWiseReportSection(
                                     color = IncomeSurface
                                 ) {
                                     Text(
-                                        text = "আদায় ${BanglaFormatters.toBanglaDigits(group.collectionPercent.toString())}%",
+                                        text = "Collection ${group.collectionPercent}%",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = IncomeEmerald,
@@ -720,12 +840,12 @@ fun GroupedWiseReportSection(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "TP+Vat: ${BanglaFormatters.formatBdt(group.totalTpPlusVat)}",
+                                    text = "TP+VAT sales: ${BanglaFormatters.formatBdt(group.totalTpPlusVat)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "জমা: ${BanglaFormatters.formatBdt(group.approvedJoma)}",
+                                    text = "Deposit: ${BanglaFormatters.formatBdt(group.approvedJoma)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = IncomeEmerald
@@ -747,15 +867,15 @@ fun GroupedWiseReportSection(
             // Bordered Table View
             val slW = 36.dp
             val titleW = remember(groups, density) { measureCol(col2Header, groups.map { it.title }, 96.dp, 165.dp) }
-            val cntW = 48.dp
+            val cntW = 64.dp
             val salesW = remember(groups, totals, density) {
-                measureCol("TP+Vat", groups.map { BanglaFormatters.formatBdt(it.totalTpPlusVat) } + BanglaFormatters.formatBdt(totals.totalTpPlusVat), 76.dp, 122.dp)
+                measureCol("TP+VAT sales", groups.map { BanglaFormatters.formatBdt(it.totalTpPlusVat) } + BanglaFormatters.formatBdt(totals.totalTpPlusVat), 90.dp, 142.dp)
             }
             val jomaW = remember(groups, totals, density) {
-                measureCol("জমা", groups.map { BanglaFormatters.formatBdt(it.approvedJoma) } + BanglaFormatters.formatBdt(totals.approvedJoma), 74.dp, 118.dp)
+                measureCol("Deposit", groups.map { BanglaFormatters.formatBdt(it.approvedJoma) } + BanglaFormatters.formatBdt(totals.approvedJoma), 78.dp, 124.dp)
             }
             val duesW = remember(groups, totals, density) {
-                measureCol("Dues", groups.map { BanglaFormatters.formatBdt(it.dues) } + BanglaFormatters.formatBdt(totals.dues), 74.dp, 118.dp)
+                measureCol("Dues", groups.map { BanglaFormatters.formatBdt(it.dues) } + BanglaFormatters.formatBdt(totals.dues), 74.dp, 120.dp)
             }
 
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -782,11 +902,11 @@ fun GroupedWiseReportSection(
                             RVerticalBorder(borderColor)
                             RTableHeaderCell(col2Header, resolvedTitleW, tableHeaderStyle, TextAlign.Start)
                             RVerticalBorder(borderColor)
-                            RTableHeaderCell("সদস্য", cntW, tableHeaderStyle, TextAlign.Center)
+                            RTableHeaderCell("Members", cntW, tableHeaderStyle, TextAlign.Center)
                             RVerticalBorder(borderColor)
-                            RTableHeaderCell("TP+Vat", resolvedSalesW, tableHeaderStyle, TextAlign.End)
+                            RTableHeaderCell("TP+VAT sales", resolvedSalesW, tableHeaderStyle, TextAlign.End)
                             RVerticalBorder(borderColor)
-                            RTableHeaderCell("জমা", resolvedJomaW, tableHeaderStyle, TextAlign.End)
+                            RTableHeaderCell("Deposit", resolvedJomaW, tableHeaderStyle, TextAlign.End)
                             RVerticalBorder(borderColor)
                             RTableHeaderCell("Dues", resolvedDuesW, tableHeaderStyle, TextAlign.End)
                         }
@@ -873,6 +993,63 @@ fun GroupedWiseReportSection(
                             }
                             HorizontalDivider(thickness = 1.dp, color = borderColor)
                         }
+
+                        // Total Footer Row
+                        Row(
+                            modifier = Modifier
+                                .height(IntrinsicSize.Min)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .testTag("grouped_report_total_row_${category.name.lowercase()}"),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RTableCell(
+                                text = "Total",
+                                width = slW,
+                                style = tableHeaderStyle,
+                                color = MaterialTheme.colorScheme.primary,
+                                textAlign = TextAlign.Center
+                            )
+                            RVerticalBorder(borderColor)
+                            RTableCell(
+                                text = "Total (${groups.size})",
+                                width = resolvedTitleW,
+                                style = tableBodyStyle.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Start
+                            )
+                            RVerticalBorder(borderColor)
+                            RTableCell(
+                                text = BanglaFormatters.toBanglaDigits(totals.memberCount.toString()),
+                                width = cntW,
+                                style = tableBodyStyle.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            RVerticalBorder(borderColor)
+                            RTableCell(
+                                text = BanglaFormatters.formatBdt(totals.totalTpPlusVat),
+                                width = resolvedSalesW,
+                                style = tableBodyStyle.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.End
+                            )
+                            RVerticalBorder(borderColor)
+                            RTableCell(
+                                text = BanglaFormatters.formatBdt(totals.approvedJoma),
+                                width = resolvedJomaW,
+                                style = tableBodyStyle.copy(fontWeight = FontWeight.Bold),
+                                color = IncomeEmerald,
+                                textAlign = TextAlign.End
+                            )
+                            RVerticalBorder(borderColor)
+                            RTableCell(
+                                text = BanglaFormatters.formatBdt(totals.dues),
+                                width = resolvedDuesW,
+                                style = tableBodyStyle.copy(fontWeight = FontWeight.Bold),
+                                color = if (totals.dues > 0.0) ExpenseCrimson else IncomeEmerald,
+                                textAlign = TextAlign.End
+                            )
+                        }
                     }
                 }
             }
@@ -882,27 +1059,27 @@ fun GroupedWiseReportSection(
     inspectingGroup?.let { group ->
         AlertDialog(
             onDismissRequest = { inspectingGroup = null },
-            title = { Text("${group.title} (${BanglaFormatters.toBanglaDigits(group.memberCount.toString())} জন)") },
+            title = { Text("${group.title} (${group.memberCount} members)") },
             text = {
                 Column(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(group.leaderLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                    Text("মোট TP sales: ${BanglaFormatters.formatBdt(group.totalTpSales)}")
-                    Text("মোট TP+Vat: ${BanglaFormatters.formatBdt(group.totalTpPlusVat)}", fontWeight = FontWeight.Bold)
-                    Text("অনুমোদিত জমা: ${BanglaFormatters.formatBdt(group.approvedJoma)}", color = IncomeEmerald, fontWeight = FontWeight.Bold)
+                    Text("Total TP sales: ${BanglaFormatters.formatBdt(group.totalTpSales)}")
+                    Text("Total TP+VAT sales: ${BanglaFormatters.formatBdt(group.totalTpPlusVat)}", fontWeight = FontWeight.Bold)
+                    Text("Approved Deposits: ${BanglaFormatters.formatBdt(group.approvedJoma)}", color = IncomeEmerald, fontWeight = FontWeight.Bold)
                     if (group.pendingJoma > 0.0) {
-                        Text("অপেক্ষমাণ জমা: ${BanglaFormatters.formatBdt(group.pendingJoma)}", color = NagadAccent)
+                        Text("Pending Deposits: ${BanglaFormatters.formatBdt(group.pendingJoma)}", color = NagadAccent)
                     }
                     Text(
-                        text = "মোট বকেয়া (Dues): ${BanglaFormatters.formatBdt(group.dues)}",
+                        text = "Total Dues: ${BanglaFormatters.formatBdt(group.dues)}",
                         color = if (group.dues > 0.0) ExpenseCrimson else IncomeEmerald,
                         fontWeight = FontWeight.Bold
                     )
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     Text(
-                        text = "সদস্যভিত্তিক তালিকা:",
+                        text = "Member Breakdown:",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -928,7 +1105,7 @@ fun GroupedWiseReportSection(
                                     Text(meta, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Text(
-                                    text = "TP+Vat: ${BanglaFormatters.formatBdt(ms.totalSales)} • জমা: ${BanglaFormatters.formatBdt(ms.approvedJoma)} • Dues: ${BanglaFormatters.formatBdt(ms.dues)}",
+                                    text = "TP+VAT sales: ${BanglaFormatters.formatBdt(ms.totalSales)} • Deposit: ${BanglaFormatters.formatBdt(ms.approvedJoma)} • Dues: ${BanglaFormatters.formatBdt(ms.dues)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
@@ -939,7 +1116,7 @@ fun GroupedWiseReportSection(
             },
             confirmButton = {
                 TextButton(onClick = { inspectingGroup = null }) {
-                    Text("বন্ধ করুন")
+                    Text("Close")
                 }
             }
         )

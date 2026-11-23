@@ -69,7 +69,7 @@ class MemberAndPaymentStoreTest {
     }
 
     @Test
-    fun memberLogin_usesMemberNameAsIdAndPassword_respectsActiveStatus_andSupportsPasswordChange() {
+    fun memberLogin_usesMemberCodeAsIdAndPassword_respectsActiveStatus_andSupportsPasswordChange() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val store = MemberStore(context)
         store.saveAll(
@@ -80,8 +80,9 @@ class MemberAndPaymentStoreTest {
                     designation = "it",
                     phone = "01314277737",
                     depot = "rangpur",
+                    code = "N-101",
                     isActive = true,
-                    passwordHash = PasswordHasher.hashPassword("netai", minLength = 1),
+                    passwordHash = PasswordHasher.hashPassword("N-101", minLength = 1),
                     isDefaultPassword = true
                 ),
                 Member(
@@ -90,34 +91,38 @@ class MemberAndPaymentStoreTest {
                     designation = "sales",
                     phone = "01700000000",
                     depot = "dhaka",
+                    code = "B-102",
                     isActive = false,
-                    passwordHash = PasswordHasher.hashPassword("blockedUser", minLength = 1),
+                    passwordHash = PasswordHasher.hashPassword("B-102", minLength = 1),
                     isDefaultPassword = true
                 )
             )
         )
 
-        // Active member logs in with Name as both ID (case-insensitive) and Password
-        val okLogin = store.verifyMemberLogin("Netai", "netai")
+        // Active member logs in with Code as both ID (case-insensitive) and Password
+        val okLogin = store.verifyMemberLogin("n-101", "N-101")
         assertTrue(okLogin is MemberLoginResult.Success)
 
+        // Logging in with member name instead of code is rejected
+        assertTrue(store.verifyMemberLogin("netai", "netai") is MemberLoginResult.NotFound)
+
         // Wrong password fails
-        assertTrue(store.verifyMemberLogin("netai", "wrong") is MemberLoginResult.WrongPassword)
+        assertTrue(store.verifyMemberLogin("N-101", "wrong") is MemberLoginResult.WrongPassword)
 
         // Inactive member is blocked
-        assertTrue(store.verifyMemberLogin("blockedUser", "blockedUser") is MemberLoginResult.Inactive)
+        assertTrue(store.verifyMemberLogin("B-102", "B-102") is MemberLoginResult.Inactive)
 
         // Change password
-        val changed = store.changeMemberPassword("m_netai", "netai", "secret99")
+        val changed = store.changeMemberPassword("m_netai", "N-101", "secret99")
         assertTrue(changed.isSuccess)
         assertFalse(changed.getOrThrow().isDefaultPassword)
-        assertTrue(store.verifyMemberLogin("netai", "netai") is MemberLoginResult.WrongPassword)
-        assertTrue(store.verifyMemberLogin("netai", "secret99") is MemberLoginResult.Success)
+        assertTrue(store.verifyMemberLogin("N-101", "N-101") is MemberLoginResult.WrongPassword)
+        assertTrue(store.verifyMemberLogin("N-101", "secret99") is MemberLoginResult.Success)
 
-        // Reset back to default (member name)
+        // Reset back to default (member code)
         val reset = store.resetMemberPasswordToDefault("m_netai")
         assertTrue(reset?.isDefaultPassword == true)
-        assertTrue(store.verifyMemberLogin("netai", "netai") is MemberLoginResult.Success)
+        assertTrue(store.verifyMemberLogin("N-101", "N-101") is MemberLoginResult.Success)
     }
 
     @Test
@@ -275,7 +280,7 @@ class MemberAndPaymentStoreTest {
     }
 
     @Test
-    fun allActiveMembersInMemberList_canLoginCaseInsensitivelyWithName() {
+    fun allActiveMembersInMemberList_canLoginCaseInsensitivelyWithCode() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val store = MemberStore(context)
         store.saveAll(
@@ -286,8 +291,9 @@ class MemberAndPaymentStoreTest {
                     designation = "Sales",
                     phone = "01711111111",
                     depot = "Dhaka",
+                    code = "K-101",
                     isActive = true,
-                    passwordHash = PasswordHasher.hashPassword("Karim Ahmed", minLength = 1),
+                    passwordHash = PasswordHasher.hashPassword("K-101", minLength = 1),
                     isDefaultPassword = true
                 ),
                 Member(
@@ -296,6 +302,7 @@ class MemberAndPaymentStoreTest {
                     designation = "IT",
                     phone = "01822222222",
                     depot = "Rangpur",
+                    code = "N-102",
                     isActive = true,
                     passwordHash = "",
                     isDefaultPassword = true
@@ -303,12 +310,12 @@ class MemberAndPaymentStoreTest {
             )
         )
 
-        // Member 1 logs in with lowercase & extra whitespace
-        val res1 = store.verifyMemberLogin("  karim   ahmed ", "karim ahmed")
+        // Member 1 logs in with lowercase & extra whitespace around code
+        val res1 = store.verifyMemberLogin("  k-101 ", "k-101")
         assertTrue(res1 is MemberLoginResult.Success)
 
-        // Member 2 logs in even without precomputed hash
-        val res2 = store.verifyMemberLogin("NETAI DAS", "netai das")
+        // Member 2 logs in with code even without precomputed hash
+        val res2 = store.verifyMemberLogin("n-102", "N-102")
         assertTrue(res2 is MemberLoginResult.Success)
     }
 
@@ -376,7 +383,7 @@ class MemberAndPaymentStoreTest {
         val bikashMatches = BangladeshBankDirectory.filterPaymentMethods("bikash")
         assertTrue(bikashMatches.any { it.shortCode == "BKASH" })
 
-        val nagadMatches = BangladeshBankDirectory.filterPaymentMethods("নগদ")
+        val nagadMatches = BangladeshBankDirectory.filterPaymentMethods("nogod")
         assertTrue(nagadMatches.any { it.shortCode == "NAGAD" })
     }
 
@@ -528,6 +535,35 @@ class MemberAndPaymentStoreTest {
         assertEquals("N-002", reloaded.code)
         assertEquals("Uttara", reloaded.area)
         assertEquals("Senior IT", reloaded.designation)
+        assertTrue(memberStore.verifyMemberLogin("N-002", "N-002") is MemberLoginResult.Success)
+
+        // Blank code is rejected
+        var blankOk = true
+        adminVm.saveMember(
+            editingId = null,
+            name = "Kamal",
+            designation = "SR",
+            phone = "012",
+            depot = "Dhaka",
+            isActive = true,
+            code = "   ",
+            area = "Mirpur"
+        ) { blankOk = it }
+        assertFalse(blankOk)
+
+        // Duplicate code is rejected
+        var dupOk = true
+        adminVm.saveMember(
+            editingId = null,
+            name = "Kamal",
+            designation = "SR",
+            phone = "012",
+            depot = "Dhaka",
+            isActive = true,
+            code = "n-002",
+            area = "Mirpur"
+        ) { dupOk = it }
+        assertFalse(dupOk)
     }
 
     @Test

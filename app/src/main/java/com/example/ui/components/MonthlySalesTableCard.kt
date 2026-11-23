@@ -94,10 +94,10 @@ fun MonthlySalesTableCard(
     }
 
     val codeColW = remember(records, density) {
-        measureCol("code", records.map { it.code }, 56.dp, 100.dp)
+        measureCol("Code", records.map { it.code }, 56.dp, 100.dp)
     }
     val nameColW = remember(records, density) {
-        measureCol("name", records.map { it.name }, 92.dp, 180.dp)
+        measureCol("Name", records.map { it.name }, 92.dp, 180.dp)
     }
     val tpSalesColW = remember(records, totalTpSales, density) {
         measureCol(
@@ -109,10 +109,10 @@ fun MonthlySalesTableCard(
     }
     val tpVatColW = remember(records, totalTpPlusVat, density) {
         measureCol(
-            "TP+Vat",
+            "TP+VAT sales",
             records.map { BanglaFormatters.formatBdt(it.tpPlusVat) } + BanglaFormatters.formatBdt(totalTpPlusVat),
-            82.dp,
-            136.dp
+            90.dp,
+            146.dp
         )
     }
 
@@ -169,7 +169,7 @@ fun MonthlySalesTableCard(
                     color = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Text(
-                        text = "এন্ট্রি: ${BanglaFormatters.toBanglaDigits(records.size.toString())} টি",
+                        text = "Entries: ${records.size}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -181,7 +181,7 @@ fun MonthlySalesTableCard(
                     color = IncomeSurface
                 ) {
                     Text(
-                        text = "মোট TP+Vat: ${BanglaFormatters.formatBdt(totalTpPlusVat)}",
+                        text = "Total TP+VAT sales: ${BanglaFormatters.formatBdt(totalTpPlusVat)}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = IncomeEmerald,
@@ -243,13 +243,13 @@ fun MonthlySalesTableCard(
                                     .testTag("monthly_sales_table_header"),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                SalesTableHeaderCell("code", resolvedCodeW, tableHeaderStyle, TextAlign.Center)
+                                SalesTableHeaderCell("Code", resolvedCodeW, tableHeaderStyle, TextAlign.Center)
                                 SalesTableVerticalBorder(borderColor)
-                                SalesTableHeaderCell("name", resolvedNameW, tableHeaderStyle, TextAlign.Start)
+                                SalesTableHeaderCell("Name", resolvedNameW, tableHeaderStyle, TextAlign.Start)
                                 SalesTableVerticalBorder(borderColor)
                                 SalesTableHeaderCell("TP sales", resolvedTpSalesW, tableHeaderStyle, TextAlign.End)
                                 SalesTableVerticalBorder(borderColor)
-                                SalesTableHeaderCell("TP+Vat", resolvedTpVatW, tableHeaderStyle, TextAlign.End)
+                                SalesTableHeaderCell("TP+VAT sales", resolvedTpVatW, tableHeaderStyle, TextAlign.End)
                             }
 
                             HorizontalDivider(thickness = 1.dp, color = borderColor)
@@ -380,7 +380,7 @@ fun MonthlySalesTableCard(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "মোট",
+                                        text = "Total",
                                         style = tableHeaderStyle,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
@@ -394,7 +394,7 @@ fun MonthlySalesTableCard(
                                     contentAlignment = Alignment.CenterStart
                                 ) {
                                     Text(
-                                        text = "${BanglaFormatters.toBanglaDigits(records.size.toString())} জন",
+                                        text = "${records.size} members",
                                         style = tableBodyStyle.copy(fontWeight = FontWeight.SemiBold),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )

@@ -130,7 +130,7 @@ fun OnlinePaymentScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = if (config.isOnlinePaymentEnabled) "অনলাইন পেমেন্ট অপশন চালু আছে" else "অনলাইন পেমেন্ট বন্ধ আছে",
+                                text = if (config.isOnlinePaymentEnabled) "Online payment is enabled" else "Online payment is disabled",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -148,7 +148,7 @@ fun OnlinePaymentScreen(
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "পেমেন্ট মাধ্যম সমূহ",
+                    text = "Payment Methods",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -156,11 +156,11 @@ fun OnlinePaymentScreen(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (isAdminEditable) {
-                        "নম্বর যোগ করতে বা পরিবর্তন করতে প্রতিটি অপশনে ট্যাপ করুন"
+                        "Tap any option to add or update its account number"
                     } else if (!config.isOnlinePaymentEnabled || displayedAccounts.isEmpty()) {
-                        "বর্তমানে কোনো অনলাইন পেমেন্ট মাধ্যম চালু নেই"
+                        "No online payment methods are currently enabled"
                     } else {
-                        "নম্বর কপি করতে কপি আইকনে চাপ দিন"
+                        "Tap the copy icon to copy a payment number"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -209,7 +209,7 @@ fun OnlinePaymentScreen(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = "${account.channel.title} (${account.channel.bnTitle})",
+                                    text = account.channel.title,
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -233,7 +233,7 @@ fun OnlinePaymentScreen(
                                 text = if (account.accountNumber.isNotBlank()) {
                                     "${account.accountNumber} • ${account.accountType}"
                                 } else {
-                                    "নম্বর সেট করা হয়নি (${account.accountType})"
+                                    "Number not set (${account.accountType})"
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -247,13 +247,13 @@ fun OnlinePaymentScreen(
                                     cm?.setPrimaryClip(
                                         ClipData.newPlainText(account.channel.title, account.accountNumber)
                                     )
-                                    onShowMessage("${account.channel.title} নম্বর কপি হয়েছে")
+                                    onShowMessage("${account.channel.title} number copied")
                                 },
                                 modifier = Modifier.minimumInteractiveComponentSize()
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.ContentCopy,
-                                    contentDescription = "কপি করুন",
+                                    contentDescription = "Copy",
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -267,7 +267,7 @@ fun OnlinePaymentScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Edit,
-                                    contentDescription = "সম্পাদনা",
+                                    contentDescription = "Edit",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -295,7 +295,7 @@ fun OnlinePaymentScreen(
             item {
                 SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "অনলাইন পেমেন্ট হিসাব যুক্ত করুন",
+                        text = "Record Online Payment",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -329,13 +329,13 @@ fun OnlinePaymentScreen(
                         FilterChip(
                             selected = paymentTxType == TxType.INCOME,
                             onClick = { paymentTxType = TxType.INCOME },
-                            label = { Text("পেমেন্ট গ্রহণ (আয়)") },
+                            label = { Text("Receive (Income)") },
                             modifier = Modifier.weight(1f)
                         )
                         FilterChip(
                             selected = paymentTxType == TxType.EXPENSE,
                             onClick = { paymentTxType = TxType.EXPENSE },
-                            label = { Text("পেমেন্ট প্রদান (খরচ)") },
+                            label = { Text("Send (Expense)") },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -348,7 +348,7 @@ fun OnlinePaymentScreen(
                             paymentAmount = it
                             formError = null
                         },
-                        label = { Text("পরিমাণ (৳)") },
+                        label = { Text("Amount (৳)") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         shape = RoundedCornerShape(12.dp),
@@ -362,7 +362,7 @@ fun OnlinePaymentScreen(
                     OutlinedTextField(
                         value = paymentNote,
                         onValueChange = { paymentNote = it },
-                        label = { Text("রেফারেন্স / নোট (ঐচ্ছিক)") },
+                        label = { Text("Reference / Note (Optional)") },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
@@ -385,7 +385,7 @@ fun OnlinePaymentScreen(
                         onClick = {
                             val parsed = paymentAmount.trim().toDoubleOrNull()
                             if (parsed == null || parsed <= 0.0) {
-                                formError = "সঠিক টাকার পরিমাণ লিখুন।"
+                                formError = "Please enter a valid amount."
                                 return@Button
                             }
                             onRecordPaymentTransaction(
@@ -406,7 +406,7 @@ fun OnlinePaymentScreen(
                             .height(48.dp)
                             .testTag("record_online_payment_button")
                     ) {
-                        Text("হিসাবে সংরক্ষণ করুন")
+                        Text("Save Transaction")
                     }
                 }
             }
@@ -438,7 +438,7 @@ private fun EditPaymentAccountDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${account.channel.title} (${account.channel.bnTitle})") },
+        title = { Text(account.channel.title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
@@ -450,9 +450,9 @@ private fun EditPaymentAccountDialog(
                     label = {
                         Text(
                             if (account.channel == PaymentChannel.BANK) {
-                                "ব্যাংক অ্যাকাউন্ট নম্বর"
+                                "Bank Account Number"
                             } else {
-                                "${account.channel.title} নম্বর"
+                                "${account.channel.title} Number"
                             }
                         )
                     },
@@ -468,9 +468,9 @@ private fun EditPaymentAccountDialog(
                     label = {
                         Text(
                             if (account.channel == PaymentChannel.BANK) {
-                                "ব্যাংকের নাম"
+                                "Bank Name"
                             } else {
-                                "অ্যাকাউন্ট ধরন (Personal / Agent / Merchant)"
+                                "Account Type (Personal / Agent / Merchant)"
                             }
                         )
                     },
@@ -485,7 +485,7 @@ private fun EditPaymentAccountDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "চালু রাখুন (Active)",
+                        text = "Active",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Switch(
@@ -507,18 +507,18 @@ private fun EditPaymentAccountDialog(
             Button(
                 onClick = {
                     if (isEnabled && number.isBlank()) {
-                        errorMessage = "চালু করতে অনুগ্রহ করে অ্যাকাউন্ট নম্বর দিন।"
+                        errorMessage = "Please enter an account number to enable this method."
                         return@Button
                     }
                     onSave(number, accountType, isEnabled)
                 }
             ) {
-                Text("সংরক্ষণ")
+                Text("Save")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("বাতিল")
+                Text("Cancel")
             }
         }
     )

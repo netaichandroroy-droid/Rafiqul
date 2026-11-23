@@ -102,7 +102,7 @@ fun AppLoginScreen(
 
     fun submitLogin() {
         if (loginId.isBlank() || password.isEmpty()) {
-            errorMessage = "অনুগ্রহ করে লগইন আইডি এবং পাসওয়ার্ড দিন।"
+            errorMessage = "Please enter your Login ID and password."
             return
         }
         errorMessage = onLoginAttempt(loginId, password)
@@ -123,9 +123,9 @@ fun AppLoginScreen(
                 downloadUrl = resolvedMemberUrl
             )
             downloadStatusMessage = if (shared) {
-                "মেম্বার মোবাইল অ্যাপ শেয়ার / ডাউনলোড চালু হয়েছে।"
+                "Member app share sheet opened."
             } else {
-                "অ্যাপ শেয়ার করা যায়নি। অনুগ্রহ করে পরে চেষ্টা করুন।"
+                "Unable to share app. Please try again."
             }
             isSharingApk = false
         }
@@ -180,13 +180,13 @@ fun AppLoginScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "লগইন",
+                        text = "Sign In",
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "অ্যাডমিন বা মেম্বার লিস্টের নাম দিয়ে লগইন করুন",
+                        text = "Sign in as Admin or using your Member Code",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -199,7 +199,7 @@ fun AppLoginScreen(
                             loginId = it
                             errorMessage = null
                         },
-                        label = { Text("লগইন আইডি / মেম্বার নাম (Login ID)") },
+                        label = { Text("Login ID / Member Code") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Outlined.Person,
@@ -225,7 +225,7 @@ fun AppLoginScreen(
                             password = it
                             errorMessage = null
                         },
-                        label = { Text("পাসওয়ার্ড (Password)") },
+                        label = { Text("Password") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Outlined.Lock,
@@ -236,7 +236,7 @@ fun AppLoginScreen(
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                 Icon(
                                     imageVector = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                    contentDescription = if (passwordVisible) "পাসওয়ার্ড লুকান" else "পাসওয়ার্ড দেখুন"
+                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
                                 )
                             }
                         },
@@ -290,7 +290,7 @@ fun AppLoginScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "লগইন করুন",
+                            text = "Sign In",
                             style = MaterialTheme.typography.labelLarge
                         )
                     }
@@ -303,7 +303,7 @@ fun AppLoginScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "মেম্বার লগইন নিয়ম: মেম্বার লিস্টে থাকা নামই Login ID ও প্রাথমিক Password হিসেবে কাজ করবে।",
+                            text = "Member Sign-In: Use your Member Code as both your Login ID and default password.",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
@@ -337,7 +337,7 @@ fun AppLoginScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.PhoneAndroid,
-                                contentDescription = "মেম্বার মোবাইল অ্যাপ",
+                                contentDescription = "Member Mobile App",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -345,13 +345,13 @@ fun AppLoginScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "মেম্বার মোবাইল লিঙ্ক (Login System)",
+                                text = "Member App Link",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "মেম্বাররা এই লিঙ্ক বা APK দিয়ে লগইন করতে পারবেন",
+                                text = "Members can download or open the app via this link or APK",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -385,7 +385,7 @@ fun AppLoginScreen(
                             .clickable {
                                 val opened = MemberAppLinkStore.openUrlSafely(context, resolvedMemberUrl)
                                 if (!opened) {
-                                    downloadStatusMessage = "লিঙ্কটি ব্রাউজারে খোলা যায়নি।"
+                                    downloadStatusMessage = "Could not open link in browser."
                                 }
                             }
                             .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -408,7 +408,7 @@ fun AppLoginScreen(
                                 cm?.setPrimaryClip(
                                     ClipData.newPlainText("Member App Link", resolvedMemberUrl)
                                 )
-                                downloadStatusMessage = "মেম্বার মোবাইল লিঙ্ক কপি হয়েছে"
+                                downloadStatusMessage = "Member app link copied"
                             },
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
@@ -416,7 +416,7 @@ fun AppLoginScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = "লিঙ্ক কপি করুন",
+                                contentDescription = "Copy Link",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -433,7 +433,7 @@ fun AppLoginScreen(
                             onClick = {
                                 val opened = MemberAppLinkStore.openUrlSafely(context, resolvedMemberUrl)
                                 if (!opened) {
-                                    downloadStatusMessage = "ডাউনলোড লিঙ্ক খোলা যায়নি।"
+                                    downloadStatusMessage = "Could not open download link."
                                 }
                             },
                             shape = RoundedCornerShape(12.dp),
@@ -448,7 +448,7 @@ fun AppLoginScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("লিঙ্ক খুলুন")
+                            Text("Open Link")
                         }
 
                         OutlinedButton(
@@ -466,7 +466,7 @@ fun AppLoginScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(if (isSharingApk) "প্রস্তুত..." else "শেয়ার / APK")
+                            Text(if (isSharingApk) "Preparing..." else "Share APK")
                         }
                     }
 

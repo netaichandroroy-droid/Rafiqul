@@ -97,7 +97,7 @@ fun MemberProfileScreen(
                         val subtitle = listOfNotNull(
                             member.designation.takeIf { it.isNotBlank() },
                             member.depot.takeIf { it.isNotBlank() }
-                        ).joinToString(" • ").ifBlank { "সদস্য প্রোফাইল" }
+                        ).joinToString(" • ").ifBlank { "Member Profile" }
                         Text(
                             text = subtitle,
                             style = MaterialTheme.typography.bodySmall,
@@ -109,7 +109,7 @@ fun MemberProfileScreen(
                             color = if (member.isActive) IncomeSurface else ExpenseSurface
                         ) {
                             Text(
-                                text = if (member.isActive) "Active (সক্রিয়)" else "Inactive",
+                                text = if (member.isActive) "Active" else "Inactive",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = if (member.isActive) IncomeEmerald else ExpenseCrimson,
@@ -124,7 +124,7 @@ fun MemberProfileScreen(
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "ব্যক্তিগত তথ্য ও প্রোফাইল",
+                    text = "Personal Info & Profile",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -134,63 +134,63 @@ fun MemberProfileScreen(
 
                 MemberDetailListRow(
                     icon = Icons.Outlined.QrCode,
-                    label = "কোড (Code)",
+                    label = "Code (Login ID)",
                     value = member.code.ifBlank { "-" }
                 )
                 ProfileListDivider()
 
                 MemberDetailListRow(
                     icon = Icons.Outlined.Person,
-                    label = "নাম (Login ID)",
+                    label = "Name",
                     value = member.name
                 )
                 ProfileListDivider()
 
                 MemberDetailListRow(
                     icon = Icons.Outlined.Badge,
-                    label = "পদবি (Desig:)",
+                    label = "Designation",
                     value = member.designation.ifBlank { "-" }
                 )
                 ProfileListDivider()
 
                 MemberDetailListRow(
                     icon = Icons.Outlined.LocationOn,
-                    label = "এরিয়া (Area)",
+                    label = "Area",
                     value = member.area.ifBlank { "-" }
                 )
                 ProfileListDivider()
 
                 MemberDetailListRow(
                     icon = Icons.Outlined.Storefront,
-                    label = "ডিপো (Depot)",
+                    label = "Depot",
                     value = member.depot.ifBlank { "-" }
                 )
                 ProfileListDivider()
 
                 MemberDetailListRow(
                     icon = Icons.Outlined.Phone,
-                    label = "ফোন নম্বর",
+                    label = "Phone",
                     value = member.phone.ifBlank { "-" }
                 )
                 ProfileListDivider()
 
                 MemberDetailListRow(
                     icon = Icons.Outlined.Email,
-                    label = "ইমেইল (Email)",
+                    label = "Email",
                     value = member.email.ifBlank { "-" }
                 )
                 ProfileListDivider()
 
                 MemberDetailListRow(
                     icon = Icons.Outlined.Home,
-                    label = "ঠিকানা (Address)",
+                    label = "Address",
                     value = member.address.ifBlank { "-" }
                 )
                 ProfileListDivider()
 
                 MemberDetailListRow(
                     icon = Icons.Outlined.CalendarMonth,
-                    label = "যোগদানের তারিখ",
+                    label = "Joining Date",
                     value = if (member.joiningDate.isNotBlank()) {
                         BanglaFormatters.formatBanglaDate(member.joiningDate)
                     } else {
@@ -201,8 +201,8 @@ fun MemberProfileScreen(
 
                 MemberDetailListRow(
                     icon = Icons.Outlined.VerifiedUser,
-                    label = "মোট সংরক্ষিত লেনদেন",
-                    value = "${BanglaFormatters.toBanglaDigits(transactionCount.toString())} টি"
+                    label = "Saved Transactions",
+                    value = transactionCount.toString()
                 )
             }
         }
@@ -210,7 +210,7 @@ fun MemberProfileScreen(
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "অ্যাকাউন্ট ও নিরাপত্তা",
+                    text = "Account & Security",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -220,11 +220,11 @@ fun MemberProfileScreen(
 
                 MemberActionListRow(
                     icon = Icons.Outlined.Lock,
-                    title = "পাসওয়ার্ড পরিবর্তন",
+                    title = "Change Password",
                     subtitle = if (member.isDefaultPassword) {
-                        "বর্তমান ডিফল্ট পাসওয়ার্ড: ${member.name}"
+                        "Current default password: ${member.code.ifBlank { "-" }}"
                     } else {
-                        "আপনার লগইন পাসওয়ার্ড পরিবর্তন করুন"
+                        "Update your login password"
                     },
                     iconBg = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.primary,
@@ -236,8 +236,8 @@ fun MemberProfileScreen(
 
                 MemberActionListRow(
                     icon = Icons.AutoMirrored.Filled.Logout,
-                    title = "লগআউট",
-                    subtitle = "অ্যাপ সেশন বন্ধ করে লগইন স্ক্রিনে ফিরুন",
+                    title = "Log Out",
+                    subtitle = "Lock session and return to sign-in screen",
                     iconBg = ExpenseSurface,
                     iconTint = ExpenseCrimson,
                     titleColor = MaterialTheme.colorScheme.error,

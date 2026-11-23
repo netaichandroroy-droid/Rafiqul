@@ -140,7 +140,7 @@ fun AccountsScreen(
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "সামগ্রিক হিসাব",
+                    text = "Overall Summary",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -152,7 +152,7 @@ fun AccountsScreen(
                     icon = Icons.Outlined.ArrowDownward,
                     iconBg = IncomeSurface,
                     iconTint = IncomeEmerald,
-                    label = "মোট আয় (সব অ্যাকাউন্ট)",
+                    label = "Total Income (All Accounts)",
                     value = BanglaFormatters.formatBdt(totalIncome),
                     valueColor = incomeColor
                 )
@@ -162,7 +162,7 @@ fun AccountsScreen(
                     icon = Icons.Outlined.ArrowUpward,
                     iconBg = ExpenseSurface,
                     iconTint = ExpenseCrimson,
-                    label = "মোট খরচ (সব অ্যাকাউন্ট)",
+                    label = "Total Expense (All Accounts)",
                     value = BanglaFormatters.formatBdt(totalExpense),
                     valueColor = expenseColor
                 )
@@ -172,7 +172,7 @@ fun AccountsScreen(
                     icon = Icons.Outlined.AccountBalanceWallet,
                     iconBg = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.primary,
-                    label = "মোট অবশিষ্ট ব্যালেন্স",
+                    label = "Remaining Net Balance",
                     value = BanglaFormatters.formatBdt(netBalance),
                     valueColor = if (netBalance >= 0) MaterialTheme.colorScheme.primary else expenseColor
                 )
@@ -236,7 +236,7 @@ private fun AccountListRow(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "• ${BanglaFormatters.toBanglaDigits(txCount.toString())}টি লেনদেন",
+                    text = "• $txCount entries",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -247,13 +247,13 @@ private fun AccountListRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "আয়: ${BanglaFormatters.formatBdt(income)}",
+                    text = "Income: ${BanglaFormatters.formatBdt(income)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = incomeColor,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "খরচ: ${BanglaFormatters.formatBdt(expense)}",
+                    text = "Expense: ${BanglaFormatters.formatBdt(expense)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = expenseColor,
                     fontWeight = FontWeight.Medium
@@ -272,7 +272,7 @@ private fun AccountListRow(
                 textAlign = TextAlign.End
             )
             Text(
-                text = "ব্যালেন্স",
+                text = "Balance",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

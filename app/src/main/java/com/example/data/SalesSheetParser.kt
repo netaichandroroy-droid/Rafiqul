@@ -11,16 +11,16 @@ import javax.xml.parsers.DocumentBuilderFactory
 object SalesSheetParser {
 
     private val banglaToAsciiDigits = mapOf(
-        '০' to '0',
-        '১' to '1',
-        '২' to '2',
-        '৩' to '3',
-        '৪' to '4',
-        '৫' to '5',
-        '৬' to '6',
-        '৭' to '7',
-        '৮' to '8',
-        '৯' to '9'
+        '\u09E6' to '0',
+        '\u09E7' to '1',
+        '\u09E8' to '2',
+        '\u09E9' to '3',
+        '\u09EA' to '4',
+        '\u09EB' to '5',
+        '\u09EC' to '6',
+        '\u09ED' to '7',
+        '\u09EE' to '8',
+        '\u09EF' to '9'
     )
 
     fun parseBytes(
@@ -29,7 +29,7 @@ object SalesSheetParser {
         fileName: String? = null
     ): Result<List<MonthlySalesRecord>> {
         if (bytes.isEmpty()) {
-            return Result.failure(IllegalArgumentException("ফাইলটি খালি।"))
+            return Result.failure(IllegalArgumentException("The selected file is empty."))
         }
         val isZipXlsx = (bytes.size >= 2 && bytes[0] == 0x50.toByte() && bytes[1] == 0x4B.toByte()) ||
             fileName.orEmpty().endsWith(".xlsx", ignoreCase = true)
@@ -48,12 +48,12 @@ object SalesSheetParser {
     ): Result<List<MonthlySalesRecord>> {
         val cleaned = rawText.removePrefix("\uFEFF").trim()
         if (cleaned.isEmpty()) {
-            return Result.failure(IllegalArgumentException("কোনো সেলস তথ্য পাওয়া যায়নি।"))
+            return Result.failure(IllegalArgumentException("No sales data found."))
         }
 
         val lines = splitLogicalLines(cleaned).filter { it.isNotBlank() }
         if (lines.isEmpty()) {
-            return Result.failure(IllegalArgumentException("কোনো সেলস সারি পাওয়া যায়নি।"))
+            return Result.failure(IllegalArgumentException("No sales rows found."))
         }
 
         val delimiter = detectDelimiter(lines.first())
@@ -94,7 +94,7 @@ object SalesSheetParser {
             }
 
             val xmlBytes = sheetXml
-                ?: throw IllegalArgumentException("Excel শিটে কোনো ডেটা পাওয়া যায়নি। CSV ফাইল ব্যবহার করুন।")
+                ?: throw IllegalArgumentException("No data found in the Excel sheet. Please use a CSV file.")
 
             val rows = parseWorksheetXml(xmlBytes, sharedStrings)
             mapRowsToRecords(rows, yearMonth).getOrThrow()
@@ -103,7 +103,7 @@ object SalesSheetParser {
 
     fun buildSampleCsv(members: List<Member>): String {
         val sb = StringBuilder("\uFEFF")
-        sb.append("code,name,TP sales,TP+Vat\n")
+        sb.append("code,name,TP sales,TP+VAT sales\n")
         if (members.isNotEmpty()) {
             for (member in members) {
                 val fields = listOf(
@@ -116,15 +116,15 @@ object SalesSheetParser {
                 sb.append('\n')
             }
         } else {
-            sb.append("\"C-101\",\"রফিকুল ইসলাম\",\"50000\",\"57500\"\n")
-            sb.append("\"C-102\",\"করিম আহমেদ\",\"35000\",\"40250\"\n")
+            sb.append("\"C-101\",\"Rafiqul Islam\",\"50000\",\"57500\"\n")
+            sb.append("\"C-102\",\"Karim Ahmed\",\"35000\",\"40250\"\n")
         }
         return sb.toString()
     }
 
     fun buildSalesCsv(records: List<MonthlySalesRecord>): String {
         val sb = StringBuilder("\uFEFF")
-        sb.append("code,name,TP sales,TP+Vat\n")
+        sb.append("code,name,TP sales,TP+VAT sales\n")
         for (item in records) {
             val fields = listOf(
                 item.code,
@@ -153,7 +153,7 @@ object SalesSheetParser {
     ): Result<List<MonthlySalesRecord>> {
         val nonEmptyRows = rows.filter { row -> row.any { it.isNotBlank() } }
         if (nonEmptyRows.isEmpty()) {
-            return Result.failure(IllegalArgumentException("কোনো সেলস সারি পাওয়া যায়নি।"))
+            return Result.failure(IllegalArgumentException("No sales rows found."))
         }
 
         val firstRow = nonEmptyRows.first()
@@ -197,7 +197,7 @@ object SalesSheetParser {
 
         return if (records.isEmpty()) {
             Result.failure(
-                IllegalArgumentException("সঠিক ফরম্যাটে (code, name, TP sales, TP+Vat) তথ্য পাওয়া যায়নি।")
+                IllegalArgumentException("No valid records found in (code, name, TP sales, TP+VAT sales) format.")
             )
         } else {
             Result.success(records)
@@ -223,10 +223,18 @@ object SalesSheetParser {
                 .replace("-", "")
                 .replace(" ", "")
             when {
-                norm == "code" || norm == "membercode" || norm == "কোড" -> codeIdx = idx
-                norm == "name" || norm == "membername" || norm == "নাম" -> nameIdx = idx
+                norm == "code" || norm == "membercode" || norm == "\u0995\u09CB\u09A1" -> codeIdx = idx
+                norm == "name" || norm == "membername" || norm == "\u09A8\u09BE\u09AE" -> nameIdx = idx
                 norm == "tpsales" || norm == "tpsale" || norm == "tp" -> tpSalesIdx = idx
-                norm == "tp+vat" || norm == "tpvat" || norm == "tpwithvat" || norm == "vat" -> tpVatIdx = idx
+                norm == "tp+vat" ||
+                    norm == "tpvat" ||
+                    norm == "tp+vatsales" ||
+                    norm == "tpvatsales" ||
+                    norm == "tp+vatsale" ||
+                    norm == "tpvatsale" ||
+                    norm == "tpwithvat" ||
+                    norm == "tpwithvatsales" ||
+                    norm == "vat" -> tpVatIdx = idx
             }
         }
 

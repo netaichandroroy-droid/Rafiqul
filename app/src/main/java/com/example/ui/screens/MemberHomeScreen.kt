@@ -137,7 +137,7 @@ fun MemberHomeScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "স্বাগতম, ${member.name}",
+                                text = "Welcome, ${member.name}",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
@@ -147,7 +147,7 @@ fun MemberHomeScreen(
                             val subtitle = listOfNotNull(
                                 member.designation.takeIf { it.isNotBlank() },
                                 member.depot.takeIf { it.isNotBlank() }
-                            ).joinToString(" • ").ifBlank { "মেম্বার ড্যাশবোর্ড" }
+                            ).joinToString(" • ").ifBlank { "Member Dashboard" }
                             Text(
                                 text = subtitle,
                                 style = MaterialTheme.typography.labelSmall,
@@ -161,7 +161,7 @@ fun MemberHomeScreen(
                             color = Color.White.copy(alpha = 0.16f)
                         ) {
                             Text(
-                                text = "${BanglaFormatters.toBanglaDigits(submissions.size.toString())}টি জমা",
+                                text = "${submissions.size} deposit(s)",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
@@ -178,8 +178,8 @@ fun MemberHomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         HeroSummaryMetricTile(
-                            title = "TP+Vat",
-                            subtitle = "বিক্রয় (Dues ভিত্তি)",
+                            title = "TP+VAT sales",
+                            subtitle = "Sales (Dues base)",
                             value = BanglaFormatters.formatBdt(salesAmount),
                             highlightColor = Color.White,
                             modifier = Modifier
@@ -188,7 +188,7 @@ fun MemberHomeScreen(
                         )
                         HeroSummaryMetricTile(
                             title = "Dues",
-                            subtitle = if (advanceAmount > 0.0) "অগ্রিম আছে" else "TP+Vat বকেয়া",
+                            subtitle = if (advanceAmount > 0.0) "Advance balance" else "TP+VAT sales dues",
                             value = BanglaFormatters.formatBdt(duesAmount),
                             highlightColor = if (duesAmount > 0.0) {
                                 Color(0xFFFFD5D5)
@@ -200,8 +200,8 @@ fun MemberHomeScreen(
                                 .testTag("member_home_dues_box")
                         )
                         HeroSummaryMetricTile(
-                            title = "Total Submit Taka",
-                            subtitle = "অনুমোদিত জমা",
+                            title = "Total Deposit",
+                            subtitle = "Approved deposits",
                             value = BanglaFormatters.formatBdt(totalSubmitTaka),
                             highlightColor = Color(0xFFC8F7DC),
                             modifier = Modifier
@@ -217,7 +217,7 @@ fun MemberHomeScreen(
                             color = Color(0xFFFFF3CD).copy(alpha = 0.22f)
                         ) {
                             Text(
-                                text = "অপেক্ষমাণ জমা: ${BanglaFormatters.formatBdt(pendingSubmitTaka)} (${BanglaFormatters.toBanglaDigits(salesSummary.pendingCount.toString())}টি অ্যাডমিন অনুমোদনের পর যোগ হবে)",
+                                text = "Pending Deposits: ${BanglaFormatters.formatBdt(pendingSubmitTaka)} (${salesSummary.pendingCount} awaiting admin approval)",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color(0xFFFFE082),
                                 fontWeight = FontWeight.SemiBold,
@@ -229,7 +229,7 @@ fun MemberHomeScreen(
                     if (advanceAmount > 0.0) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "অগ্রিম জমা ব্যালেন্স: ${BanglaFormatters.formatBdt(advanceAmount)}",
+                            text = "Advance Deposit Balance: ${BanglaFormatters.formatBdt(advanceAmount)}",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color(0xFFC8F7DC),
                             fontWeight = FontWeight.SemiBold
@@ -239,18 +239,18 @@ fun MemberHomeScreen(
             }
         }
 
-        // Quick Action Card for submitting Taka Joma
+        // Quick Action Card for submitting Deposit Form
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "দ্রুত কার্যক্রম",
+                    text = "Quick Action",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "নতুন টাকা জমা ফর্ম দাখিল করুন (অ্যাডমিন অনুমোদনের পর টাকা যোগ হবে)",
+                    text = "Submit a new deposit entry (added to your balance after admin approval)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -271,7 +271,7 @@ fun MemberHomeScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("টাকা জমা ফর্ম", maxLines = 1)
+                    Text("Deposit Form", maxLines = 1)
                 }
             }
         }
@@ -285,7 +285,7 @@ fun MemberHomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "মাসিক ও সার্বিক সারাংশ",
+                        text = "Monthly & Overall Summary",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -305,7 +305,7 @@ fun MemberHomeScreen(
 
                 if (salesSummary.uploadedTpSales > 0.0) {
                     MemberMetricListRow(
-                        label = "মোট TP sales (তথ্য মাত্র)",
+                        label = "Total TP sales (Info Only)",
                         value = BanglaFormatters.formatBdt(salesSummary.uploadedTpSales),
                         valueColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -315,7 +315,7 @@ fun MemberHomeScreen(
                     )
                 }
                 MemberMetricListRow(
-                    label = "মোট TP+Vat (Sales)",
+                    label = "Total TP+VAT sales",
                     value = BanglaFormatters.formatBdt(salesAmount),
                     valueColor = MaterialTheme.colorScheme.onSurface
                 )
@@ -324,7 +324,7 @@ fun MemberHomeScreen(
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
                 )
                 MemberMetricListRow(
-                    label = "অনুমোদিত জমা টাকা (Approved)",
+                    label = "Approved Deposits",
                     value = BanglaFormatters.formatBdt(totalSubmitTaka),
                     valueColor = IncomeEmerald
                 )
@@ -334,7 +334,7 @@ fun MemberHomeScreen(
                         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
                     )
                     MemberMetricListRow(
-                        label = "অপেক্ষমাণ জমা (${BanglaFormatters.toBanglaDigits(salesSummary.pendingCount.toString())}টি)",
+                        label = "Pending Deposits (${salesSummary.pendingCount})",
                         value = BanglaFormatters.formatBdt(pendingSubmitTaka),
                         valueColor = NagadAccent
                     )
@@ -344,7 +344,7 @@ fun MemberHomeScreen(
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
                 )
                 MemberMetricListRow(
-                    label = "বর্তমান বকেয়া (Dues = TP+Vat − জমা)",
+                    label = "Current Dues (TP+VAT sales − Deposit)",
                     value = BanglaFormatters.formatBdt(duesAmount),
                     valueColor = if (duesAmount > 0.0) ExpenseCrimson else IncomeEmerald
                 )
@@ -353,13 +353,13 @@ fun MemberHomeScreen(
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
                 )
                 MemberMetricListRow(
-                    label = "চলতি মাসে অনুমোদিত জমা (${BanglaFormatters.toBanglaDigits(monthApprovedSubmissions.size.toString())}টি)",
+                    label = "This Month Approved (${monthApprovedSubmissions.size})",
                     value = BanglaFormatters.formatBdt(monthSubmitTotal),
                     valueColor = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "* অনুমোদিত টাকা জমা দিলে শুধুমাত্র TP+Vat থেকে Dues কমবে (TP sales থেকে নয়)",
+                    text = "* Approved deposits reduce Dues on TP+VAT sales only (not TP sales)",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -369,10 +369,10 @@ fun MemberHomeScreen(
         // Uploaded Monthly Sales Table (code, name, TP sales, TP+Vat)
         item {
             MonthlySalesTableCard(
-                title = "Sales তালিকা (${BanglaFormatters.formatBanglaMonth(selectedSalesMonth)})",
-                subtitle = "অ্যাডমিন সেটিংস থেকে মাস অনুযায়ী আপলোডকৃত বিক্রয় হিসাব",
+                title = "Sales List (${BanglaFormatters.formatBanglaMonth(selectedSalesMonth)})",
+                subtitle = "Monthly sales uploaded by admin",
                 records = displayedSalesRows,
-                emptyMessage = "${BanglaFormatters.formatBanglaMonth(selectedSalesMonth)}-এর কোনো Sales এখনো আপলোড করা হয়নি।",
+                emptyMessage = "No sales uploaded for ${BanglaFormatters.formatBanglaMonth(selectedSalesMonth)} yet.",
                 highlightedMemberCode = member.code,
                 highlightedMemberName = member.name,
                 headerAction = {
@@ -385,7 +385,7 @@ fun MemberHomeScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                contentDescription = "আগের মাস"
+                                contentDescription = "Previous month"
                             )
                         }
                         IconButton(
@@ -396,7 +396,7 @@ fun MemberHomeScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = "পরের মাস"
+                                contentDescription = "Next month"
                             )
                         }
                     }
@@ -411,7 +411,7 @@ fun MemberHomeScreen(
                                 selected = !onlyMineFilter,
                                 onClick = { onlyMineFilter = false },
                                 label = {
-                                    Text("সকল (${BanglaFormatters.toBanglaDigits(monthSalesRecords.size.toString())})")
+                                    Text("All (${monthSalesRecords.size})")
                                 },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -422,7 +422,7 @@ fun MemberHomeScreen(
                                 selected = onlyMineFilter,
                                 onClick = { onlyMineFilter = true },
                                 label = {
-                                    Text("আমার (${BanglaFormatters.toBanglaDigits(matchedMemberSalesRows.size.toString())})")
+                                    Text("Mine (${matchedMemberSalesRows.size})")
                                 },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -445,12 +445,12 @@ fun MemberHomeScreen(
             title = { Text("${record.name} (${record.code.ifBlank { "-" }})") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("মাস: ${BanglaFormatters.formatBanglaMonth(record.yearMonth)}")
+                    Text("Month: ${BanglaFormatters.formatBanglaMonth(record.yearMonth)}")
                     Text("code: ${record.code.ifBlank { "-" }}")
                     Text("name: ${record.name}")
                     Text("TP sales: ${BanglaFormatters.formatBdt(record.tpSales)}")
                     Text(
-                        text = "TP+Vat: ${BanglaFormatters.formatBdt(record.tpPlusVat)}",
+                        text = "TP+VAT sales: ${BanglaFormatters.formatBdt(record.tpPlusVat)}",
                         fontWeight = FontWeight.Bold,
                         color = IncomeEmerald
                     )
@@ -458,7 +458,7 @@ fun MemberHomeScreen(
             },
             confirmButton = {
                 TextButton(onClick = { inspectingSalesRecord = null }) {
-                    Text("বন্ধ করুন")
+                    Text("Close")
                 }
             }
         )

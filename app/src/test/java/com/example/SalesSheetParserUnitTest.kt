@@ -116,8 +116,22 @@ class SalesSheetParserUnitTest {
         )
         val csv = SalesSheetParser.buildSampleCsv(members).removePrefix("\uFEFF")
         val lines = csv.trim().lines()
-        assertEquals("code,name,TP sales,TP+Vat", lines[0])
+        assertEquals("code,name,TP sales,TP+VAT sales", lines[0])
         assertEquals("\"K-01\",\"Kamal\",\"0\",\"0\"", lines[1])
+    }
+
+    @Test
+    fun parseDelimitedText_parsesTpPlusVatSalesHeader() {
+        val csv = """
+            code,name,TP sales,TP+VAT sales
+            C-301,নাহিদ হাসান,30000,34500
+        """.trimIndent()
+        val result = SalesSheetParser.parseDelimitedText(csv, "2026-11")
+        assertTrue(result.isSuccess)
+        val row = result.getOrThrow().single()
+        assertEquals("C-301", row.code)
+        assertEquals(30000.0, row.tpSales, 0.001)
+        assertEquals(34500.0, row.tpPlusVat, 0.001)
     }
 
     @Test

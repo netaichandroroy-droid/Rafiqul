@@ -95,22 +95,22 @@ class AppLockCredentialStore(context: Context) {
     ): Result<Unit> {
         ensureInitialized()
         val storedHash = prefs.getString(KEY_PASSWORD_HASH, null)
-            ?: return Result.failure(IllegalStateException("লগইন তথ্য পাওয়া যায়নি।"))
+            ?: return Result.failure(IllegalStateException("Login credentials not found."))
 
         if (!PasswordHasher.verifyPassword(currentPassword, storedHash)) {
-            return Result.failure(IllegalArgumentException("বর্তমান পাসওয়ার্ড সঠিক নয়।"))
+            return Result.failure(IllegalArgumentException("Current password is incorrect."))
         }
 
         if (newPassword.isBlank() || newPassword.length !in MIN_PASSWORD_LENGTH..128) {
             return Result.failure(
-                IllegalArgumentException("নতুন পাসওয়ার্ড কমপক্ষে ৪ থেকে ১২৮ অক্ষরের মধ্যে হতে হবে।")
+                IllegalArgumentException("New password must be between 4 and 128 characters.")
             )
         }
 
         val cleanedId = newLoginId?.trim()
         if (cleanedId != null && !LOGIN_ID_REGEX.matches(cleanedId)) {
             return Result.failure(
-                IllegalArgumentException("লগইন আইডি ৩ থেকে ৩০ অক্ষরের মধ্যে হতে হবে (a-z, 0-9, _, ., -)।")
+                IllegalArgumentException("Login ID must be 3 to 30 characters (a-z, 0-9, _, ., -).")
             )
         }
 

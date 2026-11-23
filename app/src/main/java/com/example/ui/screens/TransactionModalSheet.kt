@@ -88,7 +88,7 @@ fun TransactionModalSheet(
                 .padding(bottom = 24.dp)
         ) {
             Text(
-                text = if (editingTransaction == null) "নতুন হিসাব যোগ করুন" else "হিসাব সম্পাদনা",
+                text = if (editingTransaction == null) "Add New Entry" else "Edit Entry",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -124,7 +124,7 @@ fun TransactionModalSheet(
                 onSubmit = {
                     val amount = amountText.toDoubleOrNull()
                     if (amount == null || amount <= 0.0 || amount > 1_000_000_000.0) {
-                        validationError = "অনুগ্রহ করে সঠিক টাকার পরিমাণ লিখুন।"
+                        validationError = "Please enter a valid amount."
                         return@TransactionFormFields
                     }
                     onSave(

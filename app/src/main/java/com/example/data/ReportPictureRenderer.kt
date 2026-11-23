@@ -44,7 +44,7 @@ object ReportPictureRenderer {
 
     private fun resolveBanglaTypeface(context: Context): Typeface {
         return runCatching {
-            ResourcesCompat.getFont(context, R.font.noto_sans_bengali)
+            ResourcesCompat.getFont(context, R.font.plus_jakarta_sans)
         }.getOrNull() ?: Typeface.DEFAULT
     }
 
@@ -122,15 +122,15 @@ object ReportPictureRenderer {
             textSize = 24f
         }
 
-        canvas.drawText("Rafiqul Islam • হিসাব রিপোর্ট", MARGIN_X, 74f, titlePaint)
+        canvas.drawText("Rafiqul Islam • Ledger Report", MARGIN_X, 74f, titlePaint)
         val periodLabel = if (isMonthFiltered) {
-            "মাস: ${BanglaFormatters.formatBanglaMonth(selectedMonth)}"
+            "Month: ${BanglaFormatters.formatBanglaMonth(selectedMonth)}"
         } else {
-            "সকল লেনদেন (${BanglaFormatters.formatBanglaMonth(selectedMonth)}-এ কোনো এন্ট্রি নেই)"
+            "All Transactions (No entries in ${BanglaFormatters.formatBanglaMonth(selectedMonth)})"
         }
         canvas.drawText(periodLabel, MARGIN_X, 118f, subtitlePaint)
         canvas.drawText(
-            "তৈরির তারিখ: ${BanglaFormatters.formatBanglaDate(BanglaFormatters.todayIso())} • মোট ${BanglaFormatters.toBanglaDigits(displayItems.size.toString())}টি লেনদেন",
+            "Generated: ${BanglaFormatters.formatBanglaDate(BanglaFormatters.todayIso())} • Total ${displayItems.size} transactions",
             MARGIN_X,
             154f,
             subtitlePaint
@@ -144,7 +144,7 @@ object ReportPictureRenderer {
         drawStatBox(
             canvas = canvas,
             rect = RectF(MARGIN_X, y, MARGIN_X + statW, y + statRowHeight),
-            label = "মোট আয়",
+            label = "Total Income",
             value = BanglaFormatters.formatBdt(monthIncome),
             bgColor = INCOME_BG,
             accentColor = INCOME_GREEN,
@@ -154,7 +154,7 @@ object ReportPictureRenderer {
         drawStatBox(
             canvas = canvas,
             rect = RectF(MARGIN_X + statW + gap, y, MARGIN_X + 2 * statW + gap, y + statRowHeight),
-            label = "মোট খরচ",
+            label = "Total Expense",
             value = BanglaFormatters.formatBdt(monthExpense),
             bgColor = EXPENSE_BG,
             accentColor = EXPENSE_RED,
@@ -164,7 +164,7 @@ object ReportPictureRenderer {
         drawStatBox(
             canvas = canvas,
             rect = RectF(MARGIN_X + 2 * (statW + gap), y, IMAGE_WIDTH - MARGIN_X, y + statRowHeight),
-            label = "নিট ব্যালেন্স",
+            label = "Net Balance",
             value = BanglaFormatters.formatBdt(netBalance),
             bgColor = CARD_WHITE,
             accentColor = if (netBalance >= 0) BRAND_DEEP else EXPENSE_RED,
@@ -184,7 +184,7 @@ object ReportPictureRenderer {
                 color = TEXT_PRIMARY
                 textSize = 28f
             }
-            canvas.drawText("খরচের খাতভিত্তিক হিসাব", MARGIN_X + 24f, y + 48f, secTitlePaint)
+            canvas.drawText("Expense Breakdown by Category", MARGIN_X + 24f, y + 48f, secTitlePaint)
 
             var cy = y + 88f
             val catPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -236,16 +236,16 @@ object ReportPictureRenderer {
             color = TEXT_PRIMARY
             textSize = 28f
         }
-        canvas.drawText("লেনদেন তালিকা", MARGIN_X + 24f, y + 48f, tableHeadingPaint)
+        canvas.drawText("Transaction List", MARGIN_X + 24f, y + 48f, tableHeadingPaint)
         y += 74f
 
         val colWidths = floatArrayOf(
-            tableWidth * 0.21f, // তারিখ
-            tableWidth * 0.39f, // বিবরণ / খাত
-            tableWidth * 0.16f, // হিসাব
-            tableWidth * 0.24f  // পরিমাণ
+            tableWidth * 0.21f, // Date
+            tableWidth * 0.39f, // Details / Category
+            tableWidth * 0.16f, // Account
+            tableWidth * 0.24f  // Amount
         )
-        val headers = listOf("তারিখ", "বিবরণ ও খাত", "মাধ্যম", "পরিমাণ")
+        val headers = listOf("Date", "Details & Category", "Method", "Amount")
         drawTableHeaderRow(canvas, MARGIN_X, y, tableWidth, tableHeaderHeight, colWidths, headers, boldTypeface)
         y += tableHeaderHeight
 
@@ -256,7 +256,7 @@ object ReportPictureRenderer {
                 textSize = 24f
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("কোনো লেনদেন পাওয়া যায়নি", IMAGE_WIDTH / 2f, y + 62f, emptyPaint)
+            canvas.drawText("No transactions found", IMAGE_WIDTH / 2f, y + 62f, emptyPaint)
             y += emptyRowHeight
         } else {
             shownRows.forEachIndexed { idx, tx ->
@@ -331,7 +331,7 @@ object ReportPictureRenderer {
                 textAlign = Paint.Align.CENTER
             }
             canvas.drawText(
-                "... আরো ${BanglaFormatters.toBanglaDigits((displayItems.size - maxRows).toString())}টি লেনদেন রয়েছে",
+                "... ${displayItems.size - maxRows} more transactions",
                 IMAGE_WIDTH / 2f,
                 y + 28f,
                 morePaint
@@ -400,10 +400,10 @@ object ReportPictureRenderer {
             textSize = 24f
         }
 
-        canvas.drawText("Rafiqul Islam • মাসিক Sales রিপোর্ট", MARGIN_X, 74f, titlePaint)
-        canvas.drawText("মাস: ${BanglaFormatters.formatBanglaMonth(selectedMonth)}", MARGIN_X, 118f, subtitlePaint)
+        canvas.drawText("Rafiqul Islam • Monthly Sales Report", MARGIN_X, 74f, titlePaint)
+        canvas.drawText("Month: ${BanglaFormatters.formatBanglaMonth(selectedMonth)}", MARGIN_X, 118f, subtitlePaint)
         canvas.drawText(
-            "মোট সারি: ${BanglaFormatters.toBanglaDigits(monthRecords.size.toString())}টি • তারিখ: ${BanglaFormatters.formatBanglaDate(BanglaFormatters.todayIso())}",
+            "Total rows: ${monthRecords.size} • Date: ${BanglaFormatters.formatBanglaDate(BanglaFormatters.todayIso())}",
             MARGIN_X,
             154f,
             subtitlePaint
@@ -416,7 +416,7 @@ object ReportPictureRenderer {
         drawStatBox(
             canvas = canvas,
             rect = RectF(MARGIN_X, y, MARGIN_X + statW, y + statRowHeight),
-            label = "মোট TP sales",
+            label = "Total TP sales",
             value = BanglaFormatters.formatBdt(totalTpSales),
             bgColor = CARD_WHITE,
             accentColor = BRAND_DEEP,
@@ -426,7 +426,7 @@ object ReportPictureRenderer {
         drawStatBox(
             canvas = canvas,
             rect = RectF(MARGIN_X + statW + gap, y, IMAGE_WIDTH - MARGIN_X, y + statRowHeight),
-            label = "মোট TP+Vat",
+            label = "Total TP+VAT sales",
             value = BanglaFormatters.formatBdt(totalTpPlusVat),
             bgColor = INCOME_BG,
             accentColor = INCOME_GREEN,
@@ -445,17 +445,17 @@ object ReportPictureRenderer {
             color = TEXT_PRIMARY
             textSize = 28f
         }
-        canvas.drawText("Sales তালিকা (code, name, TP sales, TP+Vat)", MARGIN_X + 24f, y + 48f, tableHeadingPaint)
+        canvas.drawText("Sales List (code, name, TP sales, TP+VAT sales)", MARGIN_X + 24f, y + 48f, tableHeadingPaint)
         y += 74f
 
         val colWidths = floatArrayOf(
             tableWidth * 0.09f, // SL
             tableWidth * 0.16f, // code
-            tableWidth * 0.31f, // name
+            tableWidth * 0.29f, // name
             tableWidth * 0.22f, // TP sales
-            tableWidth * 0.22f  // TP+Vat
+            tableWidth * 0.24f  // TP+VAT sales
         )
-        val headers = listOf("SL", "code", "name", "TP sales", "TP+Vat")
+        val headers = listOf("SL", "code", "name", "TP sales", "TP+VAT sales")
         drawTableHeaderRow(canvas, MARGIN_X, y, tableWidth, tableHeaderHeight, colWidths, headers, boldTypeface)
         y += tableHeaderHeight
 
@@ -466,7 +466,7 @@ object ReportPictureRenderer {
                 textSize = 24f
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("এই মাসে কোনো Sales রেকর্ড নেই", IMAGE_WIDTH / 2f, y + 62f, emptyPaint)
+            canvas.drawText("No sales records for this month", IMAGE_WIDTH / 2f, y + 62f, emptyPaint)
             y += emptyRowHeight
         } else {
             monthRecords.forEachIndexed { idx, rec ->
@@ -558,7 +558,7 @@ object ReportPictureRenderer {
                 textAlign = Paint.Align.RIGHT
             }
             val ty = y + 40f
-            canvas.drawText("সর্বমোট", MARGIN_X + 16f, ty, totalLabelPaint)
+            canvas.drawText("Total", MARGIN_X + 16f, ty, totalLabelPaint)
             canvas.drawText(
                 BanglaFormatters.formatBdt(totalTpSales),
                 MARGIN_X + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] - 10f,
@@ -586,8 +586,8 @@ object ReportPictureRenderer {
         periodScope: ReportPeriodScope
     ): Bitmap {
         val periodText = when (periodScope) {
-            ReportPeriodScope.SELECTED_MONTH -> "সময়কাল: ${BanglaFormatters.formatBanglaMonth(selectedMonth)}"
-            ReportPeriodScope.ALL_TIME -> "সময়কাল: সর্বমোট (সব মাস)"
+            ReportPeriodScope.SELECTED_MONTH -> "Period: ${BanglaFormatters.formatBanglaMonth(selectedMonth)}"
+            ReportPeriodScope.ALL_TIME -> "Period: All Time (All Months)"
         }
         val rows = items.mapIndexed { idx, item ->
             val codePart = item.summary.code.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
@@ -605,9 +605,9 @@ object ReportPictureRenderer {
             context = context,
             title = "Rafiqul Islam • ${ReportCategory.MPO_WISE.title}",
             periodText = periodText,
-            countLabel = "মোট MPO: ${BanglaFormatters.toBanglaDigits(items.size.toString())} জন",
-            tableHeading = "MPO ভিত্তিক সেলস, জমা ও বকেয়া তালিকা",
-            col2Header = "MPO ও এরিয়া",
+            countLabel = "Total MPO: ${items.size}",
+            tableHeading = "MPO Sales, Deposit & Dues List",
+            col2Header = "MPO & Area",
             rows = rows,
             totals = totals
         )
@@ -622,19 +622,21 @@ object ReportPictureRenderer {
         periodScope: ReportPeriodScope
     ): Bitmap {
         val periodText = when (periodScope) {
-            ReportPeriodScope.SELECTED_MONTH -> "সময়কাল: ${BanglaFormatters.formatBanglaMonth(selectedMonth)}"
-            ReportPeriodScope.ALL_TIME -> "সময়কাল: সর্বমোট (সব মাস)"
+            ReportPeriodScope.SELECTED_MONTH -> "Period: ${BanglaFormatters.formatBanglaMonth(selectedMonth)}"
+            ReportPeriodScope.ALL_TIME -> "Period: All Time (All Months)"
         }
         val col2Header = when (category) {
-            ReportCategory.AM_WISE -> "AM / এরিয়া"
-            ReportCategory.REGION_WISE -> "রিজিয়ন / ডিপো"
-            else -> "নাম"
+            ReportCategory.ASM_DEPOT_WISE -> "Depot / ASM"
+            ReportCategory.ASM_NAME_WISE -> "ASM Name"
+            ReportCategory.AM_WISE -> "RSM / RSC / AM Area"
+            ReportCategory.REGION_WISE -> "Region / Depot"
+            else -> "Name"
         }
         val rows = groups.mapIndexed { idx, group ->
             RenderTableRow(
                 sl = (idx + 1).toString().padStart(2, '0'),
                 name = group.title,
-                subLabel = "${group.leaderLabel} • ${BanglaFormatters.toBanglaDigits(group.memberCount.toString())} জন",
+                subLabel = "${group.leaderLabel} • ${group.memberCount} members",
                 tpPlusVat = group.totalTpPlusVat,
                 joma = group.approvedJoma,
                 dues = group.dues
@@ -644,8 +646,8 @@ object ReportPictureRenderer {
             context = context,
             title = "Rafiqul Islam • ${category.title}",
             periodText = periodText,
-            countLabel = "মোট গ্রুপ: ${BanglaFormatters.toBanglaDigits(groups.size.toString())}টি • সদস্য: ${BanglaFormatters.toBanglaDigits(totals.memberCount.toString())} জন",
-            tableHeading = "${category.title} সারাংশ তালিকা",
+            countLabel = "Total Groups: ${groups.size} • Members: ${totals.memberCount}",
+            tableHeading = "${category.title} Summary",
             col2Header = col2Header,
             rows = rows,
             totals = totals
@@ -725,7 +727,7 @@ object ReportPictureRenderer {
         canvas.drawText(title, MARGIN_X, 72f, titlePaint)
         canvas.drawText(periodText, MARGIN_X, 116f, subtitlePaint)
         canvas.drawText(
-            "$countLabel • তারিখ: ${BanglaFormatters.formatBanglaDate(BanglaFormatters.todayIso())}",
+            "$countLabel • Date: ${BanglaFormatters.formatBanglaDate(BanglaFormatters.todayIso())}",
             MARGIN_X,
             152f,
             subtitlePaint
@@ -737,7 +739,7 @@ object ReportPictureRenderer {
         drawStatBox(
             canvas = canvas,
             rect = RectF(MARGIN_X, y, MARGIN_X + statW, y + statRowHeight),
-            label = "মোট TP+Vat",
+            label = "Total TP+VAT sales",
             value = BanglaFormatters.formatBdt(totals.totalTpPlusVat),
             bgColor = CARD_WHITE,
             accentColor = BRAND_DEEP,
@@ -747,7 +749,7 @@ object ReportPictureRenderer {
         drawStatBox(
             canvas = canvas,
             rect = RectF(MARGIN_X + statW + gap, y, MARGIN_X + 2 * statW + gap, y + statRowHeight),
-            label = "মোট অনুমোদিত জমা",
+            label = "Deposit",
             value = BanglaFormatters.formatBdt(totals.approvedJoma),
             bgColor = INCOME_BG,
             accentColor = INCOME_GREEN,
@@ -757,7 +759,7 @@ object ReportPictureRenderer {
         drawStatBox(
             canvas = canvas,
             rect = RectF(MARGIN_X + 2 * (statW + gap), y, IMAGE_WIDTH - MARGIN_X, y + statRowHeight),
-            label = "মোট বকেয়া (Dues)",
+            label = "Total Dues",
             value = BanglaFormatters.formatBdt(totals.dues),
             bgColor = if (totals.dues > 0.0) EXPENSE_BG else INCOME_BG,
             accentColor = if (totals.dues > 0.0) EXPENSE_RED else INCOME_GREEN,
@@ -780,13 +782,13 @@ object ReportPictureRenderer {
         y += 74f
 
         val colWidths = floatArrayOf(
-            tableWidth * 0.08f,
-            tableWidth * 0.36f,
-            tableWidth * 0.19f,
+            tableWidth * 0.07f,
+            tableWidth * 0.34f,
+            tableWidth * 0.22f,
             tableWidth * 0.19f,
             tableWidth * 0.18f
         )
-        val headers = listOf("SL", col2Header, "TP+Vat", "জমা", "Dues")
+        val headers = listOf("SL", col2Header, "TP+VAT sales", "Deposit", "Dues")
         drawTableHeaderRow(canvas, MARGIN_X, y, tableWidth, tableHeaderHeight, colWidths, headers, boldTypeface)
         y += tableHeaderHeight
 
@@ -797,7 +799,7 @@ object ReportPictureRenderer {
                 textSize = 24f
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("কোনো রিপোর্ট তথ্য পাওয়া যায়নি", IMAGE_WIDTH / 2f, y + 62f, emptyPaint)
+            canvas.drawText("No report records found", IMAGE_WIDTH / 2f, y + 62f, emptyPaint)
             y += emptyRowHeight
         } else {
             val cellPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -876,7 +878,7 @@ object ReportPictureRenderer {
                 textSize = 21f
             }
             val ty = y + 40f
-            canvas.drawText("সর্বমোট", MARGIN_X + 16f, ty, totalLabelPaint)
+            canvas.drawText("Total", MARGIN_X + 16f, ty, totalLabelPaint)
             val col2End = MARGIN_X + colWidths[0] + colWidths[1] + colWidths[2]
             val col3End = col2End + colWidths[3]
             val col4End = MARGIN_X + tableWidth
@@ -898,7 +900,7 @@ object ReportPictureRenderer {
                     textAlign = Paint.Align.CENTER
                 }
                 canvas.drawText(
-                    "... আরো ${BanglaFormatters.toBanglaDigits((rows.size - maxRows).toString())}টি সারি রয়েছে",
+                    "... ${rows.size - maxRows} more rows",
                     IMAGE_WIDTH / 2f,
                     y + 28f,
                     morePaint
@@ -1015,7 +1017,7 @@ object ReportPictureRenderer {
             textAlign = Paint.Align.CENTER
         }
         canvas.drawText(
-            "Rafiqul Islam • হিসাব খাতা রিপোর্ট ছবি (PNG)",
+            "Rafiqul Islam • Ledger Report Image (PNG)",
             IMAGE_WIDTH / 2f,
             y,
             paint

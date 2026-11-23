@@ -157,14 +157,14 @@ fun MemberLendenScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "মেম্বার লেনদেন (টাকা জমা)",
+                            text = "Member Transactions (Deposits)",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "জমা দেওয়া সকল টাকা ও অনুমোদনের তালিকা",
+                            text = "All submitted deposits and approval status",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -183,7 +183,7 @@ fun MemberLendenScreen(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("টাকা জমা")
+                        Text("Add Deposit")
                     }
                 }
 
@@ -194,21 +194,21 @@ fun MemberLendenScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     LendenStatTile(
-                        label = "অনুমোদিত",
+                        label = "Approved",
                         value = BanglaFormatters.formatBdt(approvedTaka),
                         containerColor = IncomeSurface,
                         contentColor = IncomeEmerald,
                         modifier = Modifier.weight(1f)
                     )
                     LendenStatTile(
-                        label = "অপেক্ষমাণ",
+                        label = "Pending",
                         value = BanglaFormatters.formatBdt(pendingTaka),
                         containerColor = NagadSurface,
                         contentColor = NagadAccent,
                         modifier = Modifier.weight(1f)
                     )
                     LendenStatTile(
-                        label = "চলতি মাস",
+                        label = "This Month",
                         value = BanglaFormatters.formatBdt(monthTotalTaka),
                         containerColor = IncomeSurface,
                         contentColor = IncomeEmeraldDark,
@@ -251,7 +251,7 @@ fun MemberLendenScreen(
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "এখনো কোনো টাকা জমা এন্ট্রি নেই। 'টাকা জমা' ফর্ম থেকে জমা দিলে এখানে Submit, SL, Name ও Taka আকারে দেখাবে।",
+                            text = "No deposit entries yet. Tap 'Add Deposit' above to submit a deposit and view it here.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -437,13 +437,13 @@ fun MemberLendenScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "ব্যক্তিগত আয়-ব্যয় লেনদেন",
+                            text = "Personal Transactions",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         TextButton(onClick = { onAddPersonalTx(TxType.EXPENSE) }) {
-                            Text("+ যোগ করুন")
+                            Text("+ Add")
                         }
                     }
                     Spacer(modifier = Modifier.height(6.dp))
@@ -474,38 +474,38 @@ fun MemberLendenScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "অবস্থা:",
+                            text = "Status:",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         TakaJomaStatusPill(status = item.resolvedStatus)
                     }
-                    Text("Submit তারিখ: ${BanglaFormatters.formatBanglaDate(item.date)}")
-                    Text("কোড (Code): ${item.code.ifBlank { "-" }}")
-                    Text("নাম (Name): ${item.name}")
+                    Text("Submit Date: ${BanglaFormatters.formatBanglaDate(item.date)}")
+                    Text("Code: ${item.code.ifBlank { "-" }}")
+                    Text("Name: ${item.name}")
                     if (item.designation.isNotBlank()) {
-                        Text("পদবি (Desig:): ${item.designation}")
+                        Text("Designation: ${item.designation}")
                     }
                     if (item.area.isNotBlank()) {
-                        Text("এরিয়া (Area): ${item.area}")
+                        Text("Area: ${item.area}")
                     }
-                    Text("ডিপো (Depot): ${item.depot.ifBlank { "-" }}")
+                    Text("Depot: ${item.depot.ifBlank { "-" }}")
                     if (item.bankName.isNotBlank()) {
-                        Text("মাধ্যম / ব্যাংক: ${item.bankName}")
+                        Text("Method / Bank: ${item.bankName}")
                     }
                     Text(
-                        text = "টাকা (Taka): ${BanglaFormatters.formatBdt(item.amount)}",
+                        text = "Amount: ${BanglaFormatters.formatBdt(item.amount)}",
                         fontWeight = FontWeight.Bold,
                         color = IncomeEmerald
                     )
                     if (item.note.isNotBlank()) {
-                        Text("মন্তব্য: ${item.note}")
+                        Text("Note: ${item.note}")
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { previewItem = null }) {
-                    Text("বন্ধ করুন")
+                    Text("Close")
                 }
             }
         )
@@ -516,7 +516,7 @@ private fun formatShortSubmitDate(isoDate: String): String {
     val cleaned = isoDate.trim()
     val parts = cleaned.split("-")
     if (parts.size == 3) {
-        return BanglaFormatters.toBanglaDigits("${parts[2]}/${parts[1]}/${parts[0].takeLast(2)}")
+        return "${parts[2]}/${parts[1]}/${parts[0].takeLast(2)}"
     }
     return cleaned.ifBlank { "-" }
 }

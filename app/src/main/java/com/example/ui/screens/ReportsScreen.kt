@@ -25,7 +25,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.ManageAccounts
 import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.SupervisorAccount
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -52,6 +54,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.model.AreaManagerRoleFilter
+import com.example.model.AsmNameReportScope
 import com.example.model.BanglaFormatters
 import com.example.model.HisabTransaction
 import com.example.model.Member
@@ -83,8 +87,12 @@ fun ReportsScreen(
     memberTakaJomaList: List<MemberTakaJoma> = emptyList(),
     selectedCategory: ReportCategory = ReportCategory.MONTHLY,
     periodScope: ReportPeriodScope = ReportPeriodScope.SELECTED_MONTH,
+    asmNameScope: AsmNameReportScope = AsmNameReportScope.DEPOT_TEAM,
+    areaRoleFilter: AreaManagerRoleFilter = AreaManagerRoleFilter.ALL,
     onSelectCategory: (ReportCategory) -> Unit = {},
-    onSelectPeriodScope: (ReportPeriodScope) -> Unit = {}
+    onSelectPeriodScope: (ReportPeriodScope) -> Unit = {},
+    onSelectAsmNameScope: (AsmNameReportScope) -> Unit = {},
+    onSelectAreaRoleFilter: (AreaManagerRoleFilter) -> Unit = {}
 ) {
     val monthItems = remember(transactions, selectedMonth) {
         transactions.filter { it.date.startsWith(selectedMonth) }
@@ -133,6 +141,8 @@ fun ReportsScreen(
     var onlyMpoDesignation by remember { mutableStateOf(true) }
     var mpoSearchQuery by remember { mutableStateOf("") }
     var mpoAreaFilter by remember { mutableStateOf<String?>(null) }
+    var asmDepotSearchQuery by remember { mutableStateOf("") }
+    var asmNameSearchQuery by remember { mutableStateOf("") }
     var amSearchQuery by remember { mutableStateOf("") }
     var regionSearchQuery by remember { mutableStateOf("") }
 
@@ -187,8 +197,8 @@ fun ReportsScreen(
         ReportAnalyticsCalculator.calculateMemberTotals(filteredMpoItems)
     }
 
-    val amGroupsAll = remember(members, monthlySales, memberTakaJomaList, selectedMonth, periodScope) {
-        ReportAnalyticsCalculator.buildAmWiseReport(
+    val asmDepotGroupsAll = remember(members, monthlySales, memberTakaJomaList, selectedMonth, periodScope) {
+        ReportAnalyticsCalculator.buildAsmDepotWiseReport(
             members = members,
             monthlySales = monthlySales,
             submissions = memberTakaJomaList,
@@ -196,9 +206,73 @@ fun ReportsScreen(
             periodScope = periodScope
         )
     }
-    val filteredAmGroups = remember(amGroupsAll, amSearchQuery) {
+    val filteredAsmDepotGroups = remember(asmDepotGroupsAll, asmDepotSearchQuery) {
+        val q = asmDepotSearchQuery.trim()
+        if (q.isEmpty()) asmDepotGroupsAll else asmDepotGroupsAll.filter { group ->
+            group.title.contains(q, ignoreCase = true) ||
+                group.leaderLabel.contains(q, ignoreCase = true) ||
+                group.members.any {
+                    it.summary.name.contains(q, ignoreCase = true) ||
+                        it.summary.area.contains(q, ignoreCase = true)
+                }
+        }
+    }
+    val asmDepotTotals = remember(filteredAsmDepotGroups) {
+        ReportAnalyticsCalculator.calculateGroupTotals(filteredAsmDepotGroups)
+    }
+
+    val asmNameReport = remember(
+        members,
+        monthlySales,
+        memberTakaJomaList,
+        selectedMonth,
+        periodScope,
+        asmNameScope
+    ) {
+        ReportAnalyticsCalculator.buildAsmNameWiseReport(
+            members = members,
+            monthlySales = monthlySales,
+            submissions = memberTakaJomaList,
+            selectedMonth = selectedMonth,
+            periodScope = periodScope,
+            scopeMode = asmNameScope
+        )
+    }
+    val filteredAsmNameGroups = remember(asmNameReport, asmNameSearchQuery) {
+        val q = asmNameSearchQuery.trim()
+        if (q.isEmpty()) asmNameReport.rows else asmNameReport.rows.filter { group ->
+            group.title.contains(q, ignoreCase = true) ||
+                group.leaderLabel.contains(q, ignoreCase = true) ||
+                group.members.any {
+                    it.summary.name.contains(q, ignoreCase = true) ||
+                        it.summary.depot.contains(q, ignoreCase = true)
+                }
+        }
+    }
+    val asmNameTotals = remember(filteredAsmNameGroups) {
+        ReportAnalyticsCalculator.calculateGroupTotals(filteredAsmNameGroups)
+    }
+
+    val areaRoleReport = remember(
+        members,
+        monthlySales,
+        memberTakaJomaList,
+        selectedMonth,
+        periodScope,
+        areaRoleFilter
+    ) {
+        ReportAnalyticsCalculator.buildAreaRoleWiseReport(
+            members = members,
+            monthlySales = monthlySales,
+            submissions = memberTakaJomaList,
+            selectedMonth = selectedMonth,
+            periodScope = periodScope,
+            roleFilter = areaRoleFilter
+        )
+    }
+    val filteredAmGroups = remember(areaRoleReport, amSearchQuery) {
         val q = amSearchQuery.trim()
-        if (q.isEmpty()) amGroupsAll else amGroupsAll.filter { group ->
+        if (q.isEmpty()) areaRoleReport.rows else areaRoleReport.rows.filter { group ->
             group.title.contains(q, ignoreCase = true) ||
                 group.leaderLabel.contains(q, ignoreCase = true) ||
                 group.members.any { it.summary.name.contains(q, ignoreCase = true) }
@@ -336,7 +410,7 @@ fun ReportsScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                        contentDescription = "আগের মাস"
+                                        contentDescription = "Previous Month"
                                     )
                                 }
                                 Text(
@@ -353,7 +427,7 @@ fun ReportsScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                        contentDescription = "পরের মাস"
+                                        contentDescription = "Next Month"
                                     )
                                 }
                             }
@@ -413,14 +487,14 @@ fun ReportsScreen(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         ComparisonBarRow(
-                            label = "আয়",
+                            label = "Income",
                             amount = BanglaFormatters.formatBdt(monthIncome),
                             fraction = incomeRatio,
                             barColor = BrandPrimary
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         ComparisonBarRow(
-                            label = "খরচ",
+                            label = "Expense",
                             amount = BanglaFormatters.formatBdt(monthExpense),
                             fraction = expenseRatio,
                             barColor = expenseColor
@@ -450,7 +524,7 @@ fun ReportsScreen(
                 item {
                     SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = "মাসিক সেলস ও টাকা জমা সারাংশ",
+                            text = "Monthly Sales & Deposit Summary",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -467,7 +541,7 @@ fun ReportsScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             ReportStatBox(
-                                label = "TP+Vat",
+                                label = "TP+VAT sales",
                                 value = BanglaFormatters.formatBdt(monthTpPlusVat),
                                 valueColor = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.weight(1f)
@@ -479,13 +553,13 @@ fun ReportsScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             ReportStatBox(
-                                label = "অনুমোদিত জমা",
+                                label = "Approved Deposit",
                                 value = BanglaFormatters.formatBdt(monthApprovedJoma),
                                 valueColor = IncomeEmerald,
                                 modifier = Modifier.weight(1f)
                             )
                             ReportStatBox(
-                                label = "অপেক্ষমাণ জমা",
+                                label = "Pending Deposit",
                                 value = BanglaFormatters.formatBdt(monthPendingJoma),
                                 valueColor = NagadAccent,
                                 modifier = Modifier.weight(1f)
@@ -498,7 +572,7 @@ fun ReportsScreen(
                     item {
                         SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
                             Text(
-                                text = "খরচের খাতভিত্তিক হিসাব",
+                                text = "Expense Breakdown by Category",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -536,7 +610,68 @@ fun ReportsScreen(
                 }
                 item {
                     ExportReportPictureCard(
-                        buttonLabel = "MPO রিপোর্ট Picture (PNG) ডাউনলোড",
+                        buttonLabel = "Download MPO Report (PNG)",
+                        onExportPicture = onExportPicture
+                    )
+                }
+            }
+
+            ReportCategory.ASM_DEPOT_WISE -> {
+                item {
+                    GroupedWiseReportSection(
+                        category = ReportCategory.ASM_DEPOT_WISE,
+                        groups = filteredAsmDepotGroups,
+                        totals = asmDepotTotals,
+                        searchQuery = asmDepotSearchQuery,
+                        onSearchQueryChange = { asmDepotSearchQuery = it }
+                    )
+                }
+                item {
+                    ExportReportPictureCard(
+                        buttonLabel = "Download ASM Depot Report (PNG)",
+                        onExportPicture = onExportPicture
+                    )
+                }
+            }
+
+            ReportCategory.ASM_NAME_WISE -> {
+                item {
+                    GroupedWiseReportSection(
+                        category = ReportCategory.ASM_NAME_WISE,
+                        groups = filteredAsmNameGroups,
+                        totals = asmNameTotals,
+                        searchQuery = asmNameSearchQuery,
+                        onSearchQueryChange = { asmNameSearchQuery = it },
+                        noticeBanner = asmNameReport.fallbackNotice,
+                        headerFilterContent = if (asmNameReport.hasExplicitAsmMembers) {
+                            {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    AsmNameReportScope.entries.forEach { scopeOption ->
+                                        val isSelected = asmNameScope == scopeOption
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { onSelectAsmNameScope(scopeOption) },
+                                            label = { Text(scopeOption.bnLabel) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                selectedLabelColor = MaterialTheme.colorScheme.primary
+                                            ),
+                                            modifier = Modifier.testTag("asm_name_scope_${scopeOption.name.lowercase()}")
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            null
+                        }
+                    )
+                }
+                item {
+                    ExportReportPictureCard(
+                        buttonLabel = "Download ASM Name Report (PNG)",
                         onExportPicture = onExportPicture
                     )
                 }
@@ -544,17 +679,56 @@ fun ReportsScreen(
 
             ReportCategory.AM_WISE -> {
                 item {
+                    val roleTitle = if (areaRoleFilter == AreaManagerRoleFilter.ALL) {
+                        ReportCategory.AM_WISE.title
+                    } else {
+                        "${areaRoleFilter.roleTitle} Area Report"
+                    }
+                    val fallbackMsg = if (areaRoleReport.fallbackShowingAllAreas) {
+                        "No members have '${areaRoleFilter.roleTitle}' assigned — showing all areas."
+                    } else {
+                        null
+                    }
                     GroupedWiseReportSection(
                         category = ReportCategory.AM_WISE,
                         groups = filteredAmGroups,
                         totals = amTotals,
                         searchQuery = amSearchQuery,
-                        onSearchQueryChange = { amSearchQuery = it }
+                        onSearchQueryChange = { amSearchQuery = it },
+                        customTitle = roleTitle,
+                        noticeBanner = fallbackMsg,
+                        headerFilterContent = {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                AreaManagerRoleFilter.entries.forEach { roleOption ->
+                                    val isSelected = areaRoleFilter == roleOption
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { onSelectAreaRoleFilter(roleOption) },
+                                        label = {
+                                            Text(
+                                                text = roleOption.bnLabel,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                            )
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedLabelColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        modifier = Modifier.testTag("area_role_filter_${roleOption.name.lowercase()}")
+                                    )
+                                }
+                            }
+                        }
                     )
                 }
                 item {
                     ExportReportPictureCard(
-                        buttonLabel = "AM রিপোর্ট Picture (PNG) ডাউনলোড",
+                        buttonLabel = "Download ${areaRoleFilter.roleTitle} Area Report (PNG)",
                         onExportPicture = onExportPicture
                     )
                 }
@@ -572,7 +746,7 @@ fun ReportsScreen(
                 }
                 item {
                     ExportReportPictureCard(
-                        buttonLabel = "রিজিয়ন রিপোর্ট Picture (PNG) ডাউনলোড",
+                        buttonLabel = "Download Region Report (PNG)",
                         onExportPicture = onExportPicture
                     )
                 }
@@ -585,6 +759,8 @@ fun ReportsScreen(
 fun reportCategoryIcon(category: ReportCategory): ImageVector = when (category) {
     ReportCategory.MONTHLY -> Icons.Outlined.CalendarMonth
     ReportCategory.MPO_WISE -> Icons.Outlined.Badge
+    ReportCategory.ASM_DEPOT_WISE -> Icons.Outlined.Storefront
+    ReportCategory.ASM_NAME_WISE -> Icons.Outlined.ManageAccounts
     ReportCategory.AM_WISE -> Icons.Outlined.SupervisorAccount
     ReportCategory.REGION_WISE -> Icons.Outlined.Public
 }

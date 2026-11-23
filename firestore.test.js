@@ -8,7 +8,7 @@ const fs = require("node:fs");
 
 let testEnv;
 const PROJECT_ID = process.env.GCP_PROJECT || "demo-no-project";
-const DATABASE_ID = "ai-studio-android-rafiqul-e47186b6-bbf9-4e26-a03e-f28d1528c108";
+const DATABASE_ID = "ai-studio-android-rafiqul-f8f3bebd-a4f0-4402-8eda-8c722b4f5f2a";
 const ALICE_UID = "alice_123";
 const BOB_UID = "bob_456";
 const VALID_HASH = "pbkdf2_sha256$120000$YWJjZGVmZ2hpamtsbW5vcA==$MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=";
@@ -385,6 +385,46 @@ test("MonthlySales & AppConfig: owner create, partial update, list, delete succe
       loginId: "rafiqul",
       passwordHash: VALID_HASH,
       defaultPassword: true,
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  await assertSucceeds(
+    db.collection(`users/${ALICE_UID}/appConfig`).doc("drive_backup").set({
+      userId: ALICE_UID,
+      driveConnected: true,
+      driveEmail: "netai.nemai@gmail.com",
+      driveFileId: "1abc_drive_file_id",
+      driveAutoBackupEnabled: true,
+      lastBackupAtMs: 1732000010000,
+      lastBackupSummary: "৫ লেনদেন • ২ মেম্বার",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  await assertSucceeds(
+    db.collection(`users/${ALICE_UID}/appConfig`).doc("drive_backup").update({
+      driveConnected: false,
+      driveEmail: "",
+      driveFileId: "",
+      driveAutoBackupEnabled: true,
+      lastBackupAtMs: 0,
+      lastBackupSummary: "",
+      updatedAt: new Date(Date.now() - 1000),
+    })
+  );
+
+  await assertFails(
+    db.collection(`users/${ALICE_UID}/appConfig`).doc("drive_backup").set({
+      userId: ALICE_UID,
+      driveConnected: "yes",
+      driveEmail: "netai.nemai@gmail.com",
+      driveFileId: "1abc",
+      driveAutoBackupEnabled: true,
+      lastBackupAtMs: -5,
+      lastBackupSummary: "",
       createdAt: created,
       updatedAt: created,
     })

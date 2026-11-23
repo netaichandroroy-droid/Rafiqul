@@ -64,6 +64,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.auth.AppLockCredentialStore
 import com.example.data.CloudAutoSyncRepository
+import com.example.data.CloudSyncPrefsStore
 import com.example.data.LocalTransactionStore
 import com.example.data.MemberStore
 import com.example.data.MemberTakaJomaStore
@@ -84,11 +85,11 @@ import com.example.ui.screens.TransactionModalSheet
 import com.example.ui.theme.BrandDeep
 
 private enum class MemberTab(val label: String) {
-    HOME("হোম"),
-    TRANSACTIONS("লেনদেন"),
-    TAKA_JOMA("টাকা জমা"),
-    PAYMENT("পেমেন্ট"),
-    PROFILE("প্রোফাইল")
+    HOME("Home"),
+    TRANSACTIONS("Ledger"),
+    TAKA_JOMA("Deposit"),
+    PAYMENT("Pay"),
+    PROFILE("Profile")
 }
 
 @Composable
@@ -107,6 +108,7 @@ fun MemberMainApp(
     }
     val takaJomaStore = remember(context) { MemberTakaJomaStore(context) }
     val monthlySalesStore = remember(context) { MonthlySalesStore(context) }
+    val cloudSyncPrefs = remember(context) { CloudSyncPrefsStore(context) }
     val viewModel: LocalHisabViewModel = viewModel(
         key = "member_hisab_${syncOwnerUid}_${initialMember.id}",
         factory = viewModelFactory {
@@ -119,7 +121,8 @@ fun MemberMainApp(
                     monthlySalesStore = monthlySalesStore,
                     ownerUserId = "member_${initialMember.id}",
                     reservedAdminLoginId = credentialStore.getLoginId(),
-                    cloudSyncRepository = cloudSyncRepository
+                    cloudSyncRepository = cloudSyncRepository,
+                    cloudSyncPrefs = cloudSyncPrefs
                 )
             }
         }
@@ -290,7 +293,7 @@ fun MemberMainApp(
 
     if (showChangePasswordDialog) {
         ChangePasswordDialog(
-            currentLoginId = activeMember.name,
+            currentLoginId = activeMember.code.ifBlank { activeMember.name },
             allowLoginIdEdit = false,
             onDismiss = { showChangePasswordDialog = false },
             onChangePassword = { currentPw, newPw, _ ->
@@ -306,7 +309,7 @@ fun MemberMainApp(
             },
             onSuccess = {
                 showChangePasswordDialog = false
-                viewModel.showMessage("পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে")
+                viewModel.showMessage("Password updated successfully")
             }
         )
     }
@@ -320,7 +323,7 @@ private fun MemberTopAppBar(
     val details = listOfNotNull(
         member.designation.takeIf { it.isNotBlank() },
         member.depot.takeIf { it.isNotBlank() }
-    ).joinToString(" • ").ifBlank { "মেম্বার মোবাইল অ্যাপ" }
+    ).joinToString(" • ").ifBlank { "Member Mobile App" }
 
     Surface(
         color = BrandDeep,

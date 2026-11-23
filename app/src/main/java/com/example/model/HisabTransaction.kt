@@ -8,8 +8,8 @@ import com.google.firebase.firestore.IgnoreExtraProperties
 import com.google.firebase.firestore.ServerTimestamp
 
 enum class TxType(val wireValue: String, val bnLabel: String) {
-    INCOME("income", "আয়"),
-    EXPENSE("expense", "খরচ");
+    INCOME("income", "Income"),
+    EXPENSE("expense", "Expense");
 
     companion object {
         fun fromRaw(raw: String?): TxType =
@@ -18,8 +18,8 @@ enum class TxType(val wireValue: String, val bnLabel: String) {
 }
 
 enum class AccountType(val wireValue: String, val bnTitle: String, val bnShort: String) {
-    CASH("cash", "নগদ টাকা", "নগদ"),
-    BANK("bank", "ব্যাংক", "ব্যাংক");
+    CASH("cash", "Cash", "Cash"),
+    BANK("bank", "Bank", "Bank");
 
     companion object {
         fun fromRaw(raw: String?): AccountType =
@@ -28,31 +28,31 @@ enum class AccountType(val wireValue: String, val bnTitle: String, val bnShort: 
 }
 
 enum class TxFilter(val bnLabel: String) {
-    ALL("সব"),
-    INCOME("আয়"),
-    EXPENSE("খরচ")
+    ALL("All"),
+    INCOME("Income"),
+    EXPENSE("Expense")
 }
 
 object HisabCategories {
     val incomeCategories = listOf(
-        "বেতন",
-        "ব্যবসা",
-        "উপহার",
-        "বিনিয়োগ",
-        "অন্যান্য আয়"
+        "Salary",
+        "Business",
+        "Gift",
+        "Investment",
+        "Other Income"
     )
 
     val expenseCategories = listOf(
-        "খাবার",
-        "বাজার",
-        "যাতায়াত",
-        "বাসা ভাড়া",
-        "বিদ্যুৎ/গ্যাস বিল",
-        "চিকিৎসা",
-        "শিক্ষা",
-        "কেনাকাটা",
-        "বিনোদন",
-        "অন্যান্য"
+        "Food",
+        "Groceries",
+        "Transport",
+        "House Rent",
+        "Utilities",
+        "Medical",
+        "Education",
+        "Shopping",
+        "Entertainment",
+        "Other"
     )
 
     fun forType(type: TxType): List<String> =

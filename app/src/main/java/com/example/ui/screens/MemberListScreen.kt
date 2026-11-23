@@ -224,7 +224,7 @@ fun MemberListScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "মোট ${BanglaFormatters.toBanglaDigits(sortedMembers.size.toString())} জন • Area অনুযায়ী সাজানো",
+                            text = "${sortedMembers.size} total • Sorted by Area",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -246,7 +246,7 @@ fun MemberListScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("সদস্য যোগ")
+                        Text("Add Member")
                     }
                 }
 
@@ -257,17 +257,17 @@ fun MemberListScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     MemberStatChip(
-                        label = "মোট: ${BanglaFormatters.toBanglaDigits(sortedMembers.size.toString())}",
+                        label = "Total: ${sortedMembers.size}",
                         bg = MaterialTheme.colorScheme.primaryContainer,
                         fg = MaterialTheme.colorScheme.primary
                     )
                     MemberStatChip(
-                        label = "সক্রিয়: ${BanglaFormatters.toBanglaDigits(activeCount.toString())}",
+                        label = "Active: $activeCount",
                         bg = activeBg,
                         fg = activeFg
                     )
                     MemberStatChip(
-                        label = "নিষ্ক্রিয়: ${BanglaFormatters.toBanglaDigits(inactiveCount.toString())}",
+                        label = "Inactive: $inactiveCount",
                         bg = inactiveBg,
                         fg = inactiveFg
                     )
@@ -284,7 +284,7 @@ fun MemberListScreen(
                         FilterChip(
                             selected = effectiveAreaFilter == null,
                             onClick = { selectedAreaFilter = null },
-                            label = { Text("সব Area (${BanglaFormatters.toBanglaDigits(sortedMembers.size.toString())})") },
+                            label = { Text("All Areas (${sortedMembers.size})") },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                 selectedLabelColor = MaterialTheme.colorScheme.primary
@@ -341,7 +341,7 @@ fun MemberListScreen(
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "এখনো কোনো সদস্য যোগ করা হয়নি। উপরে 'সদস্য যোগ' বাটনে চাপ দিয়ে তালিকা তৈরি করুন।",
+                            text = "No members added yet. Tap 'Add Member' above to create your member list.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -516,7 +516,7 @@ fun MemberListScreen(
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Outlined.Edit,
-                                                    contentDescription = "সম্পাদনা",
+                                                    contentDescription = "Edit",
                                                     tint = MaterialTheme.colorScheme.primary,
                                                     modifier = Modifier.size(16.dp)
                                                 )
@@ -531,7 +531,7 @@ fun MemberListScreen(
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Outlined.DeleteOutline,
-                                                    contentDescription = "মুছুন",
+                                                    contentDescription = "Delete",
                                                     tint = MaterialTheme.colorScheme.error,
                                                     modifier = Modifier.size(16.dp)
                                                 )
@@ -600,8 +600,8 @@ fun MemberListScreen(
     deletingMember?.let { target ->
         AlertDialog(
             onDismissRequest = { deletingMember = null },
-            title = { Text("সদস্য মুছবেন?") },
-            text = { Text("${target.name} কে মেম্বার লিস্ট থেকে স্থায়ীভাবে মুছে ফেলা হবে।") },
+            title = { Text("Delete Member?") },
+            text = { Text("${target.name} will be permanently removed from the member list.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -611,12 +611,12 @@ fun MemberListScreen(
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.testTag("confirm_delete_member_button")
                 ) {
-                    Text("মুছুন")
+                    Text("Delete")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { deletingMember = null }) {
-                    Text("বাতিল")
+                    Text("Cancel")
                 }
             }
         )
@@ -716,8 +716,8 @@ private fun MemberProfileDetailSheet(
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val linkStore = remember(context) { MemberAppLinkStore(context) }
-    val inviteText = remember(member.name, linkStore) {
-        linkStore.buildMemberInviteText(member.name)
+    val inviteText = remember(member.code, linkStore) {
+        linkStore.buildMemberInviteText(member.code.trim().takeIf { it.isNotEmpty() })
     }
     var linkStatusMessage by remember { mutableStateOf<String?>(null) }
 
@@ -755,7 +755,7 @@ private fun MemberProfileDetailSheet(
                         text = listOfNotNull(
                             member.designation.takeIf { it.isNotBlank() },
                             member.depot.takeIf { it.isNotBlank() }
-                        ).joinToString(" • ").ifBlank { "সদস্য প্রোফাইল" },
+                        ).joinToString(" • ").ifBlank { "Member Profile" },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -768,11 +768,14 @@ private fun MemberProfileDetailSheet(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
 
-            ProfileSheetFieldRow("Code", member.code.ifBlank { "-" })
-            ProfileSheetFieldRow("Login ID", member.name)
+            ProfileSheetFieldRow("Code (Login ID)", member.code.ifBlank { "-" })
             ProfileSheetFieldRow(
-                "পাসওয়ার্ড",
-                if (member.isDefaultPassword) "${member.name} (ডিফল্ট)" else "সদস্য কর্তৃক পরিবর্তিত"
+                "Password",
+                if (member.isDefaultPassword) {
+                    if (member.code.isNotBlank()) "${member.code} (Default)" else "Code not set"
+                } else {
+                    "Changed by member"
+                }
             )
             ProfileSheetFieldRow("Desig:", member.designation.ifBlank { "-" })
             ProfileSheetFieldRow("Area", member.area.ifBlank { "-" })
@@ -796,7 +799,7 @@ private fun MemberProfileDetailSheet(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "মেম্বার মোবাইল লিঙ্ক (Login System)",
+                        text = "Member App Link",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -814,7 +817,7 @@ private fun MemberProfileDetailSheet(
                             onClick = {
                                 val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                                 cm?.setPrimaryClip(ClipData.newPlainText("Member Login Link", inviteText))
-                                linkStatusMessage = "লিঙ্ক ও লগইন তথ্য কপি হয়েছে"
+                                linkStatusMessage = "Link and login details copied"
                             },
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f)
@@ -825,7 +828,7 @@ private fun MemberProfileDetailSheet(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("কপি করুন")
+                            Text("Copy")
                         }
                         OutlinedButton(
                             onClick = {
@@ -833,7 +836,7 @@ private fun MemberProfileDetailSheet(
                                     type = "text/plain"
                                     putExtra(Intent.EXTRA_TEXT, inviteText)
                                 }
-                                val chooser = Intent.createChooser(shareIntent, "মেম্বার লিঙ্ক শেয়ার করুন").apply {
+                                val chooser = Intent.createChooser(shareIntent, "Share Member Link").apply {
                                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                 }
                                 context.startActivity(chooser)
@@ -847,7 +850,7 @@ private fun MemberProfileDetailSheet(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("শেয়ার করুন")
+                            Text("Share")
                         }
                     }
                     if (!linkStatusMessage.isNullOrBlank()) {
@@ -877,7 +880,7 @@ private fun MemberProfileDetailSheet(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("সম্পাদনা")
+                    Text("Edit")
                 }
                 TextButton(
                     onClick = onDelete,
@@ -889,11 +892,11 @@ private fun MemberProfileDetailSheet(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("মুছুন")
+                    Text("Delete")
                 }
             }
 
-            if (!member.isDefaultPassword && onResetPassword != null) {
+            if (!member.isDefaultPassword && member.code.isNotBlank() && onResetPassword != null) {
                 TextButton(
                     onClick = {
                         onResetPassword()
@@ -901,7 +904,7 @@ private fun MemberProfileDetailSheet(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("পাসওয়ার্ড ডিফল্ট (${member.name}) এ রিসেট করুন")
+                    Text("Reset Password to Default (${member.code})")
                 }
             }
         }
@@ -977,7 +980,7 @@ internal fun MemberEditorModalSheet(
                 .padding(bottom = 24.dp)
         ) {
             Text(
-                text = if (editingMember == null) "নতুন সদস্য যোগ করুন" else "সদস্যের প্রোফাইল ও তথ্য সম্পাদনা",
+                text = if (editingMember == null) "Add New Member" else "Edit Member Profile",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -990,7 +993,7 @@ internal fun MemberEditorModalSheet(
                     code = it
                     errorMessage = null
                 },
-                label = { Text("কোড (Code)") },
+                label = { Text("Code (Login ID & Default Password)") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 shape = RoundedCornerShape(12.dp),
@@ -1007,7 +1010,7 @@ internal fun MemberEditorModalSheet(
                     name = it
                     errorMessage = null
                 },
-                label = { Text("নাম (Name)") },
+                label = { Text("Name") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 shape = RoundedCornerShape(12.dp),
@@ -1024,7 +1027,7 @@ internal fun MemberEditorModalSheet(
                     designation = it
                     errorMessage = null
                 },
-                label = { Text("পদবি (Designation)") },
+                label = { Text("Designation") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 shape = RoundedCornerShape(12.dp),
@@ -1032,6 +1035,32 @@ internal fun MemberEditorModalSheet(
                     .fillMaxWidth()
                     .testTag("member_designation_input")
             )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf("MPO", "AM", "RSC", "RSM", "ASM").forEach { roleChip ->
+                    val isPicked = designation.trim().equals(roleChip, ignoreCase = true)
+                    FilterChip(
+                        selected = isPicked,
+                        onClick = {
+                            designation = roleChip
+                            errorMessage = null
+                        },
+                        label = { Text(roleChip) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier.testTag("member_designation_chip_${roleChip.lowercase()}")
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -1041,7 +1070,7 @@ internal fun MemberEditorModalSheet(
                     area = it
                     errorMessage = null
                 },
-                label = { Text("এরিয়া (Area)") },
+                label = { Text("Area") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 shape = RoundedCornerShape(12.dp),
@@ -1058,7 +1087,7 @@ internal fun MemberEditorModalSheet(
                     depot = it
                     errorMessage = null
                 },
-                label = { Text("ডিপো (Depot)") },
+                label = { Text("Depot") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 shape = RoundedCornerShape(12.dp),
@@ -1075,7 +1104,7 @@ internal fun MemberEditorModalSheet(
                     phone = it
                     errorMessage = null
                 },
-                label = { Text("ফোন নম্বর (Phone - ঐচ্ছিক)") },
+                label = { Text("Phone (Optional)") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Phone,
@@ -1092,7 +1121,7 @@ internal fun MemberEditorModalSheet(
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("ইমেইল (Email - ঐচ্ছিক)") },
+                label = { Text("Email (Optional)") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
@@ -1109,7 +1138,7 @@ internal fun MemberEditorModalSheet(
             OutlinedTextField(
                 value = address,
                 onValueChange = { address = it },
-                label = { Text("ঠিকানা (Address - ঐচ্ছিক)") },
+                label = { Text("Address (Optional)") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 shape = RoundedCornerShape(12.dp),
@@ -1123,7 +1152,7 @@ internal fun MemberEditorModalSheet(
             OutlinedTextField(
                 value = joiningDate,
                 onValueChange = { joiningDate = it },
-                label = { Text("যোগদানের তারিখ (YYYY-MM-DD)") },
+                label = { Text("Joining Date (YYYY-MM-DD)") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 shape = RoundedCornerShape(12.dp),
@@ -1147,7 +1176,7 @@ internal fun MemberEditorModalSheet(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = if (isActive) "সক্রিয় (ON)" else "নিষ্ক্রিয় (OFF)",
+                        text = if (isActive) "Active (ON)" else "Inactive (OFF)",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1161,7 +1190,7 @@ internal fun MemberEditorModalSheet(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            val previewCredential = name.trim().ifBlank { "সদস্যের নাম" }
+            val previewCredential = code.trim().ifBlank { "Member Code" }
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
@@ -1169,7 +1198,7 @@ internal fun MemberEditorModalSheet(
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        text = "মেম্বার মোবাইল অ্যাপ লগইন তথ্য",
+                        text = "Member App Login Credentials",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -1180,7 +1209,7 @@ internal fun MemberEditorModalSheet(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                    if (editingMember != null && !editingMember.isDefaultPassword && onResetPassword != null) {
+                    if (editingMember != null && !editingMember.isDefaultPassword && code.isNotBlank() && onResetPassword != null) {
                         Spacer(modifier = Modifier.height(6.dp))
                         TextButton(
                             onClick = {
@@ -1190,7 +1219,7 @@ internal fun MemberEditorModalSheet(
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                             modifier = Modifier.testTag("reset_member_password_button")
                         ) {
-                            Text("পাসওয়ার্ড নামের সমান (ডিফল্ট) রিসেট করুন")
+                            Text("Reset Password to Default ($previewCredential)")
                         }
                     }
                 }
@@ -1209,8 +1238,12 @@ internal fun MemberEditorModalSheet(
 
             Button(
                 onClick = {
+                    if (code.isBlank()) {
+                        errorMessage = "Please enter member code."
+                        return@Button
+                    }
                     if (name.isBlank()) {
-                        errorMessage = "অনুগ্রহ করে সদস্যের নাম লিখুন।"
+                        errorMessage = "Please enter member name."
                         return@Button
                     }
                     onSave(
@@ -1233,7 +1266,7 @@ internal fun MemberEditorModalSheet(
                     .height(52.dp)
                     .testTag("save_member_button")
             ) {
-                Text(if (editingMember == null) "সদস্য সংরক্ষণ করুন" else "হালনাগাদ করুন")
+                Text(if (editingMember == null) "Save Member" else "Update Member")
             }
         }
     }

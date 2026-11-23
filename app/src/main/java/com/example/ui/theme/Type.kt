@@ -11,12 +11,12 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 
 val HisabBengaliFont = FontFamily(
-    Font(R.font.hind_siliguri, FontWeight.Normal)
+    Font(R.font.plus_jakarta_sans, FontWeight.Normal)
 )
 
 @Suppress("DEPRECATION")
 private val BanglaPlatformStyle = PlatformTextStyle(
-    includeFontPadding = true
+    includeFontPadding = false
 )
 
 private val BanglaLineHeightStyle = LineHeightStyle(
