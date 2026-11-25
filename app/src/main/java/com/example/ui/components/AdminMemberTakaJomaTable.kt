@@ -28,8 +28,6 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -169,16 +167,11 @@ fun AdminMemberTakaJomaTableCard(
     }
     val statusColW = if (onApproveSubmission != null) 104.dp else 80.dp
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("admin_member_taka_joma_card"),
-        shape = RoundedCornerShape(0.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(0.5.dp, borderColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    GlassCardSurface(
+        modifier = modifier.testTag("admin_member_taka_joma_card"),
+        contentPadding = PaddingValues(vertical = 8.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -186,27 +179,17 @@ fun AdminMemberTakaJomaTableCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (pendingOnlyMode) {
-                            "Pending Deposits (Approval)"
-                        } else {
-                            "Member Deposits"
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = if (pendingOnlyMode) {
-                            "Member deposit submissions appear here until approved"
-                        } else {
-                            "Submitted member deposits and approval status"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = if (pendingOnlyMode) {
+                        "Pending Deposits (Approval)"
+                    } else {
+                        "Member Deposits"
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
                 if (onOpenForm != null) {
                     TextButton(
                         onClick = onOpenForm,
@@ -400,7 +383,7 @@ fun AdminMemberTakaJomaTableCard(
                                         modifier = Modifier
                                             .width(submitColW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 4.dp, vertical = 8.dp),
+                                            .padding(horizontal = 4.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -429,7 +412,7 @@ fun AdminMemberTakaJomaTableCard(
                                         modifier = Modifier
                                             .width(slColW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 4.dp, vertical = 8.dp),
+                                            .padding(horizontal = 4.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
@@ -446,7 +429,7 @@ fun AdminMemberTakaJomaTableCard(
                                         modifier = Modifier
                                             .width(codeColW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 5.dp, vertical = 8.dp),
+                                            .padding(horizontal = 5.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
@@ -464,7 +447,7 @@ fun AdminMemberTakaJomaTableCard(
                                         modifier = Modifier
                                             .width(resolvedNameW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.CenterStart
                                     ) {
                                         Text(
@@ -482,7 +465,7 @@ fun AdminMemberTakaJomaTableCard(
                                         modifier = Modifier
                                             .width(desigColW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.CenterStart
                                     ) {
                                         Text(
@@ -500,7 +483,7 @@ fun AdminMemberTakaJomaTableCard(
                                         modifier = Modifier
                                             .width(resolvedAreaW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.CenterStart
                                     ) {
                                         Text(
@@ -518,7 +501,7 @@ fun AdminMemberTakaJomaTableCard(
                                         modifier = Modifier
                                             .width(depotColW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.CenterStart
                                     ) {
                                         Text(
@@ -536,7 +519,7 @@ fun AdminMemberTakaJomaTableCard(
                                         modifier = Modifier
                                             .width(resolvedMethodW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.CenterStart
                                     ) {
                                         Text(
@@ -554,7 +537,7 @@ fun AdminMemberTakaJomaTableCard(
                                         modifier = Modifier
                                             .width(resolvedTakaW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.CenterEnd
                                     ) {
                                         Text(
@@ -805,7 +788,7 @@ private fun AdminTableHeaderCell(
         modifier = Modifier
             .width(width)
             .fillMaxHeight()
-            .padding(horizontal = 5.dp, vertical = 10.dp),
+            .padding(horizontal = 5.dp, vertical = 7.dp),
         contentAlignment = when (textAlign) {
             TextAlign.Center -> Alignment.Center
             TextAlign.End -> Alignment.CenterEnd

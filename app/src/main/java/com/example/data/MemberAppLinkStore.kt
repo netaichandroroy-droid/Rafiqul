@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.core.content.edit
+import androidx.core.net.toUri
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -104,7 +105,7 @@ class MemberAppLinkStore(context: Context) {
         fun isValidHttpUrl(url: String): Boolean {
             val trimmed = url.trim()
             if (trimmed.isEmpty() || trimmed.any { it.isWhitespace() }) return false
-            val parsed = runCatching { Uri.parse(trimmed) }.getOrNull() ?: return false
+            val parsed = runCatching { trimmed.toUri() }.getOrNull() ?: return false
             val scheme = parsed.scheme?.lowercase() ?: return false
             val host = parsed.host?.trim() ?: return false
             return (scheme == "https" || scheme == "http") &&
@@ -117,7 +118,7 @@ class MemberAppLinkStore(context: Context) {
             val cleaned = url.trim()
             if (!isValidHttpUrl(cleaned)) return false
             return runCatching {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(cleaned)).apply {
+                val intent = Intent(Intent.ACTION_VIEW, cleaned.toUri()).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)

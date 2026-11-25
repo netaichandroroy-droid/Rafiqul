@@ -2,6 +2,7 @@ package com.example.ui
 
 import android.content.Context
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ai.AiVoiceResult
@@ -29,6 +30,7 @@ import com.example.model.AccountType
 import com.example.model.AreaManagerRoleFilter
 import com.example.model.AsmNameReportScope
 import com.example.model.BanglaFormatters
+import com.example.model.BangladeshBankDirectory
 import com.example.model.HisabTransaction
 import com.example.model.Member
 import com.example.model.MemberTakaJoma
@@ -458,12 +460,13 @@ class LocalHisabViewModel(
             pushCloudMutation { upsertTransaction(tx) }
         }
         notifyAdminDataChanged()
+        val submittedName = cleanNote.ifBlank { cleanCategory }.ifBlank { type.bnLabel }
         _controls.update {
             it.copy(
                 snackbarMessage = if (editingId == null) {
-                    "New transaction saved"
+                    "$submittedName submitted successfully"
                 } else {
-                    "Transaction updated"
+                    "$submittedName updated successfully"
                 }
             )
         }
@@ -883,7 +886,7 @@ class LocalHisabViewModel(
     ) {
         if (!isAdminSession || uriString.isBlank()) return
         val appContext = context.applicationContext
-        val uri = Uri.parse(uriString)
+        val uri = uriString.toUri()
         viewModelScope.launch {
             _driveState.update { it.copy(isSyncing = true) }
             val readRes = withContext(Dispatchers.IO) {
@@ -1096,9 +1099,9 @@ class LocalHisabViewModel(
         notifyAdminDataChanged()
         showMessage(
             if (editingId == null) {
-                "Member added (Login ID & Password: $cleanCode)"
+                "$cleanName added successfully (Login ID & Password: $cleanCode)"
             } else {
-                "Member details updated"
+                "$cleanName updated successfully"
             }
         )
         onComplete(true)
@@ -1215,7 +1218,9 @@ class LocalHisabViewModel(
         )
         pushCloudMutation { syncOnlinePaymentConfig(updated) }
         notifyAdminDataChanged()
-        showMessage("Payment account saved")
+        val accountName = updatedAccounts.firstOrNull { it.id == accountId }
+            ?.channel?.title?.ifBlank { null } ?: "Payment account"
+        showMessage("$accountName saved successfully")
     }
 
     fun recordOnlinePaymentTransaction(
@@ -1327,11 +1332,12 @@ class LocalHisabViewModel(
                     linkedTx?.let { upsertTransaction(it) }
                 }
                 notifyAdminDataChanged()
+                val depositLabel = if (cleanBank.isNotBlank()) "$cleanName ($cleanBank)" else cleanName
                 showMessage(
                     if (isAdminSession) {
-                        "Deposit entry saved successfully"
+                        "$depositLabel deposit submitted successfully"
                     } else {
-                        "Deposit submitted (awaiting admin approval)"
+                        "$depositLabel deposit submitted successfully (awaiting admin approval)"
                     }
                 )
                 onComplete(true)
@@ -1391,9 +1397,9 @@ class LocalHisabViewModel(
         }
         notifyAdminDataChanged()
         val msg = when (status) {
-            TakaJomaStatus.APPROVED -> "Approved ${BanglaFormatters.formatBdt(entry.amount)} deposit for ${entry.name} and added to ledger"
-            TakaJomaStatus.REJECTED -> "Rejected deposit entry for ${entry.name}"
-            TakaJomaStatus.PENDING -> "Marked deposit entry for ${entry.name} as pending"
+            TakaJomaStatus.APPROVED -> "${entry.name} deposit approved successfully (${BanglaFormatters.formatBdt(entry.amount)} added to ledger)"
+            TakaJomaStatus.REJECTED -> "${entry.name} deposit rejected"
+            TakaJomaStatus.PENDING -> "${entry.name} deposit marked as pending"
         }
         showMessage(msg)
     }
@@ -1504,8 +1510,13 @@ class LocalHisabViewModel(
             monthRecords.forEach { upsertMonthlySales(it) }
         }
         notifyAdminDataChanged()
+        val monthLabel = BanglaFormatters.formatBanglaMonth(yearMonth)
         showMessage(
-            "Uploaded ${records.size} sales records for ${BanglaFormatters.formatBanglaMonth(yearMonth)}"
+            if (records.size == 1) {
+                "${records.first().name} ($monthLabel) sales submitted successfully"
+            } else {
+                "$monthLabel sales (${records.size} records) submitted successfully"
+            }
         )
         onComplete(true)
     }
@@ -1545,7 +1556,13 @@ class LocalHisabViewModel(
         )
         pushCloudMutation { upsertMonthlySales(record) }
         notifyAdminDataChanged()
-        showMessage(if (editingId == null) "Sales record added" else "Sales record updated")
+        showMessage(
+            if (editingId == null) {
+                "${record.name} sales submitted successfully"
+            } else {
+                "${record.name} sales updated successfully"
+            }
+        )
         onComplete(true)
     }
 
@@ -1699,14 +1716,28 @@ class LocalHisabViewModel(
 
         internal fun resolveAccountTypeForBankName(bankName: String): AccountType {
             val cleaned = bankName.trim()
-            return if (cleaned.isEmpty() ||
+            if (cleaned.isEmpty() ||
                 cleaned.contains("Cash", ignoreCase = true) ||
                 cleaned.contains("\u0995\u09CD\u09AF\u09BE\u09B6")
             ) {
-                AccountType.CASH
-            } else {
-                AccountType.BANK
+                return AccountType.CASH
             }
+            val isMfs = BangladeshBankDirectory.MOBILE_BANKING_OPTIONS.any { item ->
+                cleaned.contains(item.enName, ignoreCase = true) ||
+                    cleaned.contains(item.bnName, ignoreCase = true) ||
+                    cleaned.contains(item.shortCode, ignoreCase = true)
+            } ||
+                cleaned.contains("bKash", ignoreCase = true) ||
+                cleaned.contains("bikash", ignoreCase = true) ||
+                cleaned.contains("Nagad", ignoreCase = true) ||
+                cleaned.contains("nogod", ignoreCase = true) ||
+                cleaned.contains("Rocket", ignoreCase = true) ||
+                cleaned.contains("Upay", ignoreCase = true) ||
+                cleaned.contains("Mobile Bank", ignoreCase = true) ||
+                cleaned.contains("MFS", ignoreCase = true) ||
+                cleaned.contains("\u09AC\u09BF\u0995\u09BE\u09B6") ||
+                cleaned.contains("\u09A8\u0997\u09A6")
+            return if (isMfs) AccountType.MOBILE_BANK else AccountType.BANK
         }
 
         internal fun buildApprovedTakaJomaNote(

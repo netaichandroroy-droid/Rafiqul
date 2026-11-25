@@ -44,6 +44,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.ui.components.AppFrostedGlassBackground
+import com.example.ui.components.GlassCardSurface
 import com.example.ui.theme.BrandDeep
 import com.example.ui.theme.BrandHeroEnd
 import com.example.ui.theme.BrandHeroStart
@@ -59,27 +61,19 @@ fun CloudSyncAuthScreen(
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        BrandHeroStart.copy(alpha = 0.14f),
-                        MaterialTheme.colorScheme.background,
-                        MaterialTheme.colorScheme.background
-                    )
-                )
-            )
-            .statusBarsPadding()
-            .navigationBarsPadding(),
+        modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
+        AppFrostedGlassBackground()
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 480.dp)
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .padding(horizontal = 12.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
@@ -97,7 +91,7 @@ fun CloudSyncAuthScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             Text(
                 text = stringResource(R.string.app_name),
@@ -106,49 +100,27 @@ fun CloudSyncAuthScreen(
                 color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = "App Auto-Sync",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = BrandDeep,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Sign in with Google to automatically sync your ledger, member list, deposits, and monthly sales across all your devices.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
 
-            Spacer(modifier = Modifier.height(22.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                tonalElevation = 2.dp,
-                shadowElevation = 2.dp,
-                color = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.fillMaxWidth()
+            GlassCardSurface(
+                horizontalOuterPadding = 4.dp
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     CloudFeatureRow(
                         icon = Icons.Outlined.Sync,
-                        title = "Real-Time Auto-Sync",
-                        subtitle = "Every update is saved immediately to your cloud ledger"
+                        title = "Real-Time Auto-Sync"
                     )
                     CloudFeatureRow(
                         icon = Icons.Outlined.Devices,
-                        title = "Multi-Device Access",
-                        subtitle = "Sign in on another phone to restore all your records"
+                        title = "Multi-Device Access"
                     )
                     CloudFeatureRow(
                         icon = Icons.Outlined.Lock,
-                        title = "Private & Secure Storage",
-                        subtitle = "Protected by your personal Google account"
+                        title = "Private & Secure Storage"
                     )
 
                     if (!errorMessage.isNullOrBlank()) {
@@ -174,7 +146,7 @@ fun CloudSyncAuthScreen(
                         enabled = !isCheckingSession && !isSigningIn,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = BrandDeep,
+                            containerColor = BrandHeroStart,
                             contentColor = Color.White
                         ),
                         modifier = Modifier
@@ -214,8 +186,7 @@ fun CloudSyncAuthScreen(
 @Composable
 private fun CloudFeatureRow(
     icon: ImageVector,
-    title: String,
-    subtitle: String
+    title: String
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -223,7 +194,7 @@ private fun CloudFeatureRow(
     ) {
         Box(
             modifier = Modifier
-                .size(38.dp)
+                .size(34.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
@@ -232,22 +203,16 @@ private fun CloudFeatureRow(
                 imageVector = icon,
                 contentDescription = title,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
     }
 }

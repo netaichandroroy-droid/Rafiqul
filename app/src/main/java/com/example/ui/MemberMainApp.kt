@@ -37,7 +37,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -50,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -72,6 +72,9 @@ import com.example.data.MonthlySalesStore
 import com.example.data.OnlinePaymentStore
 import com.example.model.Member
 import com.example.model.TxType
+import com.example.ui.components.AppFrostedGlassBackground
+import com.example.ui.components.AppGlassSnackbarHost
+import com.example.ui.components.GlassTopBarContainer
 import com.example.ui.components.StylishBottomNavBar
 import com.example.ui.components.StylishNavTab
 import com.example.ui.screens.ChangePasswordDialog
@@ -82,7 +85,6 @@ import com.example.ui.screens.MemberProfileScreen
 import com.example.ui.screens.MemberTakaJomaScreen
 import com.example.ui.screens.OnlinePaymentScreen
 import com.example.ui.screens.TransactionModalSheet
-import com.example.ui.theme.BrandDeep
 
 private enum class MemberTab(val label: String) {
     HOME("Home"),
@@ -170,12 +172,16 @@ fun MemberMainApp(
         showModal = true
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize()
+    ) {
         val useRail = maxWidth >= 600.dp
 
+        AppFrostedGlassBackground()
+
         Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+            containerColor = Color.Transparent,
+            snackbarHost = { AppGlassSnackbarHost(hostState = snackbarHostState) },
             topBar = {
                 MemberTopAppBar(
                     member = activeMember,
@@ -209,7 +215,7 @@ fun MemberMainApp(
                 if (useRail) {
                     NavigationRail(
                         modifier = Modifier.fillMaxHeight(),
-                        containerColor = MaterialTheme.colorScheme.surface
+                        containerColor = Color(0xFF171024).copy(alpha = 0.80f)
                     ) {
                         MemberTab.entries.forEach { tab ->
                             val selected = selectedTab == tab
@@ -309,7 +315,7 @@ fun MemberMainApp(
             },
             onSuccess = {
                 showChangePasswordDialog = false
-                viewModel.showMessage("Password updated successfully")
+                viewModel.showMessage("${activeMember.name} password updated successfully")
             }
         )
     }
@@ -320,16 +326,7 @@ private fun MemberTopAppBar(
     member: Member,
     onProfileClick: () -> Unit
 ) {
-    val details = listOfNotNull(
-        member.designation.takeIf { it.isNotBlank() },
-        member.depot.takeIf { it.isNotBlank() }
-    ).joinToString(" • ").ifBlank { "Member Mobile App" }
-
-    Surface(
-        color = BrandDeep,
-        contentColor = Color.White,
-        shadowElevation = 3.dp
-    ) {
+    GlassTopBarContainer {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -344,24 +341,14 @@ private fun MemberTopAppBar(
                 size = 34.dp
             )
             Spacer(modifier = Modifier.width(10.dp))
-            Column {
-                Text(
-                    text = member.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = details,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 11.5.sp,
-                    color = Color.White.copy(alpha = 0.88f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Text(
+                text = member.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

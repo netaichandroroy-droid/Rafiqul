@@ -12,6 +12,7 @@ import android.graphics.Typeface
 import android.text.TextPaint
 import android.text.TextUtils
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.graphics.createBitmap
 import com.example.R
 import com.example.model.BanglaFormatters
 import com.example.model.GroupedReportRow
@@ -94,7 +95,7 @@ object ReportPictureRenderer {
                 footerHeight
             ).toInt().coerceAtLeast(880)
 
-        val bitmap = Bitmap.createBitmap(IMAGE_WIDTH, totalHeight, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(IMAGE_WIDTH, totalHeight)
         val canvas = Canvas(bitmap)
         val baseTypeface = resolveBanglaTypeface(context)
         val boldTypeface = Typeface.create(baseTypeface, Typeface.BOLD)
@@ -373,7 +374,7 @@ object ReportPictureRenderer {
                 footerHeight
             ).toInt().coerceAtLeast(780)
 
-        val bitmap = Bitmap.createBitmap(IMAGE_WIDTH, totalHeight, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(IMAGE_WIDTH, totalHeight)
         val canvas = Canvas(bitmap)
         val baseTypeface = resolveBanglaTypeface(context)
         val boldTypeface = Typeface.create(baseTypeface, Typeface.BOLD)
@@ -698,7 +699,7 @@ object ReportPictureRenderer {
                 footerHeight
             ).toInt().coerceAtLeast(820)
 
-        val bitmap = Bitmap.createBitmap(IMAGE_WIDTH, totalHeight, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(IMAGE_WIDTH, totalHeight)
         val canvas = Canvas(bitmap)
         val baseTypeface = resolveBanglaTypeface(context)
         val boldTypeface = Typeface.create(baseTypeface, Typeface.BOLD)

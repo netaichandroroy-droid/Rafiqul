@@ -3,4 +3,7 @@
     <cache-path
         name="shared_apks"
         path="share/" />
+    <cache-path
+        name="slip_captures"
+        path="slip_captures/" />
 </paths>

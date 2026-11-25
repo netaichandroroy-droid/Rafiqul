@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -21,9 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.TrendingUp
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,7 +52,7 @@ import com.example.ui.theme.IncomeSurface
 @Composable
 fun MonthlySalesTableCard(
     title: String,
-    subtitle: String,
+    subtitle: String = "",
     records: List<MonthlySalesRecord>,
     emptyMessage: String,
     highlightedMemberCode: String = "",
@@ -116,16 +115,11 @@ fun MonthlySalesTableCard(
         )
     }
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("monthly_sales_table_card"),
-        shape = RoundedCornerShape(0.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(0.5.dp, borderColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    GlassCardSurface(
+        modifier = modifier.testTag("monthly_sales_table_card"),
+        contentPadding = PaddingValues(vertical = 8.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -140,11 +134,13 @@ fun MonthlySalesTableCard(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (subtitle.isNotBlank()) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 headerAction?.invoke()
             }
@@ -201,7 +197,7 @@ fun MonthlySalesTableCard(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.TrendingUp,
+                        imageVector = Icons.AutoMirrored.Outlined.TrendingUp,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
@@ -285,7 +281,7 @@ fun MonthlySalesTableCard(
                                         modifier = Modifier
                                             .width(resolvedCodeW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 9.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
@@ -309,7 +305,7 @@ fun MonthlySalesTableCard(
                                         modifier = Modifier
                                             .width(resolvedNameW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 9.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.CenterStart
                                     ) {
                                         Text(
@@ -329,7 +325,7 @@ fun MonthlySalesTableCard(
                                         modifier = Modifier
                                             .width(resolvedTpSalesW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 9.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.CenterEnd
                                     ) {
                                         Text(
@@ -348,7 +344,7 @@ fun MonthlySalesTableCard(
                                         modifier = Modifier
                                             .width(resolvedTpVatW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 9.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.CenterEnd
                                     ) {
                                         Text(
@@ -376,7 +372,7 @@ fun MonthlySalesTableCard(
                                     modifier = Modifier
                                         .width(resolvedCodeW)
                                         .fillMaxHeight()
-                                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                                        .padding(horizontal = 6.dp, vertical = 5.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
@@ -390,7 +386,7 @@ fun MonthlySalesTableCard(
                                     modifier = Modifier
                                         .width(resolvedNameW)
                                         .fillMaxHeight()
-                                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                                        .padding(horizontal = 6.dp, vertical = 5.dp),
                                     contentAlignment = Alignment.CenterStart
                                 ) {
                                     Text(
@@ -404,7 +400,7 @@ fun MonthlySalesTableCard(
                                     modifier = Modifier
                                         .width(resolvedTpSalesW)
                                         .fillMaxHeight()
-                                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                                        .padding(horizontal = 6.dp, vertical = 5.dp),
                                     contentAlignment = Alignment.CenterEnd
                                 ) {
                                     Text(
@@ -421,7 +417,7 @@ fun MonthlySalesTableCard(
                                     modifier = Modifier
                                         .width(resolvedTpVatW)
                                         .fillMaxHeight()
-                                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                                        .padding(horizontal = 6.dp, vertical = 5.dp),
                                     contentAlignment = Alignment.CenterEnd
                                 ) {
                                     Text(
@@ -467,7 +463,7 @@ private fun SalesTableHeaderCell(
         modifier = Modifier
             .width(width)
             .fillMaxHeight()
-            .padding(horizontal = 6.dp, vertical = 10.dp),
+            .padding(horizontal = 6.dp, vertical = 7.dp),
         contentAlignment = when (textAlign) {
             TextAlign.Center -> Alignment.Center
             TextAlign.End -> Alignment.CenterEnd

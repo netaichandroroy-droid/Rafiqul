@@ -177,9 +177,9 @@ fun SalesUploadScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Month Selector & Summary Card
         item {
@@ -189,18 +189,12 @@ fun SalesUploadScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Monthly Sales Upload",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Select a month and upload code, name, TP sales, TP+VAT sales",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = "Monthly Sales Upload",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
                     Icon(
                         imageVector = Icons.Outlined.CalendarMonth,
                         contentDescription = null,
@@ -313,13 +307,7 @@ fun SalesUploadScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Columns: code, name, TP sales, TP+VAT sales (.csv / .xlsx or paste table)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -477,7 +465,6 @@ fun SalesUploadScreen(
         item {
             MonthlySalesTableCard(
                 title = "${BanglaFormatters.formatBanglaMonth(selectedMonth)} — Sales List",
-                subtitle = "Tap any row to edit or delete",
                 records = monthRecords,
                 emptyMessage = "No sales uploaded for ${BanglaFormatters.formatBanglaMonth(selectedMonth)} yet.",
                 onRowClick = { record -> selectedActionRecord = record }

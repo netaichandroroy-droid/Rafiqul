@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -114,21 +115,52 @@ fun MemberHomeScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Hero Dashboard displaying Sales, Dues, and Total Submit Taka
         item {
-            Box(
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.linearGradient(colors = listOf(BrandHeroStart, BrandHeroEnd))
+                    .padding(horizontal = 12.dp)
+                    .testTag("member_home_hero_card"),
+                shape = RoundedCornerShape(20.dp),
+                color = Color.Transparent,
+                contentColor = Color.White,
+                border = BorderStroke(
+                    width = 1.dp,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.48f),
+                            Color.White.copy(alpha = 0.16f)
+                        )
                     )
-                    .padding(18.dp)
-                    .testTag("member_home_hero_card")
+                ),
+                shadowElevation = 0.dp
             ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    BrandHeroStart.copy(alpha = 0.68f),
+                                    BrandHeroEnd.copy(alpha = 0.64f)
+                                )
+                            )
+                        )
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.16f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                        .padding(18.dp)
+                ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -144,17 +176,19 @@ fun MemberHomeScreen(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            val subtitle = listOfNotNull(
+                            val details = listOfNotNull(
                                 member.designation.takeIf { it.isNotBlank() },
                                 member.depot.takeIf { it.isNotBlank() }
-                            ).joinToString(" • ").ifBlank { "Member Dashboard" }
-                            Text(
-                                text = subtitle,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.80f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            ).joinToString(" • ")
+                            if (details.isNotBlank()) {
+                                Text(
+                                    text = details,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.80f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                         Surface(
                             shape = RoundedCornerShape(14.dp),
@@ -179,7 +213,6 @@ fun MemberHomeScreen(
                     ) {
                         HeroSummaryMetricTile(
                             title = "TP+VAT sales",
-                            subtitle = "Sales (Dues base)",
                             value = BanglaFormatters.formatBdt(salesAmount),
                             highlightColor = Color.White,
                             modifier = Modifier
@@ -188,7 +221,6 @@ fun MemberHomeScreen(
                         )
                         HeroSummaryMetricTile(
                             title = "Dues",
-                            subtitle = if (advanceAmount > 0.0) "Advance balance" else "TP+VAT sales dues",
                             value = BanglaFormatters.formatBdt(duesAmount),
                             highlightColor = if (duesAmount > 0.0) {
                                 Color(0xFFFFD5D5)
@@ -201,7 +233,6 @@ fun MemberHomeScreen(
                         )
                         HeroSummaryMetricTile(
                             title = "Total Deposit",
-                            subtitle = "Approved deposits",
                             value = BanglaFormatters.formatBdt(totalSubmitTaka),
                             highlightColor = Color(0xFFC8F7DC),
                             modifier = Modifier
@@ -237,6 +268,7 @@ fun MemberHomeScreen(
                     }
                 }
             }
+            }
         }
 
         // Quick Action Card for submitting Deposit Form
@@ -248,13 +280,7 @@ fun MemberHomeScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Submit a new deposit entry (added to your balance after admin approval)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Button(
                     onClick = onOpenTakaJomaForm,
@@ -357,12 +383,6 @@ fun MemberHomeScreen(
                     value = BanglaFormatters.formatBdt(monthSubmitTotal),
                     valueColor = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "* Approved deposits reduce Dues on TP+VAT sales only (not TP sales)",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
 
@@ -370,7 +390,6 @@ fun MemberHomeScreen(
         item {
             MonthlySalesTableCard(
                 title = "Sales List (${BanglaFormatters.formatBanglaMonth(selectedSalesMonth)})",
-                subtitle = "Monthly sales uploaded by admin",
                 records = displayedSalesRows,
                 emptyMessage = "No sales uploaded for ${BanglaFormatters.formatBanglaMonth(selectedSalesMonth)} yet.",
                 highlightedMemberCode = member.code,
@@ -468,10 +487,10 @@ fun MemberHomeScreen(
 @Composable
 private fun HeroSummaryMetricTile(
     title: String,
-    subtitle: String,
     value: String,
     highlightColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    subtitle: String = ""
 ) {
     Surface(
         modifier = modifier,
@@ -487,14 +506,16 @@ private fun HeroSummaryMetricTile(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.72f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(modifier = Modifier.height(6.dp))
+            if (subtitle.isNotBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.72f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleSmall,
@@ -516,7 +537,7 @@ private fun MemberMetricListRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 11.dp),
+            .padding(vertical = 7.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

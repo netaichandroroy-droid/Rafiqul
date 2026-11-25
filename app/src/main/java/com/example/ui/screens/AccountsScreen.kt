@@ -67,9 +67,9 @@ fun AccountsScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
@@ -78,19 +78,12 @@ fun AccountsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.accounts_summary),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = stringResource(R.string.accounts_subtitle),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = stringResource(R.string.accounts_summary),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = MaterialTheme.colorScheme.primaryContainer
@@ -105,7 +98,7 @@ fun AccountsScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 AccountListDivider()
 
                 AccountType.entries.forEachIndexed { index, accountType ->
@@ -204,7 +197,7 @@ private fun AccountListRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp, horizontal = 2.dp),
+            .padding(vertical = 7.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -241,7 +234,7 @@ private fun AccountListRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Spacer(modifier = Modifier.height(3.dp))
+            Spacer(modifier = Modifier.height(1.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -292,7 +285,7 @@ private fun AccountSummaryListRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp, horizontal = 2.dp),
+            .padding(vertical = 7.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(

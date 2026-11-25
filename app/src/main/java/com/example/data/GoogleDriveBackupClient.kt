@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.core.net.toUri
 import com.google.android.gms.auth.GoogleAuthException
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.auth.UserRecoverableAuthException
@@ -328,7 +329,7 @@ object GoogleDriveBackupClient {
     fun releaseSafPermission(context: Context, uriString: String) {
         if (uriString.isBlank()) return
         runCatching {
-            val uri = Uri.parse(uriString)
+            val uri = uriString.toUri()
             val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             context.applicationContext.contentResolver.releasePersistableUriPermission(uri, flags)
         }
@@ -360,7 +361,7 @@ object GoogleDriveBackupClient {
         jsonPayload: String
     ): Result<String> {
         return runCatching {
-            val uri = Uri.parse(uriString)
+            val uri = uriString.toUri()
             val resolver = context.applicationContext.contentResolver
             val bytes = jsonPayload.toByteArray(Charsets.UTF_8)
             val outStream = runCatching { resolver.openOutputStream(uri, "wt") }.getOrNull()
@@ -380,7 +381,7 @@ object GoogleDriveBackupClient {
         uriString: String
     ): Result<Pair<String, String>> {
         return runCatching {
-            val uri = Uri.parse(uriString)
+            val uri = uriString.toUri()
             val resolver = context.applicationContext.contentResolver
             val text = resolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use {
                 it.readText()

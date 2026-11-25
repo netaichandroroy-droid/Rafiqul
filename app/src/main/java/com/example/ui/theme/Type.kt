@@ -21,14 +21,14 @@ private val BanglaPlatformStyle = PlatformTextStyle(
 
 private val BanglaLineHeightStyle = LineHeightStyle(
     alignment = LineHeightStyle.Alignment.Center,
-    trim = LineHeightStyle.Trim.None
+    trim = LineHeightStyle.Trim.Both
 )
 
 private fun hisabTextStyle(
     fontWeight: FontWeight,
     fontSizeSp: Float,
     lineHeightSp: Float,
-    letterSpacingSp: Float = 0.1f
+    letterSpacingSp: Float = 0.05f
 ): TextStyle = TextStyle(
     fontFamily = HisabBengaliFont,
     fontWeight = fontWeight,
@@ -40,19 +40,19 @@ private fun hisabTextStyle(
 )
 
 val Typography = Typography(
-    displayLarge = hisabTextStyle(FontWeight.Bold, 44f, 54f, -0.2f),
-    displayMedium = hisabTextStyle(FontWeight.Bold, 38f, 48f, -0.1f),
-    displaySmall = hisabTextStyle(FontWeight.Bold, 32f, 42f, 0f),
-    headlineLarge = hisabTextStyle(FontWeight.Bold, 28f, 38f, 0f),
-    headlineMedium = hisabTextStyle(FontWeight.Bold, 24f, 34f, 0f),
-    headlineSmall = hisabTextStyle(FontWeight.Bold, 22f, 31f, 0f),
-    titleLarge = hisabTextStyle(FontWeight.Bold, 20f, 28f, 0.05f),
-    titleMedium = hisabTextStyle(FontWeight.SemiBold, 17f, 25f, 0.1f),
-    titleSmall = hisabTextStyle(FontWeight.SemiBold, 15f, 22f, 0.1f),
-    bodyLarge = hisabTextStyle(FontWeight.Normal, 16f, 24f, 0.15f),
-    bodyMedium = hisabTextStyle(FontWeight.Normal, 14f, 21f, 0.15f),
-    bodySmall = hisabTextStyle(FontWeight.Normal, 13f, 19f, 0.15f),
-    labelLarge = hisabTextStyle(FontWeight.SemiBold, 14f, 20f, 0.1f),
-    labelMedium = hisabTextStyle(FontWeight.Medium, 13f, 18f, 0.15f),
-    labelSmall = hisabTextStyle(FontWeight.Medium, 12f, 17f, 0.15f)
+    displayLarge = hisabTextStyle(FontWeight.Bold, 42f, 48f, -0.2f),
+    displayMedium = hisabTextStyle(FontWeight.Bold, 36f, 42f, -0.1f),
+    displaySmall = hisabTextStyle(FontWeight.Bold, 30f, 36f, 0f),
+    headlineLarge = hisabTextStyle(FontWeight.Bold, 26f, 32f, 0f),
+    headlineMedium = hisabTextStyle(FontWeight.Bold, 22f, 28f, 0f),
+    headlineSmall = hisabTextStyle(FontWeight.Bold, 20f, 25f, 0f),
+    titleLarge = hisabTextStyle(FontWeight.Bold, 19f, 24f, 0.05f),
+    titleMedium = hisabTextStyle(FontWeight.SemiBold, 16.5f, 21f, 0.05f),
+    titleSmall = hisabTextStyle(FontWeight.SemiBold, 14.5f, 18.5f, 0.05f),
+    bodyLarge = hisabTextStyle(FontWeight.Normal, 15.5f, 20f, 0.1f),
+    bodyMedium = hisabTextStyle(FontWeight.Normal, 14f, 18f, 0.1f),
+    bodySmall = hisabTextStyle(FontWeight.Normal, 12.5f, 16f, 0.1f),
+    labelLarge = hisabTextStyle(FontWeight.SemiBold, 13.5f, 17f, 0.08f),
+    labelMedium = hisabTextStyle(FontWeight.Medium, 12.5f, 16f, 0.1f),
+    labelSmall = hisabTextStyle(FontWeight.Medium, 11.5f, 14.5f, 0.1f)
 )

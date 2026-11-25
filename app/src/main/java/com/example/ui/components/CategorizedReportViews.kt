@@ -79,7 +79,9 @@ fun ReportTotalsSummaryStrip(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("report_totals_strip"),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
@@ -163,7 +165,8 @@ private fun MiniReportKpiBox(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
+        color = Color.White.copy(alpha = 0.10f),
+        border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.22f))
     ) {
         Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)) {
             Text(
@@ -235,7 +238,8 @@ fun MpoWiseReportSection(
     onSearchQueryChange: (String) -> Unit,
     selectedAreaFilter: String?,
     availableAreas: List<String>,
-    onSelectAreaFilter: (String?) -> Unit
+    onSelectAreaFilter: (String?) -> Unit,
+    embedInFullCard: Boolean = false
 ) {
     var inspectingMember by remember { mutableStateOf<MemberReportItem?>(null) }
     val borderColor = MaterialTheme.colorScheme.outline
@@ -250,32 +254,28 @@ fun MpoWiseReportSection(
         return (with(density) { maxOf(headerPx, maxValPx).toDp() } + 14.dp).coerceIn(minW, maxW)
     }
 
-    SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
+    val sectionBody: @Composable () -> Unit = {
+        if (!embedInFullCard) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     text = ReportCategory.MPO_WISE.title,
                     style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = "TP+VAT sales, deposits, and dues for each MPO",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                Icon(
+                    imageVector = Icons.Outlined.Badge,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
-            Icon(
-                imageVector = Icons.Outlined.Badge,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
 
-        Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         ReportTotalsSummaryStrip(
             totals = totals,
@@ -455,7 +455,7 @@ fun MpoWiseReportSection(
                                     modifier = Modifier
                                         .width(resolvedNameW)
                                         .fillMaxHeight()
-                                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                                        .padding(horizontal = 6.dp, vertical = 5.dp),
                                     contentAlignment = Alignment.CenterStart
                                 ) {
                                     Column {
@@ -583,6 +583,16 @@ fun MpoWiseReportSection(
         }
     }
 
+    if (embedInFullCard) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            sectionBody()
+        }
+    } else {
+        SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
+            sectionBody()
+        }
+    }
+
     inspectingMember?.let { item ->
         val s = item.summary
         AlertDialog(
@@ -643,7 +653,8 @@ fun GroupedWiseReportSection(
     customTitle: String? = null,
     customSubtitle: String? = null,
     noticeBanner: String? = null,
-    headerFilterContent: (@Composable () -> Unit)? = null
+    headerFilterContent: (@Composable () -> Unit)? = null,
+    embedInFullCard: Boolean = false
 ) {
     var inspectingGroup by remember { mutableStateOf<GroupedReportRow?>(null) }
     val headerIcon = when (category) {
@@ -653,12 +664,6 @@ fun GroupedWiseReportSection(
         else -> Icons.Outlined.Public
     }
     val resolvedTitle = customTitle ?: category.title
-    val subtitleText = customSubtitle ?: when (category) {
-        ReportCategory.ASM_DEPOT_WISE -> "TP+VAT sales, deposits, dues, and total by depot"
-        ReportCategory.ASM_NAME_WISE -> "TP+VAT sales, deposits, dues, and total by ASM name"
-        ReportCategory.AM_WISE -> "TP+VAT sales, deposits, dues, and total by RSM, RSC & AM area"
-        else -> "Combined TP+VAT sales, deposits, and dues by region or depot"
-    }
     val col2Header = when (category) {
         ReportCategory.ASM_DEPOT_WISE -> "Depot / ASM"
         ReportCategory.ASM_NAME_WISE -> "ASM Name"
@@ -706,32 +711,36 @@ fun GroupedWiseReportSection(
         return (with(density) { maxOf(headerPx, maxValPx).toDp() } + 14.dp).coerceIn(minW, maxW)
     }
 
-    SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
+    val sectionBody: @Composable () -> Unit = {
+        if (!embedInFullCard) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     text = resolvedTitle,
                     style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = subtitleText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                Icon(
+                    imageVector = headerIcon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
-            Icon(
-                imageVector = headerIcon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
 
-        Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+        } else if (customTitle != null && customTitle != category.title) {
+            Text(
+                text = customTitle,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         ReportTotalsSummaryStrip(
             totals = totals,
@@ -774,7 +783,7 @@ fun GroupedWiseReportSection(
             EmptyReportNotice(message = emptyMessage)
         } else {
             // Visual progress summary cards for top groups
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 groups.forEach { group ->
                     Surface(
                         shape = RoundedCornerShape(12.dp),
@@ -786,7 +795,7 @@ fun GroupedWiseReportSection(
                             .clickable { inspectingGroup = group }
                             .testTag("grouped_report_card_${group.key}")
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column(modifier = Modifier.padding(10.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -938,7 +947,7 @@ fun GroupedWiseReportSection(
                                     modifier = Modifier
                                         .width(resolvedTitleW)
                                         .fillMaxHeight()
-                                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                                        .padding(horizontal = 6.dp, vertical = 5.dp),
                                     contentAlignment = Alignment.CenterStart
                                 ) {
                                     Column {
@@ -1056,6 +1065,16 @@ fun GroupedWiseReportSection(
         }
     }
 
+    if (embedInFullCard) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            sectionBody()
+        }
+    } else {
+        SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
+            sectionBody()
+        }
+    }
+
     inspectingGroup?.let { group ->
         AlertDialog(
             onDismissRequest = { inspectingGroup = null },
@@ -1151,7 +1170,7 @@ private fun RTableHeaderCell(
         modifier = Modifier
             .width(width)
             .fillMaxHeight()
-            .padding(horizontal = 5.dp, vertical = 10.dp),
+            .padding(horizontal = 5.dp, vertical = 7.dp),
         contentAlignment = when (textAlign) {
             TextAlign.Center -> Alignment.Center
             TextAlign.End -> Alignment.CenterEnd
@@ -1181,7 +1200,7 @@ private fun RTableCell(
         modifier = Modifier
             .width(width)
             .fillMaxHeight()
-            .padding(horizontal = 5.dp, vertical = 9.dp),
+            .padding(horizontal = 5.dp, vertical = 5.dp),
         contentAlignment = when (textAlign) {
             TextAlign.Center -> Alignment.Center
             TextAlign.End -> Alignment.CenterEnd

@@ -29,8 +29,6 @@ import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -62,6 +60,7 @@ import com.example.model.HisabTransaction
 import com.example.model.MemberTakaJoma
 import com.example.model.TakaJomaStatus
 import com.example.model.TxType
+import com.example.ui.components.GlassCardSurface
 import com.example.ui.components.SectionPanelCard
 import com.example.ui.components.TakaJomaStatusPill
 import com.example.ui.components.TransactionItemRow
@@ -140,9 +139,9 @@ fun MemberLendenScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
             SectionPanelCard(
@@ -155,20 +154,13 @@ fun MemberLendenScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Member Transactions (Deposits)",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "All submitted deposits and approval status",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = "Member Transactions (Deposits)",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
                     Button(
                         onClick = onOpenTakaJomaForm,
                         shape = RoundedCornerShape(10.dp),
@@ -219,14 +211,9 @@ fun MemberLendenScreen(
         }
 
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("member_lenden_table_card"),
-                shape = RoundedCornerShape(0.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(0.5.dp, borderColor),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            GlassCardSurface(
+                modifier = Modifier.testTag("member_lenden_table_card"),
+                contentPadding = PaddingValues(vertical = 4.dp)
             ) {
                 if (submissions.isEmpty()) {
                     Column(
@@ -261,7 +248,7 @@ fun MemberLendenScreen(
                     BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 6.dp, vertical = 10.dp)
+                            .padding(horizontal = 6.dp, vertical = 6.dp)
                     ) {
                         val borderOverhead = 5.dp
                         val baseTotal = baseSubmitW + baseSlW + baseNameW + baseTakaW + borderOverhead
@@ -318,7 +305,7 @@ fun MemberLendenScreen(
                                             modifier = Modifier
                                                 .width(submitColWidth)
                                                 .fillMaxHeight()
-                                                .padding(horizontal = 4.dp, vertical = 8.dp),
+                                                .padding(horizontal = 4.dp, vertical = 5.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -353,7 +340,7 @@ fun MemberLendenScreen(
                                             modifier = Modifier
                                                 .width(baseSlW)
                                                 .fillMaxHeight()
-                                                .padding(horizontal = 4.dp, vertical = 8.dp),
+                                                .padding(horizontal = 4.dp, vertical = 5.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
@@ -370,7 +357,7 @@ fun MemberLendenScreen(
                                             modifier = Modifier
                                                 .width(nameColWidth)
                                                 .fillMaxHeight()
-                                                .padding(horizontal = 6.dp, vertical = 8.dp),
+                                                .padding(horizontal = 6.dp, vertical = 5.dp),
                                             contentAlignment = Alignment.CenterStart
                                         ) {
                                             Column {
@@ -403,7 +390,7 @@ fun MemberLendenScreen(
                                             modifier = Modifier
                                                 .width(takaColWidth)
                                                 .fillMaxHeight()
-                                                .padding(horizontal = 6.dp, vertical = 8.dp),
+                                                .padding(horizontal = 6.dp, vertical = 5.dp),
                                             contentAlignment = Alignment.CenterEnd
                                         ) {
                                             Text(
@@ -532,7 +519,7 @@ private fun LendenHeaderCell(
         modifier = Modifier
             .width(width)
             .fillMaxHeight()
-            .padding(horizontal = 5.dp, vertical = 10.dp),
+            .padding(horizontal = 5.dp, vertical = 7.dp),
         contentAlignment = when (textAlign) {
             TextAlign.Center -> Alignment.Center
             TextAlign.End -> Alignment.CenterEnd

@@ -202,9 +202,9 @@ fun MemberTakaJomaScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
@@ -213,20 +213,13 @@ fun MemberTakaJomaScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Member Deposit Form",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Enter name, code, depot, Cash/Nagad/bKash/Bank & amount",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = "Member Deposit Form",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
                     Box(
                         modifier = Modifier
                             .size(42.dp)
@@ -660,18 +653,21 @@ fun MemberTakaJomaScreen(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            Text(
-                                text = when (selectedBankItem?.category) {
-                                    PaymentMethodCategory.CASH -> "Cash • Cash in hand"
-                                    PaymentMethodCategory.MFS -> "${selectedBankItem.enName} • Mobile Banking"
-                                    PaymentMethodCategory.BANK -> "${selectedBankItem.enName} • ${selectedBankItem.shortCode}"
-                                    null -> "Tap to open payment methods (${BangladeshBankDirectory.ALL_PAYMENT_METHODS.size} options)"
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            val methodSub = when (selectedBankItem?.category) {
+                                PaymentMethodCategory.CASH -> "Cash"
+                                PaymentMethodCategory.MFS -> "${selectedBankItem.enName} • Mobile Banking"
+                                PaymentMethodCategory.BANK -> "${selectedBankItem.enName} • ${selectedBankItem.shortCode}"
+                                null -> ""
+                            }
+                            if (methodSub.isNotBlank()) {
+                                Text(
+                                    text = methodSub,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                         if (selectedBank.isNotBlank()) {
                             IconButton(
@@ -859,7 +855,7 @@ fun MemberTakaJomaScreen(
                                                     dropdownExpanded = false
                                                     formError = null
                                                 }
-                                                .padding(horizontal = 10.dp, vertical = 9.dp)
+                                                .padding(horizontal = 10.dp, vertical = 6.dp)
                                                 .testTag("bank_row_${item.shortCode}"),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
@@ -1054,19 +1050,16 @@ fun MemberTakaJomaScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = if (submissions.isEmpty()) {
-                        "No deposit records saved yet."
-                    } else {
-                        "Tap a row to view details (balance updates after admin approval)"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
 
-                if (submissions.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(10.dp))
+                if (submissions.isEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "No deposit records saved yet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(8.dp))
                     HorizontalDivider(
                         thickness = 1.dp,
                         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
@@ -1173,13 +1166,13 @@ private fun TakaJomaListRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onPreview)
-            .padding(vertical = 10.dp)
+            .padding(vertical = 6.dp)
             .testTag("taka_joma_row_${entry.id}"),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(38.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(IncomeSurface),
             contentAlignment = Alignment.Center
@@ -1188,11 +1181,11 @@ private fun TakaJomaListRow(
                 imageVector = Icons.AutoMirrored.Outlined.ReceiptLong,
                 contentDescription = null,
                 tint = IncomeEmerald,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(10.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(

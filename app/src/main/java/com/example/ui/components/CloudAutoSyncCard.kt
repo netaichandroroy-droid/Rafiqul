@@ -104,19 +104,13 @@ fun CloudAutoSyncCard(
                     )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Google Account & Auto-Sync",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Sign in with any Gmail to keep your records synced across devices",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = "Google Account & Auto-Sync",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
             }
             Spacer(modifier = Modifier.width(8.dp))
             if (cloudSyncState.isSyncing || isSigningIn) {
@@ -164,7 +158,7 @@ fun CloudAutoSyncCard(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
@@ -185,19 +179,17 @@ fun CloudAutoSyncCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = if (cloudSyncState.isConnected) {
-                        if (cloudSyncState.lastSyncedAtMs > 0L) {
+                if (cloudSyncState.isConnected) {
+                    Text(
+                        text = if (cloudSyncState.lastSyncedAtMs > 0L) {
                             "Last synced: ${formatCloudSyncTime(cloudSyncState.lastSyncedAtMs)}"
                         } else {
                             "Ready to sync"
-                        }
-                    } else {
-                        "Sign in with any Gmail account to turn on automatic cloud sync"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
 
@@ -261,19 +253,13 @@ fun CloudAutoSyncCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Real-time Auto-Sync",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Automatically syncs every update to cloud storage",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = "Real-time Auto-Sync",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
                 Switch(
                     checked = cloudSyncState.autoSyncEnabled,
                     onCheckedChange = onToggleAutoSync,

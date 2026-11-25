@@ -1,7 +1,10 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,10 +23,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.ManageAccounts
 import androidx.compose.material.icons.outlined.Public
@@ -32,6 +37,7 @@ import androidx.compose.material.icons.outlined.SupervisorAccount
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,12 +52,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.model.AreaManagerRoleFilter
@@ -69,8 +77,10 @@ import com.example.model.TakaJomaStatus
 import com.example.model.TxType
 import com.example.ui.components.GroupedWiseReportSection
 import com.example.ui.components.MpoWiseReportSection
-import com.example.ui.components.SectionPanelCard
+import com.example.ui.theme.BrandDeep
+import com.example.ui.theme.BrandHeroStart
 import com.example.ui.theme.BrandPrimary
+import com.example.ui.theme.BrandTint
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.NagadAccent
@@ -92,7 +102,8 @@ fun ReportsScreen(
     onSelectCategory: (ReportCategory) -> Unit = {},
     onSelectPeriodScope: (ReportPeriodScope) -> Unit = {},
     onSelectAsmNameScope: (AsmNameReportScope) -> Unit = {},
-    onSelectAreaRoleFilter: (AreaManagerRoleFilter) -> Unit = {}
+    onSelectAreaRoleFilter: (AreaManagerRoleFilter) -> Unit = {},
+    onOpenReportMenu: () -> Unit = {}
 ) {
     val monthItems = remember(transactions, selectedMonth) {
         transactions.filter { it.date.startsWith(selectedMonth) }
@@ -309,450 +320,513 @@ fun ReportsScreen(
     val incomeColor = IncomeEmerald
     val expenseColor = ExpenseCrimson
 
-    Column(modifier = modifier.fillMaxSize()) {
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 1.dp,
-            shadowElevation = 1.dp,
-            modifier = Modifier.fillMaxWidth()
+    Surface(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 4.dp, vertical = 4.dp)
+            .testTag("report_full_page_card_${selectedCategory.name.lowercase()}"),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        border = BorderStroke(
+            width = 1.dp,
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.36f),
+                    Color.White.copy(alpha = 0.12f)
+                )
+            )
+        ),
+        shadowElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.12f),
+                            Color.White.copy(alpha = 0.06f)
+                        )
+                    )
+                )
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            BrandHeroStart.copy(alpha = 0.16f),
+                            Color.Transparent,
+                            BrandTint.copy(alpha = 0.18f)
+                        )
+                    )
+                )
         ) {
+            // Dedicated Full Report Card Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                ReportCategory.entries.forEach { category ->
-                    val isSelected = selectedCategory == category
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { onSelectCategory(category) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = reportCategoryIcon(category),
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = category.shortLabel,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.primary,
-                            selectedLeadingIconColor = MaterialTheme.colorScheme.primary
-                        ),
-                        modifier = Modifier.testTag(category.chipTestTag)
+                IconButton(
+                    onClick = onOpenReportMenu,
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("report_subpage_back_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "All Reports",
+                        tint = BrandDeep
                     )
                 }
-            }
-        }
 
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentPadding = PaddingValues(vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Month & Period Controls
-            item {
-                SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-                    if (selectedCategory != ReportCategory.MONTHLY) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            ReportPeriodScope.entries.forEach { scope ->
-                                val isSelected = periodScope == scope
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { onSelectPeriodScope(scope) },
-                                    label = { Text(scope.bnLabel) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.primary
-                                    ),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .testTag("report_period_${scope.name.lowercase()}")
-                                )
-                            }
-                        }
-                    }
-
-                    if (selectedCategory == ReportCategory.MONTHLY || periodScope == ReportPeriodScope.SELECTED_MONTH) {
-                        if (selectedCategory != ReportCategory.MONTHLY) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 6.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                IconButton(
-                                    onClick = { onShiftMonth(-1) },
-                                    modifier = Modifier
-                                        .minimumInteractiveComponentSize()
-                                        .testTag("prev_month_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                        contentDescription = "Previous Month"
-                                    )
-                                }
-                                Text(
-                                    text = BanglaFormatters.formatBanglaMonth(selectedMonth),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center
-                                )
-                                IconButton(
-                                    onClick = { onShiftMonth(1) },
-                                    modifier = Modifier
-                                        .minimumInteractiveComponentSize()
-                                        .testTag("next_month_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                        contentDescription = "Next Month"
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            when (selectedCategory) {
-            ReportCategory.MONTHLY -> {
-                item {
-                    SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(R.string.monthly_report),
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Icon(
-                                imageVector = Icons.Outlined.CalendarMonth,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            ReportStatBox(
-                                label = stringResource(R.string.month_income),
-                                value = BanglaFormatters.formatBdt(monthIncome),
-                                valueColor = incomeColor,
-                                modifier = Modifier.weight(1f)
-                            )
-                            ReportStatBox(
-                                label = stringResource(R.string.month_expense),
-                                value = BanglaFormatters.formatBdt(monthExpense),
-                                valueColor = expenseColor,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(18.dp))
-
-                        Text(
-                            text = stringResource(R.string.income_vs_expense),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        ComparisonBarRow(
-                            label = "Income",
-                            amount = BanglaFormatters.formatBdt(monthIncome),
-                            fraction = incomeRatio,
-                            barColor = BrandPrimary
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        ComparisonBarRow(
-                            label = "Expense",
-                            amount = BanglaFormatters.formatBdt(monthExpense),
-                            fraction = expenseRatio,
-                            barColor = expenseColor
-                        )
-
-                        Spacer(modifier = Modifier.height(18.dp))
-
-                        Button(
-                            onClick = onExportPicture,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                                .testTag("reports_export_picture_button"),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Image,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.download_picture))
-                        }
-                    }
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.White.copy(alpha = 0.12f))
+                        .border(0.8.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = reportCategoryIcon(selectedCategory),
+                        contentDescription = null,
+                        tint = BrandDeep,
+                        modifier = Modifier.size(19.dp)
+                    )
                 }
 
-                item {
-                    SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Text(
+                    text = selectedCategory.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color.White.copy(alpha = 0.14f),
+                    border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.32f)),
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable(onClick = onOpenReportMenu)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.GridView,
+                            contentDescription = "Switch Report",
+                            tint = BrandDeep,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Monthly Sales & Deposit Summary",
-                            style = MaterialTheme.typography.titleMedium,
+                            text = "Reports",
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = BrandDeep
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            ReportStatBox(
-                                label = "TP sales",
-                                value = BanglaFormatters.formatBdt(monthTpSales),
-                                valueColor = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.weight(1f)
-                            )
-                            ReportStatBox(
-                                label = "TP+VAT sales",
-                                value = BanglaFormatters.formatBdt(monthTpPlusVat),
-                                valueColor = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            ReportStatBox(
-                                label = "Approved Deposit",
-                                value = BanglaFormatters.formatBdt(monthApprovedJoma),
-                                valueColor = IncomeEmerald,
-                                modifier = Modifier.weight(1f)
-                            )
-                            ReportStatBox(
-                                label = "Pending Deposit",
-                                value = BanglaFormatters.formatBdt(monthPendingJoma),
-                                valueColor = NagadAccent,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                }
-
-                if (topExpenseCategories.isNotEmpty()) {
-                    item {
-                        SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                text = "Expense Breakdown by Category",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            topExpenseCategories.forEach { (category, amount) ->
-                                val ratio = if (monthExpense > 0) (amount / monthExpense).toFloat() else 0f
-                                ComparisonBarRow(
-                                    label = category,
-                                    amount = BanglaFormatters.formatBdt(amount),
-                                    fraction = ratio,
-                                    barColor = expenseColor,
-                                    labelWidthDp = 96
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-                            }
-                        }
                     }
                 }
             }
 
-            ReportCategory.MPO_WISE -> {
-                item {
-                    MpoWiseReportSection(
-                        items = filteredMpoItems,
-                        totals = mpoTotals,
-                        hasExplicitMpoMembers = mpoReportResult.hasExplicitMpoMembers,
-                        onlyMpoDesignation = onlyMpoDesignation,
-                        onToggleOnlyMpo = { onlyMpoDesignation = it },
-                        searchQuery = mpoSearchQuery,
-                        onSearchQueryChange = { mpoSearchQuery = it },
-                        selectedAreaFilter = effectiveMpoAreaFilter,
-                        availableAreas = mpoAvailableAreas,
-                        onSelectAreaFilter = { mpoAreaFilter = it }
-                    )
-                }
-                item {
-                    ExportReportPictureCard(
-                        buttonLabel = "Download MPO Report (PNG)",
-                        onExportPicture = onExportPicture
-                    )
-                }
-            }
+            HorizontalDivider(
+                thickness = 0.8.dp,
+                color = Color.White.copy(alpha = 0.14f)
+            )
 
-            ReportCategory.ASM_DEPOT_WISE -> {
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Month & Period Controls integrated inside the full card
                 item {
-                    GroupedWiseReportSection(
-                        category = ReportCategory.ASM_DEPOT_WISE,
-                        groups = filteredAsmDepotGroups,
-                        totals = asmDepotTotals,
-                        searchQuery = asmDepotSearchQuery,
-                        onSearchQueryChange = { asmDepotSearchQuery = it }
-                    )
-                }
-                item {
-                    ExportReportPictureCard(
-                        buttonLabel = "Download ASM Depot Report (PNG)",
-                        onExportPicture = onExportPicture
-                    )
-                }
-            }
-
-            ReportCategory.ASM_NAME_WISE -> {
-                item {
-                    GroupedWiseReportSection(
-                        category = ReportCategory.ASM_NAME_WISE,
-                        groups = filteredAsmNameGroups,
-                        totals = asmNameTotals,
-                        searchQuery = asmNameSearchQuery,
-                        onSearchQueryChange = { asmNameSearchQuery = it },
-                        noticeBanner = asmNameReport.fallbackNotice,
-                        headerFilterContent = if (asmNameReport.hasExplicitAsmMembers) {
-                            {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    AsmNameReportScope.entries.forEach { scopeOption ->
-                                        val isSelected = asmNameScope == scopeOption
-                                        FilterChip(
-                                            selected = isSelected,
-                                            onClick = { onSelectAsmNameScope(scopeOption) },
-                                            label = { Text(scopeOption.bnLabel) },
-                                            colors = FilterChipDefaults.filterChipColors(
-                                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                selectedLabelColor = MaterialTheme.colorScheme.primary
-                                            ),
-                                            modifier = Modifier.testTag("asm_name_scope_${scopeOption.name.lowercase()}")
-                                        )
-                                    }
-                                }
-                            }
-                        } else {
-                            null
-                        }
-                    )
-                }
-                item {
-                    ExportReportPictureCard(
-                        buttonLabel = "Download ASM Name Report (PNG)",
-                        onExportPicture = onExportPicture
-                    )
-                }
-            }
-
-            ReportCategory.AM_WISE -> {
-                item {
-                    val roleTitle = if (areaRoleFilter == AreaManagerRoleFilter.ALL) {
-                        ReportCategory.AM_WISE.title
-                    } else {
-                        "${areaRoleFilter.roleTitle} Area Report"
-                    }
-                    val fallbackMsg = if (areaRoleReport.fallbackShowingAllAreas) {
-                        "No members have '${areaRoleFilter.roleTitle}' assigned — showing all areas."
-                    } else {
-                        null
-                    }
-                    GroupedWiseReportSection(
-                        category = ReportCategory.AM_WISE,
-                        groups = filteredAmGroups,
-                        totals = amTotals,
-                        searchQuery = amSearchQuery,
-                        onSearchQueryChange = { amSearchQuery = it },
-                        customTitle = roleTitle,
-                        noticeBanner = fallbackMsg,
-                        headerFilterContent = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        if (selectedCategory != ReportCategory.MONTHLY) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState()),
+                                modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                AreaManagerRoleFilter.entries.forEach { roleOption ->
-                                    val isSelected = areaRoleFilter == roleOption
+                                ReportPeriodScope.entries.forEach { scope ->
+                                    val isSelected = periodScope == scope
                                     FilterChip(
                                         selected = isSelected,
-                                        onClick = { onSelectAreaRoleFilter(roleOption) },
-                                        label = {
-                                            Text(
-                                                text = roleOption.bnLabel,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                            )
-                                        },
+                                        onClick = { onSelectPeriodScope(scope) },
+                                        label = { Text(scope.bnLabel) },
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                             selectedLabelColor = MaterialTheme.colorScheme.primary
                                         ),
-                                        modifier = Modifier.testTag("area_role_filter_${roleOption.name.lowercase()}")
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .testTag("report_period_${scope.name.lowercase()}")
                                     )
                                 }
                             }
                         }
-                    )
-                }
-                item {
-                    ExportReportPictureCard(
-                        buttonLabel = "Download ${areaRoleFilter.roleTitle} Area Report (PNG)",
-                        onExportPicture = onExportPicture
-                    )
-                }
-            }
 
-            ReportCategory.REGION_WISE -> {
-                item {
-                    GroupedWiseReportSection(
-                        category = ReportCategory.REGION_WISE,
-                        groups = filteredRegionGroups,
-                        totals = regionTotals,
-                        searchQuery = regionSearchQuery,
-                        onSearchQueryChange = { regionSearchQuery = it }
-                    )
+                        if (selectedCategory == ReportCategory.MONTHLY || periodScope == ReportPeriodScope.SELECTED_MONTH) {
+                            if (selectedCategory != ReportCategory.MONTHLY) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = Color.White.copy(alpha = 0.10f),
+                                border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.24f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    IconButton(
+                                        onClick = { onShiftMonth(-1) },
+                                        modifier = Modifier
+                                            .minimumInteractiveComponentSize()
+                                            .testTag("prev_month_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                            contentDescription = "Previous Month"
+                                        )
+                                    }
+                                    Text(
+                                        text = BanglaFormatters.formatBanglaMonth(selectedMonth),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    IconButton(
+                                        onClick = { onShiftMonth(1) },
+                                        modifier = Modifier
+                                            .minimumInteractiveComponentSize()
+                                            .testTag("next_month_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                            contentDescription = "Next Month"
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-                item {
-                    ExportReportPictureCard(
-                        buttonLabel = "Download Region Report (PNG)",
-                        onExportPicture = onExportPicture
-                    )
+
+                when (selectedCategory) {
+                    ReportCategory.MONTHLY -> {
+                        item {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    ReportStatBox(
+                                        label = stringResource(R.string.month_income),
+                                        value = BanglaFormatters.formatBdt(monthIncome),
+                                        valueColor = incomeColor,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    ReportStatBox(
+                                        label = stringResource(R.string.month_expense),
+                                        value = BanglaFormatters.formatBdt(monthExpense),
+                                        valueColor = expenseColor,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Text(
+                                    text = stringResource(R.string.income_vs_expense),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                ComparisonBarRow(
+                                    label = "Income",
+                                    amount = BanglaFormatters.formatBdt(monthIncome),
+                                    fraction = incomeRatio,
+                                    barColor = BrandPrimary
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                ComparisonBarRow(
+                                    label = "Expense",
+                                    amount = BanglaFormatters.formatBdt(monthExpense),
+                                    fraction = expenseRatio,
+                                    barColor = expenseColor
+                                )
+                            }
+                        }
+
+                        item {
+                            HorizontalDivider(
+                                thickness = 0.8.dp,
+                                color = Color.White.copy(alpha = 0.14f)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Monthly Sales & Deposit Summary",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                ReportStatBox(
+                                    label = "TP sales",
+                                    value = BanglaFormatters.formatBdt(monthTpSales),
+                                    valueColor = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                ReportStatBox(
+                                    label = "TP+VAT sales",
+                                    value = BanglaFormatters.formatBdt(monthTpPlusVat),
+                                    valueColor = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                ReportStatBox(
+                                    label = "Approved Deposit",
+                                    value = BanglaFormatters.formatBdt(monthApprovedJoma),
+                                    valueColor = IncomeEmerald,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                ReportStatBox(
+                                    label = "Pending Deposit",
+                                    value = BanglaFormatters.formatBdt(monthPendingJoma),
+                                    valueColor = NagadAccent,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+
+                        if (topExpenseCategories.isNotEmpty()) {
+                            item {
+                                HorizontalDivider(
+                                    thickness = 0.8.dp,
+                                    color = Color.White.copy(alpha = 0.14f)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Expense Breakdown by Category",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                topExpenseCategories.forEach { (category, amount) ->
+                                    val ratio = if (monthExpense > 0) (amount / monthExpense).toFloat() else 0f
+                                    ComparisonBarRow(
+                                        label = category,
+                                        amount = BanglaFormatters.formatBdt(amount),
+                                        fraction = ratio,
+                                        barColor = expenseColor,
+                                        labelWidthDp = 96
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                }
+                            }
+                        }
+
+                        item {
+                            ExportReportPictureButton(
+                                buttonLabel = stringResource(R.string.download_picture),
+                                onExportPicture = onExportPicture
+                            )
+                        }
+                    }
+
+                    ReportCategory.MPO_WISE -> {
+                        item {
+                            MpoWiseReportSection(
+                                items = filteredMpoItems,
+                                totals = mpoTotals,
+                                hasExplicitMpoMembers = mpoReportResult.hasExplicitMpoMembers,
+                                onlyMpoDesignation = onlyMpoDesignation,
+                                onToggleOnlyMpo = { onlyMpoDesignation = it },
+                                searchQuery = mpoSearchQuery,
+                                onSearchQueryChange = { mpoSearchQuery = it },
+                                selectedAreaFilter = effectiveMpoAreaFilter,
+                                availableAreas = mpoAvailableAreas,
+                                onSelectAreaFilter = { mpoAreaFilter = it },
+                                embedInFullCard = true
+                            )
+                        }
+                        item {
+                            ExportReportPictureButton(
+                                buttonLabel = "Download MPO Report (PNG)",
+                                onExportPicture = onExportPicture
+                            )
+                        }
+                    }
+
+                    ReportCategory.ASM_DEPOT_WISE -> {
+                        item {
+                            GroupedWiseReportSection(
+                                category = ReportCategory.ASM_DEPOT_WISE,
+                                groups = filteredAsmDepotGroups,
+                                totals = asmDepotTotals,
+                                searchQuery = asmDepotSearchQuery,
+                                onSearchQueryChange = { asmDepotSearchQuery = it },
+                                embedInFullCard = true
+                            )
+                        }
+                        item {
+                            ExportReportPictureButton(
+                                buttonLabel = "Download ASM Depot Report (PNG)",
+                                onExportPicture = onExportPicture
+                            )
+                        }
+                    }
+
+                    ReportCategory.ASM_NAME_WISE -> {
+                        item {
+                            GroupedWiseReportSection(
+                                category = ReportCategory.ASM_NAME_WISE,
+                                groups = filteredAsmNameGroups,
+                                totals = asmNameTotals,
+                                searchQuery = asmNameSearchQuery,
+                                onSearchQueryChange = { asmNameSearchQuery = it },
+                                noticeBanner = asmNameReport.fallbackNotice,
+                                headerFilterContent = if (asmNameReport.hasExplicitAsmMembers) {
+                                    {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            AsmNameReportScope.entries.forEach { scopeOption ->
+                                                val isSelected = asmNameScope == scopeOption
+                                                FilterChip(
+                                                    selected = isSelected,
+                                                    onClick = { onSelectAsmNameScope(scopeOption) },
+                                                    label = { Text(scopeOption.bnLabel) },
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                        selectedLabelColor = MaterialTheme.colorScheme.primary
+                                                    ),
+                                                    modifier = Modifier.testTag("asm_name_scope_${scopeOption.name.lowercase()}")
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    null
+                                },
+                                embedInFullCard = true
+                            )
+                        }
+                        item {
+                            ExportReportPictureButton(
+                                buttonLabel = "Download ASM Name Report (PNG)",
+                                onExportPicture = onExportPicture
+                            )
+                        }
+                    }
+
+                    ReportCategory.AM_WISE -> {
+                        item {
+                            val roleTitle = if (areaRoleFilter == AreaManagerRoleFilter.ALL) {
+                                ReportCategory.AM_WISE.title
+                            } else {
+                                "${areaRoleFilter.roleTitle} Area Report"
+                            }
+                            val fallbackMsg = if (areaRoleReport.fallbackShowingAllAreas) {
+                                "No members have '${areaRoleFilter.roleTitle}' assigned — showing all areas."
+                            } else {
+                                null
+                            }
+                            GroupedWiseReportSection(
+                                category = ReportCategory.AM_WISE,
+                                groups = filteredAmGroups,
+                                totals = amTotals,
+                                searchQuery = amSearchQuery,
+                                onSearchQueryChange = { amSearchQuery = it },
+                                customTitle = roleTitle,
+                                noticeBanner = fallbackMsg,
+                                headerFilterContent = {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        AreaManagerRoleFilter.entries.forEach { roleOption ->
+                                            val isSelected = areaRoleFilter == roleOption
+                                            FilterChip(
+                                                selected = isSelected,
+                                                onClick = { onSelectAreaRoleFilter(roleOption) },
+                                                label = {
+                                                    Text(
+                                                        text = roleOption.bnLabel,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                                    )
+                                                },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                    selectedLabelColor = MaterialTheme.colorScheme.primary
+                                                ),
+                                                modifier = Modifier.testTag("area_role_filter_${roleOption.name.lowercase()}")
+                                            )
+                                        }
+                                    }
+                                },
+                                embedInFullCard = true
+                            )
+                        }
+                        item {
+                            ExportReportPictureButton(
+                                buttonLabel = "Download ${areaRoleFilter.roleTitle} Area Report (PNG)",
+                                onExportPicture = onExportPicture
+                            )
+                        }
+                    }
+
+                    ReportCategory.REGION_WISE -> {
+                        item {
+                            GroupedWiseReportSection(
+                                category = ReportCategory.REGION_WISE,
+                                groups = filteredRegionGroups,
+                                totals = regionTotals,
+                                searchQuery = regionSearchQuery,
+                                onSearchQueryChange = { regionSearchQuery = it },
+                                embedInFullCard = true
+                            )
+                        }
+                        item {
+                            ExportReportPictureButton(
+                                buttonLabel = "Download Region Report (PNG)",
+                                onExportPicture = onExportPicture
+                            )
+                        }
+                    }
                 }
             }
         }
-    }
     }
 }
 
@@ -766,27 +840,25 @@ fun reportCategoryIcon(category: ReportCategory): ImageVector = when (category) 
 }
 
 @Composable
-private fun ExportReportPictureCard(
+private fun ExportReportPictureButton(
     buttonLabel: String,
     onExportPicture: () -> Unit
 ) {
-    SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-        Button(
-            onClick = onExportPicture,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .testTag("reports_export_picture_button"),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Image,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(buttonLabel)
-        }
+    Button(
+        onClick = onExportPicture,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp)
+            .testTag("reports_export_picture_button"),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Image,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(buttonLabel)
     }
 }
 
@@ -800,7 +872,8 @@ private fun ReportStatBox(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
+        color = Color.White.copy(alpha = 0.10f),
+        border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.22f))
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(

@@ -19,6 +19,7 @@ enum class TxType(val wireValue: String, val bnLabel: String) {
 
 enum class AccountType(val wireValue: String, val bnTitle: String, val bnShort: String) {
     CASH("cash", "Cash", "Cash"),
+    MOBILE_BANK("mobile_bank", "Mobile Bank", "Mobile"),
     BANK("bank", "Bank", "Bank");
 
     companion object {

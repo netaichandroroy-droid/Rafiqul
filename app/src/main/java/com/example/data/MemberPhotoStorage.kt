@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.core.graphics.scale
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -138,6 +139,14 @@ object MemberPhotoStorage {
         }.getOrNull()
     }
 
+    fun createTempSlipCaptureFile(context: Context, submissionId: String): File {
+        val safeId = submissionId.replace(Regex("[^a-zA-Z0-9_-]"), "_").ifBlank { "slip" }
+        val dir = File(context.cacheDir, "slip_captures").apply {
+            if (!exists()) mkdirs()
+        }
+        return File(dir, "capture_$safeId.jpg")
+    }
+
     private fun scaleDownIfNeeded(bitmap: Bitmap, maxEdge: Int): Bitmap {
         val w = bitmap.width
         val h = bitmap.height
@@ -145,6 +154,6 @@ object MemberPhotoStorage {
         val ratio = minOf(maxEdge.toFloat() / w.toFloat(), maxEdge.toFloat() / h.toFloat())
         val targetW = (w * ratio).toInt().coerceAtLeast(1)
         val targetH = (h * ratio).toInt().coerceAtLeast(1)
-        return Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
+        return bitmap.scale(targetW, targetH)
     }
 }

@@ -97,9 +97,9 @@ fun OnlinePaymentScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (isAdminEditable) {
             item {
@@ -122,19 +122,13 @@ fun OnlinePaymentScreen(
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Online Payment",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = if (config.isOnlinePaymentEnabled) "Online payment is enabled" else "Online payment is disabled",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Text(
+                            text = "Online Payment",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
                         Switch(
                             checked = config.isOnlinePaymentEnabled,
                             onCheckedChange = onToggleMasterEnabled,
@@ -153,19 +147,15 @@ fun OnlinePaymentScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = if (isAdminEditable) {
-                        "Tap any option to add or update its account number"
-                    } else if (!config.isOnlinePaymentEnabled || displayedAccounts.isEmpty()) {
-                        "No online payment methods are currently enabled"
-                    } else {
-                        "Tap the copy icon to copy a payment number"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+                if (!isAdminEditable && (!config.isOnlinePaymentEnabled || displayedAccounts.isEmpty())) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "No online payment methods are currently enabled",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
 
                 displayedAccounts.forEachIndexed { index, account ->
                     Row(
@@ -178,7 +168,7 @@ fun OnlinePaymentScreen(
                                     Modifier
                                 }
                             )
-                            .padding(vertical = 10.dp)
+                            .padding(vertical = 6.dp)
                             .testTag("payment_channel_row_${account.id}"),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

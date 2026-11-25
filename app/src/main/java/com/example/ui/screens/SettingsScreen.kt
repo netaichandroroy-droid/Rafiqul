@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -39,7 +40,7 @@ import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.Sync
-import androidx.compose.material.icons.outlined.TrendingUp
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -80,6 +81,7 @@ import com.example.ui.AiVoiceUiState
 import com.example.ui.DriveUiState
 import com.example.ui.components.CloudAutoSyncCard
 import com.example.ui.components.SectionPanelCard
+import com.example.ui.theme.BrandDeep
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.ExpenseSurface
 import com.example.ui.theme.IncomeEmerald
@@ -147,9 +149,9 @@ fun SettingsScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
@@ -158,12 +160,11 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 SettingsListOptionRow(
                     icon = Icons.Outlined.Groups,
                     title = "Member List",
-                    subtitle = "$memberCount total • $activeMemberCount active",
                     badgeText = memberCount.toString(),
                     badgeBg = MaterialTheme.colorScheme.primaryContainer,
                     badgeFg = MaterialTheme.colorScheme.primary,
@@ -175,7 +176,6 @@ fun SettingsScreen(
                 SettingsListOptionRow(
                     icon = Icons.AutoMirrored.Outlined.ReceiptLong,
                     title = "Member Deposit Form",
-                    subtitle = "Name, code, depot & deposit records",
                     badgeText = takaJomaCount.toString(),
                     badgeBg = onBg,
                     badgeFg = onFg,
@@ -185,9 +185,8 @@ fun SettingsScreen(
                 SettingsListDivider()
 
                 SettingsListOptionRow(
-                    icon = Icons.Outlined.TrendingUp,
+                    icon = Icons.AutoMirrored.Outlined.TrendingUp,
                     title = "Monthly Sales Upload",
-                    subtitle = "Upload monthly code, name, TP sales & TP+VAT sales",
                     badgeText = salesCount.toString(),
                     badgeBg = MaterialTheme.colorScheme.primaryContainer,
                     badgeFg = MaterialTheme.colorScheme.primary,
@@ -199,7 +198,6 @@ fun SettingsScreen(
                 SettingsListOptionRow(
                     icon = Icons.Outlined.Payments,
                     title = "Online Payment",
-                    subtitle = "bKash, Nagad, Rocket & bank payment settings",
                     badgeText = if (isOnlinePaymentEnabled) "ON" else "OFF",
                     badgeBg = if (isOnlinePaymentEnabled) onBg else offBg,
                     badgeFg = if (isOnlinePaymentEnabled) onFg else offFg,
@@ -211,7 +209,6 @@ fun SettingsScreen(
                 SettingsListOptionRow(
                     icon = Icons.Outlined.PhoneAndroid,
                     title = "Member App Link",
-                    subtitle = memberAppDownloadUrl.ifBlank { MemberAppLinkStore.DEFAULT_MEMBER_APP_URL },
                     badgeText = if (memberAppDownloadUrl.isNotBlank()) "Custom" else "Ready",
                     badgeBg = MaterialTheme.colorScheme.primaryContainer,
                     badgeFg = MaterialTheme.colorScheme.primary,
@@ -262,19 +259,13 @@ fun SettingsScreen(
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Voice Summary Report",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Listen to member sales, deposits, and dues read aloud",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Text(
+                            text = "Voice Summary Report",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
@@ -567,20 +558,13 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Google Drive Backup & Sync",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Keep all transactions, members, deposits & sales backed up on Google Drive",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = "Google Drive Backup & Sync",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     if (driveState.isSyncing) {
                         CircularProgressIndicator(
@@ -665,23 +649,17 @@ fun SettingsScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
+                            .padding(vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Auto Google Drive Backup",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Automatically save changes to Google Drive",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Text(
+                            text = "Auto Google Drive Backup",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
                         Switch(
                             checked = driveState.autoBackupEnabled,
                             onCheckedChange = onToggleDriveAutoBackup,
@@ -695,7 +673,6 @@ fun SettingsScreen(
                     SettingsListOptionRow(
                         icon = Icons.Outlined.CloudUpload,
                         title = "Back Up All Data to Google Drive",
-                        subtitle = "Save transactions, members, deposits, sales & payments",
                         enabled = !isBusy && !driveState.isSyncing,
                         iconBg = onBg,
                         iconTint = onFg,
@@ -707,7 +684,6 @@ fun SettingsScreen(
                     SettingsListOptionRow(
                         icon = Icons.Outlined.CloudDownload,
                         title = "Restore from Google Drive",
-                        subtitle = "Restore all saved data from your Drive backup",
                         enabled = !isBusy && !driveState.isSyncing,
                         onClick = { showDriveRestoreConfirm = true },
                         testTag = "drive_restore_button"
@@ -721,7 +697,6 @@ fun SettingsScreen(
                         } else {
                             "Link Google Drive File (Any Gmail)"
                         },
-                        subtitle = "Auto-save directly to your Google Drive folder",
                         enabled = !isBusy && !driveState.isSyncing,
                         onClick = onLinkGoogleDriveFile,
                         testTag = "drive_link_saf_file_button"
@@ -735,7 +710,6 @@ fun SettingsScreen(
                         } else {
                             "Connect Google Account"
                         },
-                        subtitle = "Connect another Gmail or Google Drive account",
                         enabled = !isBusy && !driveState.isSyncing,
                         onClick = onConnectGoogleDrive,
                         testTag = "drive_switch_account_button"
@@ -745,7 +719,6 @@ fun SettingsScreen(
                     SettingsListOptionRow(
                         icon = Icons.Outlined.LinkOff,
                         title = "Disconnect Google Drive",
-                        subtitle = "Remove Drive link from this device",
                         enabled = !isBusy && !driveState.isSyncing,
                         iconBg = offBg,
                         iconTint = offFg,
@@ -783,11 +756,10 @@ fun SettingsScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     SettingsListOptionRow(
                         icon = Icons.Outlined.CloudUpload,
                         title = "Link Google Drive File (Any Gmail)",
-                        subtitle = "Enable auto-backup directly to your Drive folder",
                         badgeText = "Recommended",
                         badgeBg = onBg,
                         badgeFg = onFg,
@@ -802,7 +774,6 @@ fun SettingsScreen(
                     SettingsListOptionRow(
                         icon = Icons.Outlined.CloudDownload,
                         title = "Restore from Google Drive File",
-                        subtitle = "Select an existing backup file saved in Google Drive",
                         enabled = !isBusy && !driveState.isSyncing,
                         onClick = onRestoreFromDriveFile,
                         testTag = "drive_restore_saf_file_button"
@@ -812,7 +783,6 @@ fun SettingsScreen(
                     SettingsListOptionRow(
                         icon = Icons.Outlined.CloudDone,
                         title = "Connect Google Drive Account",
-                        subtitle = "Sign in directly with your Google account",
                         badgeText = "Connect",
                         badgeBg = MaterialTheme.colorScheme.primaryContainer,
                         badgeFg = MaterialTheme.colorScheme.primary,
@@ -832,18 +802,11 @@ fun SettingsScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "$transactionCount saved transaction(s)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 SettingsListOptionRow(
                     icon = Icons.Outlined.Download,
                     title = stringResource(R.string.json_backup),
-                    subtitle = "Save all transactions, members & sales data to a JSON file",
                     enabled = !isBusy,
                     onClick = onExportJson,
                     testTag = "export_json_button"
@@ -853,7 +816,6 @@ fun SettingsScreen(
                 SettingsListOptionRow(
                     icon = Icons.Outlined.FileUpload,
                     title = stringResource(R.string.restore_backup),
-                    subtitle = "Restore data from a saved JSON backup file",
                     enabled = !isBusy,
                     onClick = onRestoreJson,
                     testTag = "restore_json_button"
@@ -863,7 +825,6 @@ fun SettingsScreen(
                 SettingsListOptionRow(
                     icon = Icons.Outlined.Image,
                     title = stringResource(R.string.picture_export),
-                    subtitle = "Download account report as a PNG image",
                     enabled = !isBusy,
                     onClick = onExportPicture,
                     testTag = "settings_export_picture_button"
@@ -879,12 +840,11 @@ fun SettingsScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 SettingsListOptionRow(
                     icon = Icons.Outlined.Lock,
                     title = "Change Password",
-                    subtitle = "Login ID: $appLoginId",
                     onClick = onOpenChangePassword,
                     testTag = "change_password_button"
                 )
@@ -893,7 +853,6 @@ fun SettingsScreen(
                 SettingsListOptionRow(
                     icon = Icons.AutoMirrored.Filled.Logout,
                     title = "Log Out",
-                    subtitle = "Lock session and return to sign-in screen",
                     iconBg = offBg,
                     iconTint = offFg,
                     titleColor = MaterialTheme.colorScheme.error,
@@ -966,8 +925,8 @@ private fun formatBackupTime(timestampMs: Long): String {
 @Composable
 private fun SettingsListDivider() {
     HorizontalDivider(
-        thickness = 1.dp,
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+        thickness = 0.8.dp,
+        color = Color.White.copy(alpha = 0.14f)
     )
 }
 
@@ -975,15 +934,15 @@ private fun SettingsListDivider() {
 private fun SettingsListOptionRow(
     icon: ImageVector,
     title: String,
-    subtitle: String,
     onClick: () -> Unit,
     testTag: String,
+    subtitle: String? = null,
     enabled: Boolean = true,
     badgeText: String? = null,
-    badgeBg: Color = MaterialTheme.colorScheme.primaryContainer,
-    badgeFg: Color = MaterialTheme.colorScheme.primary,
-    iconBg: Color = MaterialTheme.colorScheme.primaryContainer,
-    iconTint: Color = MaterialTheme.colorScheme.primary,
+    badgeBg: Color = Color.White.copy(alpha = 0.14f),
+    badgeFg: Color = Color.White,
+    iconBg: Color = Color.White.copy(alpha = 0.10f),
+    iconTint: Color = BrandDeep,
     titleColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
     Row(
@@ -992,25 +951,26 @@ private fun SettingsListOptionRow(
             .minimumInteractiveComponentSize()
             .clip(RoundedCornerShape(12.dp))
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 4.dp)
+            .padding(vertical = 5.dp, horizontal = 4.dp)
             .testTag(testTag),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(iconBg),
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(iconBg)
+                .border(0.8.dp, Color.White.copy(alpha = 0.24f), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = iconTint,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -1018,11 +978,13 @@ private fun SettingsListOptionRow(
                 fontWeight = FontWeight.SemiBold,
                 color = if (enabled) titleColor else titleColor.copy(alpha = 0.5f)
             )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         if (badgeText != null) {
             Surface(

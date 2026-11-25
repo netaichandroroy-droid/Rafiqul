@@ -9,26 +9,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.R
 import com.example.model.BanglaFormatters
 import com.example.model.HisabTransaction
 import com.example.model.Member
@@ -38,11 +30,9 @@ import com.example.model.TakaJomaStatus
 import com.example.model.TxType
 import com.example.ui.LocalHisabViewModel
 import com.example.ui.components.AdminMemberTakaJomaTableCard
-import com.example.ui.components.EmptyTransactionsState
 import com.example.ui.components.HeroBalanceCard
 import com.example.ui.components.MemberSalesDuesCard
 import com.example.ui.components.SectionPanelCard
-import com.example.ui.components.TransactionItemRow
 import com.example.ui.theme.ExpenseCrimsonDark
 import com.example.ui.theme.ExpenseSurface
 import com.example.ui.theme.IncomeEmeraldDark
@@ -53,9 +43,6 @@ import com.example.ui.theme.NagadSurface
 @Composable
 fun HomeScreen(
     transactions: List<HisabTransaction>,
-    onEdit: (HisabTransaction) -> Unit,
-    onDelete: (HisabTransaction) -> Unit,
-    onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
     members: List<Member> = emptyList(),
     monthlySales: List<MonthlySalesRecord> = emptyList(),
@@ -95,7 +82,6 @@ fun HomeScreen(
     val pendingMemberJomaTotal = remember(pendingMemberJomaList) {
         pendingMemberJomaList.sumOf { it.amount }
     }
-    val recent = remember(transactions) { transactions.take(5) }
 
     val incomeSurface = IncomeSurface
     val incomeText = IncomeEmeraldDark
@@ -104,9 +90,9 @@ fun HomeScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
             HeroBalanceCard(
@@ -235,13 +221,6 @@ fun HomeScreen(
                             )
                         }
                     }
-                } else {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "* Approved member deposits are automatically added to today's summary",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }
@@ -265,47 +244,6 @@ fun HomeScreen(
                 monthlySales = monthlySales,
                 submissions = memberTakaJomaList
             )
-        }
-
-        item {
-            SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.recent_transactions),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    TextButton(
-                        onClick = onSeeAll,
-                        modifier = Modifier.testTag("see_all_transactions_button")
-                    ) {
-                        Text(text = stringResource(R.string.see_all))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                if (recent.isEmpty()) {
-                    EmptyTransactionsState()
-                } else {
-                    recent.forEachIndexed { index, tx ->
-                        TransactionItemRow(
-                            transaction = tx,
-                            onEdit = onEdit,
-                            onDelete = onDelete,
-                            showDivider = index < recent.lastIndex
-                        )
-                    }
-                }
-            }
         }
     }
 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -23,8 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -150,33 +149,20 @@ fun MemberSalesDuesCard(
         )
     }
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("admin_member_sales_dues_card"),
-        shape = RoundedCornerShape(0.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(0.5.dp, borderColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    GlassCardSurface(
+        modifier = modifier.testTag("admin_member_sales_dues_card"),
+        contentPadding = PaddingValues(vertical = 8.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-            Column(
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+            Text(
+                text = "Member TP+VAT sales & Dues",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp)
-            ) {
-                Text(
-                    text = "Member TP+VAT sales & Dues",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Dues = TP+VAT sales minus approved deposits (TP sales excluded)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -346,7 +332,7 @@ fun MemberSalesDuesCard(
                                         modifier = Modifier
                                             .width(resolvedCodeW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 5.dp, vertical = 9.dp),
+                                            .padding(horizontal = 5.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
@@ -363,7 +349,7 @@ fun MemberSalesDuesCard(
                                         modifier = Modifier
                                             .width(resolvedNameW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 9.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.CenterStart
                                     ) {
                                         Column {
@@ -391,7 +377,7 @@ fun MemberSalesDuesCard(
                                         modifier = Modifier
                                             .width(resolvedSalesW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 9.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.CenterEnd
                                     ) {
                                         Text(
@@ -409,7 +395,7 @@ fun MemberSalesDuesCard(
                                         modifier = Modifier
                                             .width(resolvedJomaW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 9.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.CenterEnd
                                     ) {
                                         Text(
@@ -427,7 +413,7 @@ fun MemberSalesDuesCard(
                                         modifier = Modifier
                                             .width(resolvedDuesW)
                                             .fillMaxHeight()
-                                            .padding(horizontal = 6.dp, vertical = 9.dp),
+                                            .padding(horizontal = 6.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.CenterEnd
                                     ) {
                                         Text(
@@ -455,7 +441,7 @@ fun MemberSalesDuesCard(
                                     modifier = Modifier
                                         .width(resolvedCodeW)
                                         .fillMaxHeight()
-                                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                                        .padding(horizontal = 6.dp, vertical = 5.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
@@ -469,7 +455,7 @@ fun MemberSalesDuesCard(
                                     modifier = Modifier
                                         .width(resolvedNameW)
                                         .fillMaxHeight()
-                                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                                        .padding(horizontal = 6.dp, vertical = 5.dp),
                                     contentAlignment = Alignment.CenterStart
                                 ) {
                                     Text(
@@ -483,7 +469,7 @@ fun MemberSalesDuesCard(
                                     modifier = Modifier
                                         .width(resolvedSalesW)
                                         .fillMaxHeight()
-                                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                                        .padding(horizontal = 6.dp, vertical = 5.dp),
                                     contentAlignment = Alignment.CenterEnd
                                 ) {
                                     Text(
@@ -500,7 +486,7 @@ fun MemberSalesDuesCard(
                                     modifier = Modifier
                                         .width(resolvedJomaW)
                                         .fillMaxHeight()
-                                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                                        .padding(horizontal = 6.dp, vertical = 5.dp),
                                     contentAlignment = Alignment.CenterEnd
                                 ) {
                                     Text(
@@ -517,7 +503,7 @@ fun MemberSalesDuesCard(
                                     modifier = Modifier
                                         .width(resolvedDuesW)
                                         .fillMaxHeight()
-                                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                                        .padding(horizontal = 6.dp, vertical = 5.dp),
                                     contentAlignment = Alignment.CenterEnd
                                 ) {
                                     val footerDues = displayedSummaries.sumOf { it.dues }
@@ -614,7 +600,7 @@ private fun DuesHeaderCell(
         modifier = Modifier
             .width(width)
             .fillMaxHeight()
-            .padding(horizontal = 6.dp, vertical = 10.dp),
+            .padding(horizontal = 6.dp, vertical = 7.dp),
         contentAlignment = when (textAlign) {
             TextAlign.Center -> Alignment.Center
             TextAlign.End -> Alignment.CenterEnd

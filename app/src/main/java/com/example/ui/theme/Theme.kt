@@ -1,6 +1,5 @@
 package com.example.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -8,16 +7,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val LightColorScheme = lightColorScheme(
-    primary = BrandPrimary,
-    onPrimary = Color.White,
+    primary = Color(0xFFE0B8FF),
+    onPrimary = Color(0xFF2B0848),
     primaryContainer = BrandTint,
-    onPrimaryContainer = BrandDeep,
-    secondary = BrandDeep,
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFCCE8EE),
+    onPrimaryContainer = Color(0xFFF5E8FF),
+    secondary = Color(0xFFC084FC),
+    onSecondary = Color(0xFF2B0848),
+    secondaryContainer = Color(0xFF391C54),
     onSecondaryContainer = BrandDeep,
     tertiary = IncomeEmerald,
-    onTertiary = Color.White,
+    onTertiary = Color(0xFF062C22),
     background = SilverBackground,
     onBackground = TextPrimary,
     surface = CardWhite,
@@ -26,34 +25,34 @@ private val LightColorScheme = lightColorScheme(
     onSurfaceVariant = TextSecondary,
     outline = SilverBorder,
     error = ExpenseCrimson,
-    onError = Color.White
+    onError = Color(0xFF450A14)
 )
 
 private val DarkColorScheme = darkColorScheme(
     primary = DarkPrimary,
     onPrimary = DarkOnPrimary,
-    primaryContainer = DarkSurfaceVariant,
-    onPrimaryContainer = DarkTextPrimary,
-    secondary = Color(0xFF80DEEA),
+    primaryContainer = BrandTint,
+    onPrimaryContainer = Color(0xFFF5E8FF),
+    secondary = Color(0xFFC084FC),
     onSecondary = DarkOnPrimary,
-    secondaryContainer = DarkSurfaceVariant,
-    onSecondaryContainer = DarkTextPrimary,
+    secondaryContainer = Color(0xFF391C54),
+    onSecondaryContainer = BrandDeep,
     tertiary = DarkIncomeText,
-    onTertiary = DarkOnPrimary,
+    onTertiary = Color(0xFF062C22),
     background = DarkBackground,
     onBackground = DarkTextPrimary,
     surface = DarkSurface,
     onSurface = DarkTextPrimary,
     surfaceVariant = DarkSurfaceVariant,
     onSurfaceVariant = DarkTextSecondary,
-    outline = Color(0xFF344554),
+    outline = SilverBorder,
     error = DarkExpenseText,
-    onError = Color(0xFF4A0E12)
+    onError = Color(0xFF450A14)
 )
 
 @Composable
 fun HisabKhataTheme(
-    darkTheme: Boolean = false,
+    darkTheme: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme

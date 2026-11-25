@@ -41,8 +41,6 @@ import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -85,6 +83,7 @@ import com.example.data.MemberAppLinkStore
 import com.example.model.BanglaFormatters
 import com.example.model.Member
 import com.example.model.MemberSalesDuesCalculator
+import com.example.ui.components.GlassCardSurface
 import com.example.ui.components.SectionPanelCard
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.ExpenseSurface
@@ -165,7 +164,7 @@ fun MemberListScreen(
     val tableBodyStyle = MaterialTheme.typography.bodySmall.copy(
         fontSize = 12.sp
     )
-    val tableRowHeight = 38.dp
+    val tableRowHeight = 33.dp
 
     fun measureColumnWidth(
         header: String,
@@ -205,9 +204,9 @@ fun MemberListScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
@@ -216,19 +215,12 @@ fun MemberListScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Member List",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "${sortedMembers.size} total • Sorted by Area",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = "Member List",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
                     Button(
                         onClick = {
                             editingMember = null
@@ -250,7 +242,7 @@ fun MemberListScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -311,12 +303,8 @@ fun MemberListScreen(
         }
 
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(0.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(0.5.dp, borderColor),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            GlassCardSurface(
+                contentPadding = PaddingValues(vertical = 4.dp)
             ) {
                 if (displayedMembers.isEmpty()) {
                     Column(
@@ -351,7 +339,7 @@ fun MemberListScreen(
                     BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 6.dp, vertical = 10.dp)
+                            .padding(horizontal = 6.dp, vertical = 6.dp)
                     ) {
                         val borderOverhead = 9.dp
                         val baseTotal = baseSlW + baseCodeW + baseNameW + baseDesigW + baseAreaW +
@@ -751,14 +739,17 @@ private fun MemberProfileDetailSheet(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = listOfNotNull(
-                            member.designation.takeIf { it.isNotBlank() },
-                            member.depot.takeIf { it.isNotBlank() }
-                        ).joinToString(" • ").ifBlank { "Member Profile" },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    val profileMeta = listOfNotNull(
+                        member.designation.takeIf { it.isNotBlank() },
+                        member.depot.takeIf { it.isNotBlank() }
+                    ).joinToString(" • ")
+                    if (profileMeta.isNotBlank()) {
+                        Text(
+                            text = profileMeta,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 Switch(
                     checked = member.isActive,

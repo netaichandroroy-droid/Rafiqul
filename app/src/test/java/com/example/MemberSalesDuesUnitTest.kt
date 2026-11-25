@@ -364,14 +364,60 @@ class MemberSalesDuesUnitTest {
         assertEquals(today, cashTx.date)
         assertEquals("Member Deposit", cashTx.category)
 
-        val bankTx = com.example.ui.LocalHisabViewModel.buildApprovedTakaJomaTransaction(
+        val mobileBankTx = com.example.ui.LocalHisabViewModel.buildApprovedTakaJomaTransaction(
             entry = bkashEntry,
             txDate = today
         )
-        assertEquals("taka_joma_tj_bkash_1", bankTx.id)
-        assertEquals(com.example.model.TxType.INCOME, bankTx.resolvedType)
+        assertEquals("taka_joma_tj_bkash_1", mobileBankTx.id)
+        assertEquals(com.example.model.TxType.INCOME, mobileBankTx.resolvedType)
+        assertEquals(com.example.model.AccountType.MOBILE_BANK, mobileBankTx.resolvedAccount)
+        assertEquals(7500.0, mobileBankTx.amount, 0.001)
+        assertEquals(today, mobileBankTx.date)
+
+        val sonaliEntry = MemberTakaJoma(
+            id = "tj_bank_1",
+            memberId = "m1",
+            name = "Karim",
+            code = "M-101",
+            depot = "Dhaka",
+            bankName = "Sonali Bank PLC",
+            amount = 12000.0,
+            date = "2026-11-21",
+            approvalStatus = TakaJomaStatus.APPROVED.wireValue
+        )
+        val bankTx = com.example.ui.LocalHisabViewModel.buildApprovedTakaJomaTransaction(
+            entry = sonaliEntry,
+            txDate = today
+        )
         assertEquals(com.example.model.AccountType.BANK, bankTx.resolvedAccount)
-        assertEquals(7500.0, bankTx.amount, 0.001)
-        assertEquals(today, bankTx.date)
+
+        val islamiEntry = MemberTakaJoma(
+            id = "tj_bank_2",
+            memberId = "m1",
+            name = "Karim",
+            code = "M-101",
+            depot = "Dhaka",
+            bankName = "Islami Bank Bangladesh PLC",
+            amount = 8000.0,
+            date = "2026-11-21",
+            approvalStatus = TakaJomaStatus.APPROVED.wireValue
+        )
+        val islamiTx = com.example.ui.LocalHisabViewModel.buildApprovedTakaJomaTransaction(
+            entry = islamiEntry,
+            txDate = today
+        )
+
+        val breakdown = com.example.model.AccountsBreakdownCalculator.build(
+            transactions = listOf(cashTx, mobileBankTx, bankTx, islamiTx),
+            submissions = listOf(cashEntry, bkashEntry, sonaliEntry, islamiEntry)
+        )
+        assertEquals(4500.0, breakdown.cashSummary.balance, 0.001)
+        assertEquals(7500.0, breakdown.mobileBankSummary.balance, 0.001)
+        assertEquals(20000.0, breakdown.bankSummary.balance, 0.001)
+        assertEquals(20000.0, breakdown.totalAllBanksOnly, 0.001)
+        assertEquals(27500.0, breakdown.totalMobileAndBanks, 0.001)
+        assertEquals(32000.0, breakdown.grandTotalBalance, 0.001)
+        assertEquals(2, breakdown.bankWiseChannels.size)
+        assertEquals(1, breakdown.mobileBankChannels.size)
     }
 }

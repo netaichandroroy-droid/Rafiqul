@@ -3,6 +3,7 @@ package com.example
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
@@ -26,7 +27,6 @@ import com.example.auth.safeFirebaseAuth
 import com.example.auth.signOutFromGoogleCloud
 import com.example.auth.switchGoogleCloudAccount
 import com.example.data.CloudAutoSyncRepository
-import com.example.data.MemberAppLinkStore
 import com.example.data.MemberLoginResult
 import com.example.data.MemberStore
 import com.example.ui.HisabMainApp
@@ -42,7 +42,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         configureAppCheck(this, intent)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        )
         deepLinkLoginId = extractLoginIdFromIntent(intent)
         setContent {
             HisabKhataTheme {
@@ -76,7 +79,6 @@ fun AppContent(initialLoginId: String = "") {
     }
     val credentialStore = remember(context) { AppLockCredentialStore(context) }
     val memberStore = remember(context) { MemberStore(context) }
-    val memberAppLinkStore = remember(context) { MemberAppLinkStore(context) }
     val firebaseAuth = remember { safeFirebaseAuth() }
 
     var currentUser by remember(firebaseAuth) {
@@ -204,11 +206,7 @@ fun AppContent(initialLoginId: String = "") {
 
     when (val session = activeSession) {
         AppSession.LoggedOut -> {
-            val downloadUrl = remember(activeSession, remoteSyncTick) {
-                memberAppLinkStore.getEffectiveMemberLink()
-            }
             AppLoginScreen(
-                memberAppDownloadUrl = downloadUrl,
                 initialLoginId = initialLoginId,
                 onLoginAttempt = { loginId, password ->
                     if (credentialStore.login(loginId, password)) {

@@ -60,9 +60,9 @@ fun TransactionsScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
             SectionPanelCard(
@@ -172,7 +172,7 @@ private fun MonthlySummaryMetricBox(
         shape = RoundedCornerShape(12.dp),
         color = containerColor
     ) {
-        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,

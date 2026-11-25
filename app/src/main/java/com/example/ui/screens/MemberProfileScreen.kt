@@ -69,9 +69,9 @@ fun MemberProfileScreen(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
             SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
@@ -93,16 +93,18 @@ fun MemberProfileScreen(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        val subtitle = listOfNotNull(
+                        val profileMeta = listOfNotNull(
                             member.designation.takeIf { it.isNotBlank() },
                             member.depot.takeIf { it.isNotBlank() }
-                        ).joinToString(" • ").ifBlank { "Member Profile" }
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        ).joinToString(" • ")
+                        if (profileMeta.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = profileMeta,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Spacer(modifier = Modifier.height(6.dp))
                         Surface(
                             shape = RoundedCornerShape(20.dp),
@@ -222,9 +224,9 @@ fun MemberProfileScreen(
                     icon = Icons.Outlined.Lock,
                     title = "Change Password",
                     subtitle = if (member.isDefaultPassword) {
-                        "Current default password: ${member.code.ifBlank { "-" }}"
+                        "Default password: ${member.code.ifBlank { "-" }}"
                     } else {
-                        "Update your login password"
+                        null
                     },
                     iconBg = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.primary,
@@ -237,7 +239,6 @@ fun MemberProfileScreen(
                 MemberActionListRow(
                     icon = Icons.AutoMirrored.Filled.Logout,
                     title = "Log Out",
-                    subtitle = "Lock session and return to sign-in screen",
                     iconBg = ExpenseSurface,
                     iconTint = ExpenseCrimson,
                     titleColor = MaterialTheme.colorScheme.error,
@@ -299,13 +300,13 @@ private fun MemberDetailListRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 11.dp, horizontal = 2.dp),
+            .padding(vertical = 7.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(34.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .size(32.dp)
+                .clip(RoundedCornerShape(9.dp))
                 .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
@@ -313,10 +314,10 @@ private fun MemberDetailListRow(
                 imageVector = icon,
                 contentDescription = label,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(17.dp)
             )
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
@@ -336,12 +337,12 @@ private fun MemberDetailListRow(
 private fun MemberActionListRow(
     icon: ImageVector,
     title: String,
-    subtitle: String,
     iconBg: Color,
     iconTint: Color,
     titleColor: Color,
     onClick: () -> Unit,
-    testTag: String
+    testTag: String,
+    subtitle: String? = null
 ) {
     Row(
         modifier = Modifier
@@ -349,14 +350,14 @@ private fun MemberActionListRow(
             .minimumInteractiveComponentSize()
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 4.dp)
+            .padding(vertical = 6.dp, horizontal = 4.dp)
             .testTag(testTag),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
                 .background(iconBg),
             contentAlignment = Alignment.Center
         ) {
@@ -364,10 +365,10 @@ private fun MemberActionListRow(
                 imageVector = icon,
                 contentDescription = null,
                 tint = iconTint,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -375,11 +376,13 @@ private fun MemberActionListRow(
                 fontWeight = FontWeight.SemiBold,
                 color = titleColor
             )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
