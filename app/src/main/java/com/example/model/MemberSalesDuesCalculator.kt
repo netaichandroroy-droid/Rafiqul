@@ -28,6 +28,15 @@ data class MemberSalesDuesTotals(
     val totalAdvance: Double
 )
 
+data class DepositsSalesNetSummary(
+    val totalDeposits: Double = 0.0,
+    val pendingDeposits: Double = 0.0,
+    val totalSales: Double = 0.0,
+    val netBalance: Double = 0.0,
+    val approvedDepositCount: Int = 0,
+    val salesRecordCount: Int = 0
+)
+
 object MemberSalesDuesCalculator {
 
     fun normalizeText(raw: String): String {
@@ -230,6 +239,27 @@ object MemberSalesDuesCalculator {
             totalPendingJoma = summaries.sumOf { it.pendingJoma },
             totalDues = summaries.sumOf { it.dues },
             totalAdvance = summaries.sumOf { it.advance }
+        )
+    }
+
+    fun calculateDepositsSalesNetSummary(
+        members: List<Member>,
+        monthlySales: List<MonthlySalesRecord>,
+        submissions: List<MemberTakaJoma>
+    ): DepositsSalesNetSummary {
+        val approvedEntries = submissions.filter { it.resolvedStatus == TakaJomaStatus.APPROVED }
+        val pendingEntries = submissions.filter { it.resolvedStatus == TakaJomaStatus.PENDING }
+        val totalDeposits = approvedEntries.sumOf { it.amount.coerceAtLeast(0.0) }
+        val pendingDeposits = pendingEntries.sumOf { it.amount.coerceAtLeast(0.0) }
+        val totalSales = monthlySales.sumOf { it.tpPlusVat.coerceAtLeast(0.0) } +
+            members.sumOf { it.salesAmount.coerceAtLeast(0.0) }
+        return DepositsSalesNetSummary(
+            totalDeposits = totalDeposits,
+            pendingDeposits = pendingDeposits,
+            totalSales = totalSales,
+            netBalance = totalDeposits - totalSales,
+            approvedDepositCount = approvedEntries.size,
+            salesRecordCount = monthlySales.size
         )
     }
 }

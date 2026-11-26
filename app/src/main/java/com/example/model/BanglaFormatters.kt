@@ -114,4 +114,10 @@ object BanglaFormatters {
         val m = cal.get(Calendar.MONTH) + 1
         return String.format(Locale.US, "%04d-%02d", y, m)
     }
+
+    fun formatUpdateTime(timestampMs: Long = System.currentTimeMillis()): String {
+        val safeMs = if (timestampMs > 0L) timestampMs else System.currentTimeMillis()
+        val sdf = SimpleDateFormat("dd MMM, hh:mm a", Locale.ENGLISH)
+        return sdf.format(Date(safeMs))
+    }
 }

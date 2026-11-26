@@ -3,6 +3,8 @@ package com.example
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.auth.PasswordHasher
+import com.example.data.AppAutoUpdateController
+import com.example.data.AppUpdatePrefsStore
 import com.example.data.MemberAppLinkStore
 import com.example.data.MemberLoginResult
 import com.example.data.MemberStore
@@ -615,4 +617,139 @@ class MemberAndPaymentStoreTest {
         assertEquals("IT", saved.designation)
         assertEquals("Sadar", saved.area)
     }
+
+    @Test
+    fun appAutoUpdatePrefsAndController_persistToggleAndHandleChecksSafely() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = AppUpdatePrefsStore(context)
+        assertTrue(prefs.isAutoUpdateEnabled())
+
+        val controller = AppAutoUpdateController(context)
+        assertTrue(controller.state.value.autoUpdateEnabled)
+
+        controller.setAutoUpdateEnabled(false)
+        assertFalse(controller.state.value.autoUpdateEnabled)
+        assertFalse(AppUpdatePrefsStore(context).isAutoUpdateEnabled())
+
+        controller.setAutoUpdateEnabled(true)
+        assertTrue(controller.state.value.autoUpdateEnabled)
+        assertTrue(AppUpdatePrefsStore(context).isAutoUpdateEnabled())
+
+        // Manual check must not throw in headless/Robolectric environments without Play Store
+        controller.checkForUpdates(activity = null, updateLauncher = null, userInitiated = true)
+    }
+
+    @Test
+    fun aiCallCenterPrefsStore_persistsConfigRecordsAndComputesNextMonday() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = com.example.data.AiCallCenterPrefsStore(context)
+
+        val defaultCfg = store.loadConfig()
+        assertTrue(defaultCfg.autoCallMondayEnabled)
+        assertEquals(10, defaultCfg.scheduledHour)
+
+        store.saveConfig(
+            defaultCfg.copy(
+                autoCallMondayEnabled = false,
+                scheduledHour = 14,
+                autoVoiceGreeting = false
+            )
+        )
+        val reloaded = com.example.data.AiCallCenterPrefsStore(context).loadConfig()
+        assertFalse(reloaded.autoCallMondayEnabled)
+        assertEquals(14, reloaded.scheduledHour)
+        assertFalse(reloaded.autoVoiceGreeting)
+
+        // Dial number sanitization
+        assertEquals("+8801711000001", com.example.data.AiCallCenterPrefsStore.sanitizeDialNumber(" +880 1711-000001 "))
+        assertEquals("", com.example.data.AiCallCenterPrefsStore.sanitizeDialNumber("123"))
+
+        // Monday trigger always resolves to Monday
+        val sunCal = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.NOVEMBER, 22, 9, 0, 0) // Sunday
+        }
+        val nextTrigger = com.example.data.AiCallCenterPrefsStore.nextMondayTriggerMs(
+            hour = 10,
+            minute = 0,
+            nowMs = sunCal.timeInMillis
+        )
+        val targetCal = java.util.Calendar.getInstance().apply { timeInMillis = nextTrigger }
+        assertEquals(java.util.Calendar.MONDAY, targetCal.get(java.util.Calendar.DAY_OF_WEEK))
+        assertEquals(10, targetCal.get(java.util.Calendar.HOUR_OF_DAY))
+
+        // Cycle record persistence
+        val record = com.example.data.AiCallRecord(
+            memberId = "m_due_1",
+            memberName = "Rahim",
+            phone = "01711000001",
+            duesAmount = 1500.0,
+            status = com.example.data.AiCallStatus.CALLED,
+            updatedAtMs = sunCal.timeInMillis,
+            scriptPreview = "Reminder sent"
+        )
+        store.upsertCallRecord(record, nowMs = sunCal.timeInMillis)
+        val loadedRecords = store.loadCallRecordsForCurrentCycle(nowMs = sunCal.timeInMillis)
+        assertEquals(com.example.data.AiCallStatus.CALLED, loadedRecords["m_due_1"]?.status)
+
+        // Free AI Call mode defaults to alsoDialPhoneNumber = false
+        val freeCfg = com.example.data.AiCallCenterPrefsStore(context).loadConfig()
+        assertFalse(freeCfg.alsoDialPhoneNumber)
+        assertEquals(com.example.ai.FemaleAiVoiceOption.AOEDE, freeCfg.selectedVoice)
+
+        // Scheduled Monday auto-start due check
+        store.saveConfig(
+            freeCfg.copy(
+                autoCallMondayEnabled = true,
+                scheduledHour = 10,
+                scheduledMinute = 0
+            )
+        )
+        store.setLastRunMondayKey("")
+        store.setPendingAutoStartMondayKey("")
+        val monMorning = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.NOVEMBER, 23, 9, 30, 0) // Monday 9:30 AM
+        }
+        assertFalse(store.isScheduledMondayAutoStartDue(monMorning.timeInMillis))
+        val monAtSchedule = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.NOVEMBER, 23, 10, 15, 0) // Monday 10:15 AM
+        }
+        assertTrue(store.isScheduledMondayAutoStartDue(monAtSchedule.timeInMillis))
+        store.setLastRunMondayKey(com.example.data.AiCallCenterPrefsStore.currentCycleKey(monAtSchedule.timeInMillis))
+        assertFalse(store.isScheduledMondayAutoStartDue(monAtSchedule.timeInMillis))
+    }
+
+    @Test
+    fun aiCallCenterEngine_buildDueQueueFiltersPositiveDuesSortsDescendingAndFlagsNoPhone() {
+        val members = listOf(
+            Member(id = "m_high", name = "Karim", designation = "SR", phone = "01711111111", depot = "Rangpur", code = "K-01", salesAmount = 5000.0),
+            Member(id = "m_low", name = "Rahim", designation = "SR", phone = "", depot = "Rangpur", code = "R-02", salesAmount = 1200.0),
+            Member(id = "m_paid", name = "Jamal", designation = "SR", phone = "01822222222", depot = "Rangpur", code = "J-03", salesAmount = 1000.0)
+        )
+        val submissions = listOf(
+            MemberTakaJoma(
+                id = "j_paid",
+                memberId = "m_paid",
+                name = "Jamal",
+                code = "J-03",
+                depot = "Rangpur",
+                amount = 1000.0,
+                date = "2026-11-22",
+                approvalStatus = com.example.model.TakaJomaStatus.APPROVED.wireValue
+            )
+        )
+
+        val queue = com.example.ai.AiCallCenterEngine.buildDueQueue(
+            members = members,
+            monthlySales = emptyList(),
+            submissions = submissions,
+            savedRecords = emptyMap()
+        )
+
+        assertEquals(2, queue.size)
+        assertEquals("m_high", queue[0].memberId)
+        assertEquals(com.example.data.AiCallStatus.PENDING, queue[0].callStatus)
+        assertEquals("m_low", queue[1].memberId)
+        assertEquals(com.example.data.AiCallStatus.NO_PHONE, queue[1].callStatus)
+    }
 }
+

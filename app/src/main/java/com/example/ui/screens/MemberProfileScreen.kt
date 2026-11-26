@@ -49,12 +49,15 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.data.AppUpdateUiState
 import com.example.model.BanglaFormatters
 import com.example.model.Member
+import com.example.ui.components.AppAutoUpdateCard
 import com.example.ui.components.SectionPanelCard
 import com.example.ui.theme.BrandHeroEnd
 import com.example.ui.theme.BrandHeroStart
 import com.example.ui.theme.ExpenseCrimson
+import com.example.ui.theme.GlassTextPrimary
 import com.example.ui.theme.ExpenseSurface
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeSurface
@@ -65,6 +68,10 @@ fun MemberProfileScreen(
     transactionCount: Int,
     onOpenChangePassword: () -> Unit,
     onLogout: () -> Unit,
+    appUpdateState: AppUpdateUiState = AppUpdateUiState(),
+    onToggleAutoUpdate: (Boolean) -> Unit = {},
+    onCheckAppUpdate: () -> Unit = {},
+    onCompleteAppUpdate: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -247,6 +254,15 @@ fun MemberProfileScreen(
                 )
             }
         }
+
+        item {
+            AppAutoUpdateCard(
+                updateState = appUpdateState,
+                onToggleAutoUpdate = onToggleAutoUpdate,
+                onCheckForUpdate = onCheckAppUpdate,
+                onCompleteUpdate = onCompleteAppUpdate
+            )
+        }
     }
 }
 
@@ -278,7 +294,7 @@ fun MemberAvatarView(
                 MaterialTheme.typography.titleLarge
             },
             fontWeight = FontWeight.Bold,
-            color = Color.White
+            color = GlassTextPrimary
         )
     }
 }

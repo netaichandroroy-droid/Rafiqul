@@ -64,6 +64,7 @@ import com.example.ui.components.GlassCardSurface
 import com.example.ui.components.SectionPanelCard
 import com.example.ui.components.TakaJomaStatusPill
 import com.example.ui.components.TransactionItemRow
+import com.example.ui.components.rememberLiveCurrentYearMonth
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeEmeraldDark
@@ -86,7 +87,7 @@ fun MemberLendenScreen(
 
     var previewItem by remember { mutableStateOf<Pair<Int, MemberTakaJoma>?>(null) }
 
-    val currentMonth = remember { BanglaFormatters.currentYearMonth() }
+    val currentMonth = rememberLiveCurrentYearMonth()
     val monthTotalTaka = remember(submissions, currentMonth) {
         submissions
             .filter { it.date.startsWith(currentMonth) && it.resolvedStatus == TakaJomaStatus.APPROVED }
