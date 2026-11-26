@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.ai.AiCallQueueItem
 import com.example.ai.AiVoiceResult
 import com.example.ai.AiVoiceScope
 import com.example.ai.AiVoiceStatus
@@ -110,6 +111,33 @@ data class AiVoiceUiState(
     val isPlaying: Boolean
         get() = status is AiVoiceStatus.Playing
 }
+
+data class AiCallCenterUiState(
+    val autoCallMondayEnabled: Boolean = false,
+    val scheduledHour: Int = 10,
+    val scheduledMinute: Int = 0,
+    val autoVoiceGreeting: Boolean = true,
+    val alsoDialPhoneNumber: Boolean = false,
+    val selectedVoice: FemaleAiVoiceOption = FemaleAiVoiceOption.AOEDE,
+    val isMondayToday: Boolean = false,
+    val nextScheduleLabel: String = "",
+    val dueQueue: List<AiCallQueueItem> = emptyList(),
+    val totalDuesAmount: Double = 0.0,
+    val pendingCount: Int = 0,
+    val calledCount: Int = 0,
+    val isCallActive: Boolean = false,
+    val activeMemberId: String? = null,
+    val activeCallIndex: Int = 0,
+    val activeCallTotalCount: Int = 0,
+    val activeCallMemberName: String = "",
+    val activeCallMemberPhone: String = "",
+    val activeCallDuesAmount: Double = 0.0,
+    val activeCallPhaseLabel: String = "",
+    val activeCallScript: String = "",
+    val progressMessage: String = "",
+    val errorMessage: String? = null,
+    val pendingDialNumber: String? = null
+)
 
 class LocalHisabViewModel(
     private val localStore: LocalTransactionStore,

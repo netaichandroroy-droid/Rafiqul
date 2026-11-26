@@ -304,7 +304,7 @@ fun MemberListScreen(
 
         item {
             GlassCardSurface(
-                contentPadding = PaddingValues(vertical = 4.dp)
+                contentPadding = PaddingValues(0.dp)
             ) {
                 if (displayedMembers.isEmpty()) {
                     Column(
@@ -337,11 +337,9 @@ fun MemberListScreen(
                     }
                 } else {
                     BoxWithConstraints(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 6.dp, vertical = 6.dp)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        val borderOverhead = 9.dp
+                        val borderOverhead = 7.dp
                         val baseTotal = baseSlW + baseCodeW + baseNameW + baseDesigW + baseAreaW +
                             baseDepotW + activeColWidth + actionColWidth + borderOverhead
                         val extraWidth = (maxWidth - baseTotal).coerceAtLeast(0.dp)
@@ -356,9 +354,7 @@ fun MemberListScreen(
                                 .fillMaxWidth()
                                 .horizontalScroll(tableHorizontalScroll)
                         ) {
-                            Column(
-                                modifier = Modifier.border(1.dp, borderColor)
-                            ) {
+                            Column {
                                 // All-bordered Header Row
                                 Row(
                                     modifier = Modifier

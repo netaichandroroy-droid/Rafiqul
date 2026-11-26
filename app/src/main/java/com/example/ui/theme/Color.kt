@@ -12,11 +12,19 @@ val BrandTint = Color(0xFF4B1D70)
 val SilverBackground = Color(0xFF14101E)
 val SilverSurfaceVariant = Color(0xFF2B213E)
 val CardWhite = Color(0xFF1E172B)
+val CardSurfaceSolid = CardWhite
 val SilverBorder = Color(0x4DFFFFFF)
+val CardBorderSolid = SilverBorder
+val HeroCardSolid = BrandTint
+val HeroCardBorderSolid = BrandPrimary
+val CardInnerTileSolid = SilverSurfaceVariant
 
 val TextPrimary = Color(0xFFFFFFFF)
 val TextSecondary = Color(0xFFD6CEE8)
 val TextMuted = Color(0xFFB4A9CC)
+val GlassTextPrimary = TextPrimary
+val GlassTextSecondary = TextSecondary
+val GlassTextMuted = TextMuted
 
 // Semantic Financial Colors (High contrast on dark purple-charcoal glass)
 val IncomeEmerald = Color(0xFF6EE7B7)

@@ -29,17 +29,20 @@ import kotlin.math.roundToLong
 enum class FemaleAiVoiceOption(
     val voiceId: String,
     val bnLabel: String,
-    val subtitle: String
+    val subtitle: String,
+    val agentName: String
 ) {
     AOEDE(
         voiceId = "Aoede",
         bnLabel = "Warm Female Voice",
-        subtitle = "Warm & soothing tone"
+        subtitle = "Warm & soothing tone",
+        agentName = "Ananya"
     ),
     KORE(
         voiceId = "Kore",
         bnLabel = "Clear Female Voice",
-        subtitle = "Crisp & expressive tone"
+        subtitle = "Crisp & expressive tone",
+        agentName = "Meghna"
     )
 }
 

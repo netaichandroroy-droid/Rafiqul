@@ -42,6 +42,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +67,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.R
 import com.example.model.BanglaFormatters
 import com.example.model.HisabTransaction
@@ -74,6 +83,45 @@ import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.ExpenseSurface
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeSurface
+import kotlinx.coroutines.delay
+
+@Composable
+fun rememberLiveTimestampMs(): Long {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME || event == Lifecycle.Event.ON_START) {
+                nowMs = System.currentTimeMillis()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000L)
+            nowMs = System.currentTimeMillis()
+        }
+    }
+
+    return nowMs
+}
+
+@Composable
+fun rememberLiveTodayIso(): String {
+    val liveNowMs = rememberLiveTimestampMs()
+    return remember(liveNowMs / 60_000L) { BanglaFormatters.todayIso() }
+}
+
+@Composable
+fun rememberLiveCurrentYearMonth(): String {
+    return rememberLiveTodayIso().substring(0, 7)
+}
 
 @Composable
 fun AppFrostedGlassBackground(
