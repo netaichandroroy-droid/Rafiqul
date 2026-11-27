@@ -9,6 +9,24 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+enum class CallScheduleDay(
+    val calendarDay: Int,
+    val shortLabel: String,
+    val fullLabel: String
+) {
+    SATURDAY(Calendar.SATURDAY, "Sat", "Saturday"),
+    SUNDAY(Calendar.SUNDAY, "Sun", "Sunday"),
+    MONDAY(Calendar.MONDAY, "Mon", "Monday"),
+    TUESDAY(Calendar.TUESDAY, "Tue", "Tuesday"),
+    WEDNESDAY(Calendar.WEDNESDAY, "Wed", "Wednesday"),
+    THURSDAY(Calendar.THURSDAY, "Thu", "Thursday"),
+    FRIDAY(Calendar.FRIDAY, "Fri", "Friday");
+
+    companion object {
+        fun fromCalendarDay(day: Int): CallScheduleDay? = entries.firstOrNull { it.calendarDay == day }
+    }
+}
+
 enum class AiCallStatus(val label: String) {
     PENDING("Pending"),
     DIALING("Calling"),
@@ -35,6 +53,7 @@ data class AiCallRecord(
 
 data class AiCallScheduleConfig(
     val autoCallMondayEnabled: Boolean = true,
+    val enabledDays: Set<Int> = setOf(Calendar.MONDAY),
     val scheduledHour: Int = 10,
     val scheduledMinute: Int = 0,
     val autoVoiceGreeting: Boolean = true,
@@ -51,9 +70,21 @@ class AiCallCenterPrefsStore(context: Context) {
         val voice = FemaleAiVoiceOption.entries.firstOrNull {
             it.voiceId.equals(voiceId, ignoreCase = true)
         } ?: FemaleAiVoiceOption.AOEDE
+
+        val enabledDays = if (prefs.contains(KEY_ENABLED_DAYS)) {
+            val raw = prefs.getString(KEY_ENABLED_DAYS, "").orEmpty()
+            raw.split(",")
+                .mapNotNull { it.trim().toIntOrNull() }
+                .filter { it in Calendar.SUNDAY..Calendar.SATURDAY }
+                .toSet()
+        } else {
+            setOf(Calendar.MONDAY)
+        }
+
         return AiCallScheduleConfig(
             autoCallMondayEnabled = prefs.getBoolean(KEY_MONDAY_ENABLED, true),
-            scheduledHour = prefs.getInt(KEY_SCHEDULE_HOUR, 10).coerceIn(7, 21),
+            enabledDays = enabledDays,
+            scheduledHour = prefs.getInt(KEY_SCHEDULE_HOUR, 10).coerceIn(0, 23),
             scheduledMinute = prefs.getInt(KEY_SCHEDULE_MINUTE, 0).coerceIn(0, 59),
             autoVoiceGreeting = prefs.getBoolean(KEY_AUTO_VOICE, true),
             alsoDialPhoneNumber = prefs.getBoolean(KEY_ALSO_DIAL_SIM, false),
@@ -62,9 +93,14 @@ class AiCallCenterPrefsStore(context: Context) {
     }
 
     fun saveConfig(config: AiCallScheduleConfig) {
+        val serializedDays = CallScheduleDay.entries
+            .map { it.calendarDay }
+            .filter { it in config.enabledDays }
+            .joinToString(",")
         prefs.edit()
             .putBoolean(KEY_MONDAY_ENABLED, config.autoCallMondayEnabled)
-            .putInt(KEY_SCHEDULE_HOUR, config.scheduledHour.coerceIn(7, 21))
+            .putString(KEY_ENABLED_DAYS, serializedDays)
+            .putInt(KEY_SCHEDULE_HOUR, config.scheduledHour.coerceIn(0, 23))
             .putInt(KEY_SCHEDULE_MINUTE, config.scheduledMinute.coerceIn(0, 59))
             .putBoolean(KEY_AUTO_VOICE, config.autoVoiceGreeting)
             .putBoolean(KEY_ALSO_DIAL_SIM, config.alsoDialPhoneNumber)
@@ -84,13 +120,23 @@ class AiCallCenterPrefsStore(context: Context) {
         prefs.edit().putString(KEY_PENDING_AUTO_START_MONDAY, key).apply()
     }
 
+    fun clearRunMarkersForUpdatedSchedule() {
+        prefs.edit()
+            .putString(KEY_LAST_RUN_MONDAY, "")
+            .putString(KEY_PENDING_AUTO_START_MONDAY, "")
+            .apply()
+    }
+
     fun isScheduledMondayAutoStartDue(nowMs: Long = System.currentTimeMillis()): Boolean {
         val config = loadConfig()
-        if (!config.autoCallMondayEnabled) return false
-        if (!isMonday(nowMs)) return false
-        val cycleKey = currentCycleKey(nowMs)
-        if (getLastRunMondayKey() == cycleKey) return false
-        if (getPendingAutoStartMondayKey() == cycleKey) return true
+        if (!config.autoCallMondayEnabled || config.enabledDays.isEmpty()) return false
+        if (!isDayEnabled(config.enabledDays, nowMs)) return false
+        val slotKey = scheduleSlotKey(config, nowMs)
+        val dayKey = currentCycleKey(nowMs)
+        val lastRun = getLastRunMondayKey()
+        if (lastRun == slotKey || lastRun == dayKey) return false
+        val pendingKey = getPendingAutoStartMondayKey()
+        if (pendingKey == slotKey || pendingKey == dayKey) return true
         val cal = Calendar.getInstance().apply { timeInMillis = nowMs }
         val currentMinutes = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
         val scheduledMinutes = config.scheduledHour * 60 + config.scheduledMinute
@@ -164,6 +210,7 @@ class AiCallCenterPrefsStore(context: Context) {
     companion object {
         private const val PREFS_NAME = "ai_call_center_prefs"
         private const val KEY_MONDAY_ENABLED = "monday_auto_call_enabled"
+        private const val KEY_ENABLED_DAYS = "enabled_call_days_csv"
         private const val KEY_SCHEDULE_HOUR = "monday_schedule_hour"
         private const val KEY_SCHEDULE_MINUTE = "monday_schedule_minute"
         private const val KEY_AUTO_VOICE = "monday_auto_voice_greeting"
@@ -174,31 +221,55 @@ class AiCallCenterPrefsStore(context: Context) {
         private const val KEY_RECORDS_CYCLE = "call_records_cycle_key"
         private const val KEY_RECORDS_JSON = "call_records_json"
 
-        fun isMonday(nowMs: Long = System.currentTimeMillis()): Boolean {
+        fun todayDayOfWeek(nowMs: Long = System.currentTimeMillis()): Int {
             val cal = Calendar.getInstance().apply { timeInMillis = nowMs }
-            return cal.get(Calendar.DAY_OF_WEEK) == Calendar.MONDAY
+            return cal.get(Calendar.DAY_OF_WEEK)
+        }
+
+        fun isDayEnabled(enabledDays: Set<Int>, nowMs: Long = System.currentTimeMillis()): Boolean {
+            return todayDayOfWeek(nowMs) in enabledDays
+        }
+
+        fun isMonday(nowMs: Long = System.currentTimeMillis()): Boolean {
+            return todayDayOfWeek(nowMs) == Calendar.MONDAY
         }
 
         fun currentCycleKey(nowMs: Long = System.currentTimeMillis()): String {
-            val cal = Calendar.getInstance().apply {
-                timeInMillis = nowMs
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
+            return SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date(nowMs))
+        }
+
+        fun scheduleSlotKey(
+            config: AiCallScheduleConfig,
+            nowMs: Long = System.currentTimeMillis()
+        ): String {
+            val dayKey = currentCycleKey(nowMs)
+            return "$dayKey@${config.scheduledHour.coerceIn(0, 23)}:${config.scheduledMinute.coerceIn(0, 59)}"
+        }
+
+        fun nextScheduleTriggerMs(
+            enabledDays: Set<Int>,
+            hour: Int,
+            minute: Int,
+            nowMs: Long = System.currentTimeMillis()
+        ): Long? {
+            if (enabledDays.isEmpty()) return null
+            val targetHour = hour.coerceIn(0, 23)
+            val targetMinute = minute.coerceIn(0, 59)
+            for (dayOffset in 0..7) {
+                val candidate = Calendar.getInstance().apply {
+                    timeInMillis = nowMs
+                    add(Calendar.DAY_OF_YEAR, dayOffset)
+                    set(Calendar.HOUR_OF_DAY, targetHour)
+                    set(Calendar.MINUTE, targetMinute)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                val dayOfWeek = candidate.get(Calendar.DAY_OF_WEEK)
+                if (dayOfWeek in enabledDays && candidate.timeInMillis > nowMs) {
+                    return candidate.timeInMillis
+                }
             }
-            val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
-            val diffFromMonday = when (dayOfWeek) {
-                Calendar.MONDAY -> 0
-                Calendar.TUESDAY -> 1
-                Calendar.WEDNESDAY -> 2
-                Calendar.THURSDAY -> 3
-                Calendar.FRIDAY -> 4
-                Calendar.SATURDAY -> 5
-                else -> 6 // Sunday
-            }
-            cal.add(Calendar.DAY_OF_YEAR, -diffFromMonday)
-            return SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date(cal.timeInMillis))
+            return null
         }
 
         fun nextMondayTriggerMs(
@@ -206,19 +277,26 @@ class AiCallCenterPrefsStore(context: Context) {
             minute: Int,
             nowMs: Long = System.currentTimeMillis()
         ): Long {
-            val cal = Calendar.getInstance().apply {
-                timeInMillis = nowMs
-                set(Calendar.HOUR_OF_DAY, hour.coerceIn(7, 21))
-                set(Calendar.MINUTE, minute.coerceIn(0, 59))
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-            val daysUntilMonday = (Calendar.MONDAY - cal.get(Calendar.DAY_OF_WEEK) + 7) % 7
-            cal.add(Calendar.DAY_OF_YEAR, daysUntilMonday)
-            if (cal.timeInMillis <= nowMs) {
-                cal.add(Calendar.DAY_OF_YEAR, 7)
-            }
-            return cal.timeInMillis
+            return nextScheduleTriggerMs(
+                enabledDays = setOf(Calendar.MONDAY),
+                hour = hour,
+                minute = minute,
+                nowMs = nowMs
+            ) ?: (nowMs + 7L * 24L * 60L * 60L * 1000L)
+        }
+
+        fun formatNextScheduleLabel(
+            enabledDays: Set<Int>,
+            hour: Int,
+            minute: Int,
+            autoEnabled: Boolean = true,
+            nowMs: Long = System.currentTimeMillis()
+        ): String {
+            if (!autoEnabled) return "Paused"
+            if (enabledDays.isEmpty()) return "No day selected (turn ON any day)"
+            val trigger = nextScheduleTriggerMs(enabledDays, hour, minute, nowMs)
+                ?: return "No day selected"
+            return SimpleDateFormat("EEE, dd MMM • hh:mm a", Locale.ENGLISH).format(Date(trigger))
         }
 
         fun formatNextMondayLabel(
@@ -226,19 +304,37 @@ class AiCallCenterPrefsStore(context: Context) {
             minute: Int,
             nowMs: Long = System.currentTimeMillis()
         ): String {
-            val trigger = nextMondayTriggerMs(hour, minute, nowMs)
-            return SimpleDateFormat("EEE, dd MMM • hh:mm a", Locale.ENGLISH).format(Date(trigger))
+            return formatNextScheduleLabel(
+                enabledDays = setOf(Calendar.MONDAY),
+                hour = hour,
+                minute = minute,
+                nowMs = nowMs
+            )
         }
 
-        fun formatHourSlot(hour: Int): String {
+        fun formatTimeSlot(hour: Int, minute: Int): String {
             val h = hour.coerceIn(0, 23)
+            val m = minute.coerceIn(0, 59)
             val displayHour = when {
                 h == 0 -> 12
                 h > 12 -> h - 12
                 else -> h
             }
+            val minStr = m.toString().padStart(2, '0')
             val suffix = if (h < 12) "AM" else "PM"
-            return "$displayHour:00 $suffix"
+            return "$displayHour:$minStr $suffix"
+        }
+
+        fun formatHourSlot(hour: Int): String = formatTimeSlot(hour, 0)
+
+        fun formatEnabledDaysSummary(enabledDays: Set<Int>): String {
+            if (enabledDays.isEmpty()) return "No day active"
+            val ordered = CallScheduleDay.entries.filter { it.calendarDay in enabledDays }
+            return if (ordered.size == CallScheduleDay.entries.size) {
+                "Every Day"
+            } else {
+                ordered.joinToString(", ") { it.shortLabel }
+            }
         }
 
         fun sanitizeDialNumber(rawPhone: String): String {

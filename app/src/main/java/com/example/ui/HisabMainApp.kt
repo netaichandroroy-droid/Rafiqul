@@ -12,9 +12,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,17 +24,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.BarChart
@@ -45,14 +39,11 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.BarChart
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -73,7 +64,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -82,15 +72,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.R
 import com.example.auth.AppLockCredentialStore
+import com.example.data.AppUpdateUiState
 import com.example.data.CloudAutoSyncRepository
 import com.example.data.CloudSyncPrefsStore
 import com.example.data.DriveTokenResult
@@ -99,6 +87,8 @@ import com.example.data.GoogleDriveBackupStore
 import com.example.data.LocalTransactionStore
 import com.example.data.MemberAppLinkStore
 import com.example.data.MemberStore
+import com.example.ai.MondayAutoCallScheduler
+import com.example.data.AiCallCenterPrefsStore
 import com.example.data.MemberTakaJomaStore
 import com.example.data.MonthlySalesStore
 import com.example.data.OnlinePaymentStore
@@ -110,18 +100,24 @@ import com.example.model.HisabTransaction
 import com.example.model.ReportAnalyticsCalculator
 import com.example.model.ReportCategory
 import com.example.model.TxType
+import com.example.ui.components.AppDataSuccessBanner
 import com.example.ui.components.AppFrostedGlassBackground
 import com.example.ui.components.AppGlassSnackbarHost
 import com.example.ui.components.DeleteTransactionDialog
 import com.example.ui.components.GlassTopBarContainer
+import com.example.ui.components.GlossyInnerMetricTile
+import com.example.ui.components.GlossyNeonIconOrb
+import com.example.ui.components.NetaiBrandLogoBadge
 import com.example.ui.components.StylishBottomNavBar
 import com.example.ui.components.StylishNavTab
+import com.example.ui.components.glossyMetallicSurface
+import com.example.ui.components.hisab3DFieldDepth
+import com.example.ui.components.isSuccessFeedbackMessage
 import com.example.ui.theme.BrandDeep
-import com.example.ui.theme.BrandHeroEnd
-import com.example.ui.theme.BrandHeroStart
-import com.example.ui.theme.BrandPrimary
-import com.example.ui.theme.BrandTint
+import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.NeonEmerald
 import com.example.ui.screens.AccountsScreen
+import com.example.ui.screens.AiCallCenterScreen
 import com.example.ui.screens.ChangePasswordDialog
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.MemberEditorModalSheet
@@ -164,7 +160,14 @@ fun HisabMainApp(
     isCloudSigningIn: Boolean = false,
     cloudAuthError: String? = null,
     onCloudSignIn: () -> Unit = {},
-    onSwitchCloudAccount: () -> Unit = onCloudSignOut
+    onSwitchCloudAccount: () -> Unit = onCloudSignOut,
+    appUpdateState: AppUpdateUiState = AppUpdateUiState(),
+    onToggleAutoUpdate: (Boolean) -> Unit = {},
+    onCheckAppUpdate: () -> Unit = {},
+    onCompleteAppUpdate: () -> Unit = {},
+    onOpenAppUpdateLink: (() -> Unit)? = null,
+    openAiCallCenterSignal: Int = 0,
+    autoStartMondayCallsSignal: Int = 0
 ) {
     val context = LocalContext.current
     val localStore = remember(context) { LocalTransactionStore(context) }
@@ -175,6 +178,7 @@ fun HisabMainApp(
     val memberAppLinkStore = remember(context) { MemberAppLinkStore(context) }
     val driveBackupStore = remember(context) { GoogleDriveBackupStore(context) }
     val cloudSyncPrefs = remember(context) { CloudSyncPrefsStore(context) }
+    val aiCallCenterPrefs = remember(context) { AiCallCenterPrefsStore(context) }
     val viewModel: LocalHisabViewModel = viewModel(
         key = "local_hisab_$syncOwnerUid",
         factory = viewModelFactory {
@@ -189,7 +193,8 @@ fun HisabMainApp(
                     memberAppLinkStore = memberAppLinkStore,
                     driveBackupStore = driveBackupStore,
                     cloudSyncRepository = cloudSyncRepository,
-                    cloudSyncPrefs = cloudSyncPrefs
+                    cloudSyncPrefs = cloudSyncPrefs,
+                    aiCallCenterPrefs = aiCallCenterPrefs
                 )
             }
         }
@@ -204,6 +209,43 @@ fun HisabMainApp(
     val cloudSyncState by viewModel.cloudSyncState.collectAsStateWithLifecycle()
     val autoBackupRevision by viewModel.autoBackupRevision.collectAsStateWithLifecycle()
     val aiVoiceState by viewModel.aiVoiceState.collectAsStateWithLifecycle()
+    val aiCallCenterState by viewModel.aiCallCenterState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(openAiCallCenterSignal, autoStartMondayCallsSignal) {
+        if (openAiCallCenterSignal > 0) {
+            viewModel.selectTab(HisabTab.SETTINGS)
+            viewModel.openSettingsSubPage(SettingsSubPage.AI_CALL_CENTER)
+        }
+        if (autoStartMondayCallsSignal > 0) {
+            viewModel.selectTab(HisabTab.SETTINGS)
+            viewModel.openSettingsSubPage(SettingsSubPage.AI_CALL_CENTER)
+            delay(350)
+            viewModel.maybeAutoStartMondayCallsOnOpen(forceFromNotification = true)
+        }
+    }
+
+    LaunchedEffect(
+        aiCallCenterState.autoCallMondayEnabled,
+        aiCallCenterState.enabledDays,
+        aiCallCenterState.scheduledHour,
+        aiCallCenterState.scheduledMinute,
+        aiCallCenterState.isMondayToday,
+        aiCallCenterState.dueQueue.size
+    ) {
+        if (aiCallCenterPrefs.isScheduledMondayAutoStartDue() && aiCallCenterState.dueQueue.isNotEmpty()) {
+            delay(500)
+            viewModel.maybeAutoStartMondayCallsOnOpen(forceFromNotification = false)
+        }
+    }
+
+    LaunchedEffect(
+        aiCallCenterState.autoCallMondayEnabled,
+        aiCallCenterState.enabledDays,
+        aiCallCenterState.scheduledHour,
+        aiCallCenterState.scheduledMinute
+    ) {
+        MondayAutoCallScheduler.syncSchedule(context)
+    }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -214,7 +256,6 @@ fun HisabMainApp(
     var showChangePasswordDialog by remember { mutableStateOf(false) }
     var showQuickAddMemberSheet by remember { mutableStateOf(false) }
     var showMemberAppLinkDialog by remember { mutableStateOf(false) }
-    var showReportPopup by remember { mutableStateOf(false) }
     var exportPictureCategory by remember { mutableStateOf(ReportCategory.MONTHLY) }
     var memberAppDownloadUrl by remember { mutableStateOf(memberAppLinkStore.getDownloadUrl()) }
     var appLoginId by remember { mutableStateOf(credentialStore.getLoginId()) }
@@ -224,6 +265,8 @@ fun HisabMainApp(
     var primedDriveEmail by remember { mutableStateOf("") }
     var showDriveBlockedDialog by remember { mutableStateOf(false) }
     var driveAuthBlockedEmail by remember { mutableStateOf<String?>(null) }
+    var activeSuccessBanner by remember { mutableStateOf<String?>(null) }
+    var activeSuccessSeq by remember { mutableStateOf(0L) }
     val signedInCloudEmail = cloudSyncState.accountEmail.trim()
 
     val executeDriveWithToken: (DrivePendingAction, String, String) -> Unit = { action, token, hintEmail ->
@@ -816,20 +859,39 @@ fun HisabMainApp(
         }
     }
 
-    LaunchedEffect(controls.snackbarMessage) {
+    LaunchedEffect(controls.snackbarMessage, controls.feedbackSequence) {
         val msg = controls.snackbarMessage
         if (!msg.isNullOrBlank()) {
-            snackbarHostState.showSnackbar(msg)
-            viewModel.clearSnackbar()
+            if (isSuccessFeedbackMessage(msg)) {
+                activeSuccessBanner = msg
+                activeSuccessSeq = controls.feedbackSequence
+                viewModel.clearSnackbar()
+            } else {
+                snackbarHostState.showSnackbar(msg)
+                viewModel.clearSnackbar()
+            }
+        }
+    }
+
+    LaunchedEffect(activeSuccessBanner, activeSuccessSeq) {
+        if (!activeSuccessBanner.isNullOrBlank()) {
+            delay(3600)
+            activeSuccessBanner = null
         }
     }
 
     val isSettingsSubPage = controls.selectedTab == HisabTab.SETTINGS &&
         controls.settingsSubPage != SettingsSubPage.MAIN
+    val isReportsSubPage = controls.selectedTab == HisabTab.REPORTS &&
+        controls.isReportDetailOpen
 
     if (isSettingsSubPage) {
         BackHandler {
             viewModel.openSettingsSubPage(SettingsSubPage.MAIN)
+        }
+    } else if (isReportsSubPage) {
+        BackHandler {
+            viewModel.closeReportDetail()
         }
     } else if (controls.selectedTab != HisabTab.HOME) {
         BackHandler {
@@ -863,12 +925,15 @@ fun HisabMainApp(
                 HisabTopAppBar(
                     selectedTab = controls.selectedTab,
                     selectedReportCategory = controls.selectedReportCategory,
+                    isReportDetailOpen = controls.isReportDetailOpen,
                     settingsSubPage = if (controls.selectedTab == HisabTab.SETTINGS) {
                         controls.settingsSubPage
                     } else {
                         SettingsSubPage.MAIN
                     },
+                    dockedEdgeToEdge = true,
                     onBackFromSubPage = { viewModel.openSettingsSubPage(SettingsSubPage.MAIN) },
+                    onBackFromReportDetail = { viewModel.closeReportDetail() },
                     onOpenMemberList = {
                         viewModel.selectTab(HisabTab.SETTINGS)
                         viewModel.openSettingsSubPage(SettingsSubPage.MEMBER_LIST)
@@ -881,7 +946,6 @@ fun HisabMainApp(
                     StylishBottomNavBar(
                         items = HisabTab.entries.map { tab ->
                             val selected = controls.selectedTab == tab
-                            val isReportsTab = tab == HisabTab.REPORTS
                             StylishNavTab(
                                 id = tab.name,
                                 label = tab.label,
@@ -889,15 +953,11 @@ fun HisabMainApp(
                                 selected = selected,
                                 testTag = "nav_${tab.name.lowercase()}",
                                 onClick = {
-                                    if (isReportsTab) {
-                                        showReportPopup = true
-                                    } else {
-                                        showReportPopup = false
-                                        viewModel.selectTab(tab)
-                                    }
+                                    viewModel.selectTab(tab)
                                 }
                             )
-                        }
+                        },
+                        dockedEdgeToEdge = true
                     )
                 }
             },
@@ -911,20 +971,14 @@ fun HisabMainApp(
                 if (useRail) {
                     NavigationRail(
                         modifier = Modifier.fillMaxHeight(),
-                        containerColor = Color(0xFF171024).copy(alpha = 0.80f)
+                        containerColor = Color(0xFF0A1324).copy(alpha = 0.92f)
                     ) {
                         HisabTab.entries.forEach { tab ->
                             val selected = controls.selectedTab == tab
-                            val isReportsTab = tab == HisabTab.REPORTS
                             NavigationRailItem(
                                 selected = selected,
                                 onClick = {
-                                    if (isReportsTab) {
-                                        showReportPopup = true
-                                    } else {
-                                        showReportPopup = false
-                                        viewModel.selectTab(tab)
-                                    }
+                                    viewModel.selectTab(tab)
                                 },
                                 icon = {
                                     Icon(
@@ -946,6 +1000,8 @@ fun HisabMainApp(
                             members = members,
                             monthlySales = monthlySales,
                             memberTakaJomaList = takaJomaList,
+                            cloudSyncState = cloudSyncState,
+                            onConnectCloudSync = onCloudSignIn,
                             onApproveMemberTakaJoma = viewModel::approveMemberTakaJoma,
                             onRejectMemberTakaJoma = viewModel::rejectMemberTakaJoma,
                             onDeleteMemberTakaJoma = viewModel::deleteMemberTakaJoma,
@@ -987,6 +1043,7 @@ fun HisabMainApp(
                             monthlySales = monthlySales,
                             memberTakaJomaList = takaJomaList,
                             selectedCategory = controls.selectedReportCategory,
+                            isDetailOpen = controls.isReportDetailOpen,
                             periodScope = controls.reportPeriodScope,
                             asmNameScope = controls.asmNameScope,
                             areaRoleFilter = controls.areaRoleFilter,
@@ -994,7 +1051,7 @@ fun HisabMainApp(
                             onSelectPeriodScope = viewModel::setReportPeriodScope,
                             onSelectAsmNameScope = viewModel::setAsmNameScope,
                             onSelectAreaRoleFilter = viewModel::setAreaRoleFilter,
-                            onOpenReportMenu = { showReportPopup = true }
+                            onBackToReportCards = { viewModel.closeReportDetail() }
                         )
 
                         HisabTab.ACCOUNTS -> AccountsScreen(
@@ -1016,10 +1073,12 @@ fun HisabMainApp(
                                 driveState = driveState,
                                 cloudSyncState = cloudSyncState,
                                 aiVoiceState = aiVoiceState,
+                                aiCallCenterState = aiCallCenterState,
                                 onOpenMemberList = { viewModel.openSettingsSubPage(SettingsSubPage.MEMBER_LIST) },
                                 onOpenMemberTakaJoma = { viewModel.openSettingsSubPage(SettingsSubPage.MEMBER_TAKA_JOMA) },
                                 onOpenSalesUpload = { viewModel.openSettingsSubPage(SettingsSubPage.SALES_UPLOAD) },
                                 onOpenOnlinePayment = { viewModel.openSettingsSubPage(SettingsSubPage.ONLINE_PAYMENT) },
+                                onOpenAiCallCenter = { viewModel.openSettingsSubPage(SettingsSubPage.AI_CALL_CENTER) },
                                 onOpenMemberAppLink = { showMemberAppLinkDialog = true },
                                 onOpenChangePassword = { showChangePasswordDialog = true },
                                 onAppLogout = onAppLogout,
@@ -1101,7 +1160,22 @@ fun HisabMainApp(
                                 onSelectAiVoiceMember = viewModel::selectAiVoiceMember,
                                 onSpeakAiVoiceReport = viewModel::speakMemberSalesDuesWithAi,
                                 onReplayAiVoiceReport = viewModel::replayAiVoice,
-                                onStopAiVoiceReport = viewModel::stopAiVoice
+                                onStopAiVoiceReport = viewModel::stopAiVoice,
+                                appUpdateState = appUpdateState,
+                                onToggleAutoUpdate = onToggleAutoUpdate,
+                                onCheckAppUpdate = onCheckAppUpdate,
+                                onCompleteAppUpdate = onCompleteAppUpdate,
+                                onOpenAppUpdateLink = {
+                                    if (onOpenAppUpdateLink != null) {
+                                        onOpenAppUpdateLink()
+                                    } else {
+                                        val url = appUpdateState.releasePageUrl
+                                            .ifBlank { MemberAppLinkStore.resolveDisplayUrl(memberAppDownloadUrl) }
+                                        if (!MemberAppLinkStore.openUrlSafely(context, url)) {
+                                            viewModel.showMessage("Could not open app update link")
+                                        }
+                                    }
+                                }
                             )
 
                             SettingsSubPage.MEMBER_LIST -> MemberListScreen(
@@ -1140,23 +1214,41 @@ fun HisabMainApp(
                                 onClearMonth = viewModel::clearMonthlySales,
                                 onShowMessage = viewModel::showMessage
                             )
+
+                            SettingsSubPage.AI_CALL_CENTER -> AiCallCenterScreen(
+                                state = aiCallCenterState,
+                                onToggleMondayAutoCall = viewModel::setMondayAutoCallEnabled,
+                                onToggleCallDay = viewModel::toggleAiCallDay,
+                                onSelectCallHour = viewModel::setMondayCallHour,
+                                onUpdateCallTime = viewModel::setMondayCallTime,
+                                onToggleAutoVoice = viewModel::setAiCallAutoVoice,
+                                onToggleAlsoDialPhone = viewModel::setAiCallAlsoDialPhone,
+                                onSelectVoice = viewModel::selectAiCallVoiceOption,
+                                onStartMondayQueue = { viewModel.startMondayAutoCallQueue(autoTriggered = false) },
+                                onCallMember = { memberId -> viewModel.startAiCallForMember(memberId, dialPhoneExplicitly = false) },
+                                onDialMemberPhone = { memberId -> viewModel.startAiCallForMember(memberId, dialPhoneExplicitly = true) },
+                                onPlayMemberVoiceOnly = viewModel::playAiCallScriptOnly,
+                                onMarkCallStatus = viewModel::markAiCallStatus,
+                                onResetQueue = viewModel::resetMondayCallQueue,
+                                onStopVoice = viewModel::stopAiCallVoice,
+                                onClearError = viewModel::clearAiCallError,
+                                onConsumePendingDial = viewModel::consumePendingDialIntent
+                            )
                         }
                     }
                 }
             }
         }
-    }
 
-    ReportNavbarPopupMenu(
-        expanded = showReportPopup,
-        selectedCategory = controls.selectedReportCategory,
-        isReportsTabActive = controls.selectedTab == HisabTab.REPORTS,
-        onDismiss = { showReportPopup = false },
-        onSelectCategory = { category ->
-            showReportPopup = false
-            viewModel.openReportCategory(category)
-        }
-    )
+        AppDataSuccessBanner(
+            message = activeSuccessBanner,
+            onDismiss = { activeSuccessBanner = null },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 6.dp)
+        )
+    }
 
     if (showModal) {
         TransactionModalSheet(
@@ -1275,6 +1367,9 @@ fun HisabMainApp(
             ?: signedInCloudEmail.ifBlank { "Google Account" }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showDriveBlockedDialog = false },
+            containerColor = com.example.ui.theme.CardSurfaceSolid,
+            titleContentColor = com.example.ui.theme.GlassTextPrimary,
+            textContentColor = com.example.ui.theme.GlassTextSecondary,
             title = {
                 Text("Connect Google Drive Backup File")
             },
@@ -1283,11 +1378,15 @@ fun HisabMainApp(
                     Text(
                         text = "Direct Drive API access is currently unavailable for $displayEmail.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = com.example.ui.theme.GlassTextPrimary
                     )
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                        color = com.example.ui.theme.CardInnerTileSolid,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            com.example.ui.theme.NeonCyan.copy(alpha = 0.45f)
+                        ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
@@ -1298,12 +1397,12 @@ fun HisabMainApp(
                                 text = "Recommended: Link a Google Drive Backup File",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                color = com.example.ui.theme.NeonCyan
                             )
                             Text(
                                 text = "Tap 'Link Drive File' below, choose Drive / My Drive in the file picker, and tap Save. Auto-backup works seamlessly with any Gmail account.",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = com.example.ui.theme.GlassTextSecondary
                             )
                         }
                     }
@@ -1358,17 +1457,20 @@ private fun MemberAppLinkConfigDialog(
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = com.example.ui.theme.CardSurfaceSolid,
+        titleContentColor = com.example.ui.theme.GlassTextPrimary,
+        textContentColor = com.example.ui.theme.GlassTextSecondary,
         title = { Text("Member Mobile Link (Login System)") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     text = "Members can open the link below and sign in using their Code (Login ID) and password.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = com.example.ui.theme.GlassTextSecondary
                 )
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                GlossyInnerMetricTile(
+                    accentColor = com.example.ui.theme.NeonCyan,
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -1381,13 +1483,13 @@ private fun MemberAppLinkConfigDialog(
                             Text(
                                 text = "Active Member Link:",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = com.example.ui.theme.GlassTextSecondary
                             )
                             Text(
                                 text = activeLink,
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = com.example.ui.theme.NeonCyan,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -1401,7 +1503,7 @@ private fun MemberAppLinkConfigDialog(
                             Icon(
                                 imageVector = Icons.Outlined.ContentCopy,
                                 contentDescription = "Copy Link",
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = com.example.ui.theme.NeonCyan,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -1417,15 +1519,17 @@ private fun MemberAppLinkConfigDialog(
                     placeholder = { Text(MemberAppLinkStore.DEFAULT_MEMBER_APP_URL) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
+                    colors = com.example.ui.components.hisabFormFieldColors(com.example.ui.theme.NeonCyan),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .hisab3DFieldDepth(com.example.ui.theme.NeonCyan)
                         .testTag("member_app_link_input")
                 )
                 if (!errorText.isNullOrBlank()) {
                     Text(
                         text = errorText ?: "",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = com.example.ui.theme.ExpenseCrimson
                     )
                 }
                 androidx.compose.material3.OutlinedButton(
@@ -1462,39 +1566,45 @@ private fun MemberAppLinkConfigDialog(
 private fun HisabTopAppBar(
     selectedTab: HisabTab,
     selectedReportCategory: ReportCategory,
+    isReportDetailOpen: Boolean,
     settingsSubPage: SettingsSubPage,
+    dockedEdgeToEdge: Boolean = false,
     onBackFromSubPage: () -> Unit,
+    onBackFromReportDetail: () -> Unit,
     onOpenMemberList: () -> Unit,
     onAddMemberClick: () -> Unit
 ) {
-    val isSubPage = selectedTab == HisabTab.SETTINGS && settingsSubPage != SettingsSubPage.MAIN
-    val isReportsTab = selectedTab == HisabTab.REPORTS
+    val isSettingsSubPage = selectedTab == HisabTab.SETTINGS && settingsSubPage != SettingsSubPage.MAIN
+    val isReportSubPage = selectedTab == HisabTab.REPORTS && isReportDetailOpen
+    val isReportsOverview = selectedTab == HisabTab.REPORTS && !isReportDetailOpen
+    val isSubPage = isSettingsSubPage || isReportSubPage
     val title = when {
-        isSubPage -> when (settingsSubPage) {
+        isSettingsSubPage -> when (settingsSubPage) {
             SettingsSubPage.MAIN -> stringResource(R.string.app_name)
             SettingsSubPage.MEMBER_LIST -> "Member List"
             SettingsSubPage.ONLINE_PAYMENT -> "Online Payment"
             SettingsSubPage.MEMBER_TAKA_JOMA -> "Member Deposit"
             SettingsSubPage.SALES_UPLOAD -> "Sales Upload"
+            SettingsSubPage.AI_CALL_CENTER -> "AI Call Center"
         }
-        isReportsTab -> selectedReportCategory.title
+        isReportSubPage -> selectedReportCategory.title
+        isReportsOverview -> "Reports"
         else -> stringResource(R.string.app_name)
     }
 
-    GlassTopBarContainer {
+    GlassTopBarContainer(dockedEdgeToEdge = dockedEdgeToEdge) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+                .padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (isSubPage) {
                 IconButton(
-                    onClick = onBackFromSubPage,
+                    onClick = if (isSettingsSubPage) onBackFromSubPage else onBackFromReportDetail,
                     modifier = Modifier
                         .minimumInteractiveComponentSize()
-                        .testTag("settings_subpage_back_button")
+                        .testTag(if (isSettingsSubPage) "settings_subpage_back_button" else "topbar_report_back_button")
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -1505,25 +1615,12 @@ private fun HisabTopAppBar(
                 }
                 Spacer(modifier = Modifier.width(4.dp))
             } else {
-                Surface(
-                    modifier = Modifier.size(34.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color.White.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = if (isReportsTab) {
-                                reportCategoryIcon(selectedReportCategory)
-                            } else {
-                                Icons.Outlined.AccountBalanceWallet
-                            },
-                            contentDescription = title,
-                            tint = BrandDeep,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
+                NetaiBrandLogoBadge(
+                    size = 38.dp,
+                    glowColor = NeonCyan,
+                    contentDescription = title,
+                    modifier = Modifier.testTag("top_header_brand_logo")
+                )
                 Spacer(modifier = Modifier.width(10.dp))
             }
 
@@ -1532,7 +1629,7 @@ private fun HisabTopAppBar(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = BrandDeep,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1559,18 +1656,21 @@ private fun HisabTopAppBar(
                     .minimumInteractiveComponentSize()
                     .clip(RoundedCornerShape(18.dp))
                     .clickable(onClick = onAddMemberClick)
-                    .padding(vertical = 6.dp)
+                    .padding(vertical = 4.dp)
                     .testTag("top_header_add_member_button"),
                 contentAlignment = Alignment.Center
             ) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White.copy(alpha = 0.14f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.34f)),
-                    contentColor = BrandDeep
+                Box(
+                    modifier = Modifier.glossyMetallicSurface(
+                        shape = RoundedCornerShape(16.dp),
+                        accentColor = NeonEmerald,
+                        secondaryGlow = NeonCyan,
+                        borderWidth = 1.dp,
+                        streakIntensity = 0.8f
+                    )
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
@@ -1600,198 +1700,4 @@ private fun tabIcon(tab: HisabTab, selected: Boolean): ImageVector = when (tab) 
     HisabTab.REPORTS -> if (selected) Icons.Filled.BarChart else Icons.Outlined.BarChart
     HisabTab.ACCOUNTS -> if (selected) Icons.Filled.AccountBalance else Icons.Outlined.AccountBalance
     HisabTab.SETTINGS -> if (selected) Icons.Filled.Settings else Icons.Outlined.Settings
-}
-
-@Composable
-private fun ReportNavbarPopupMenu(
-    expanded: Boolean,
-    selectedCategory: ReportCategory,
-    isReportsTabActive: Boolean,
-    onDismiss: () -> Unit,
-    onSelectCategory: (ReportCategory) -> Unit
-) {
-    if (!expanded) return
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFF0A0612).copy(alpha = 0.55f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onDismiss
-                )
-                .navigationBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 12.dp),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 62.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {}
-                    )
-                    .testTag("navbar_report_popup_menu"),
-                shape = RoundedCornerShape(22.dp),
-                color = Color.Transparent,
-                border = BorderStroke(
-                    width = 1.dp,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.36f),
-                            Color.White.copy(alpha = 0.14f)
-                        )
-                    )
-                ),
-                shadowElevation = 0.dp
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color(0xFF211435).copy(alpha = 0.94f),
-                                    Color(0xFF150E23).copy(alpha = 0.96f)
-                                )
-                            )
-                        )
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Select Report",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = BrandDeep,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.minimumInteractiveComponentSize()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Close,
-                                contentDescription = "Close",
-                                tint = BrandDeep
-                            )
-                        }
-                    }
-
-                    ReportCategory.entries.forEach { category ->
-                        val isActiveItem = isReportsTabActive && selectedCategory == category
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .clickable { onSelectCategory(category) }
-                                .testTag(category.menuTestTag),
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color.Transparent,
-                            border = BorderStroke(
-                                width = if (isActiveItem) 1.4.dp else 1.dp,
-                                brush = Brush.verticalGradient(
-                                    colors = if (isActiveItem) {
-                                        listOf(
-                                            Color.White.copy(alpha = 0.60f),
-                                            Color.White.copy(alpha = 0.22f)
-                                        )
-                                    } else {
-                                        listOf(
-                                            Color.White.copy(alpha = 0.28f),
-                                            Color.White.copy(alpha = 0.12f)
-                                        )
-                                    }
-                                )
-                            ),
-                            shadowElevation = 0.dp
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(
-                                        Brush.linearGradient(
-                                            colors = if (isActiveItem) {
-                                                listOf(
-                                                    BrandHeroStart.copy(alpha = 0.48f),
-                                                    BrandHeroEnd.copy(alpha = 0.40f)
-                                                )
-                                            } else {
-                                                listOf(
-                                                    Color.White.copy(alpha = 0.10f),
-                                                    Color.White.copy(alpha = 0.06f)
-                                                )
-                                            }
-                                        )
-                                    )
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(34.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(
-                                            if (isActiveItem) BrandHeroStart
-                                            else Color.White.copy(alpha = 0.12f)
-                                        )
-                                        .border(
-                                            0.8.dp,
-                                            if (isActiveItem) Color.White.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.24f),
-                                            RoundedCornerShape(10.dp)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = reportCategoryIcon(category),
-                                        contentDescription = null,
-                                        tint = if (isActiveItem) Color.White else BrandDeep,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(10.dp))
-
-                                Text(
-                                    text = category.title,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isActiveItem) Color.White else MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f)
-                                )
-
-                                Spacer(modifier = Modifier.width(8.dp))
-
-                                Icon(
-                                    imageVector = if (isActiveItem) {
-                                        Icons.Outlined.Check
-                                    } else {
-                                        Icons.AutoMirrored.Filled.KeyboardArrowRight
-                                    },
-                                    contentDescription = if (isActiveItem) "Selected" else "Open",
-                                    tint = if (isActiveItem) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
 }

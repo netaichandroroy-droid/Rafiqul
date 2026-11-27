@@ -12,6 +12,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,17 +30,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.PhoneInTalk
 import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Stop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +51,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,29 +73,44 @@ import com.example.ai.FemaleAiVoiceOption
 import com.example.ai.MondayAutoCallScheduler
 import com.example.data.AiCallCenterPrefsStore
 import com.example.data.AiCallStatus
+import com.example.data.CallScheduleDay
 import com.example.model.BanglaFormatters
 import com.example.ui.AiCallCenterUiState
-import com.example.ui.components.SectionPanelCard
+import com.example.ui.components.CleanHomeMetricTile
+import com.example.ui.components.GlossyInnerMetricTile
+import com.example.ui.components.GlossyNeonIconOrb
+import com.example.ui.components.UnifiedPageCardSurface
+import com.example.ui.components.UnifiedPageSectionDivider
+import com.example.ui.components.hisab3DButtonSurface
+import com.example.ui.components.hisabFilterChipBorder
+import com.example.ui.components.hisabFilterChipColors
 import com.example.ui.theme.CardBorderSolid
 import com.example.ui.theme.CardInnerTileSolid
+import com.example.ui.theme.CardSurfaceSolid
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.ExpenseSurface
 import com.example.ui.theme.GlassTextPrimary
 import com.example.ui.theme.GlassTextSecondary
-import com.example.ui.theme.HeroCardBorderSolid
-import com.example.ui.theme.HeroCardSolid
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeSurface
 import com.example.ui.theme.NagadAccent
 import com.example.ui.theme.NagadSurface
+import com.example.ui.theme.NeonBlue
+import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.NeonEmerald
+import com.example.ui.theme.NeonGold
+import com.example.ui.theme.NeonPurple
 
-private val MONDAY_HOUR_SLOTS = listOf(9, 10, 11, 14, 16)
+private val QUICK_CALL_HOUR_SLOTS = listOf(9, 10, 11, 14, 16, 20)
 
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun AiCallCenterScreen(
     state: AiCallCenterUiState,
     onToggleMondayAutoCall: (Boolean) -> Unit,
+    onToggleCallDay: (Int) -> Unit,
     onSelectCallHour: (Int) -> Unit,
+    onUpdateCallTime: (Int, Int) -> Unit,
     onToggleAutoVoice: (Boolean) -> Unit,
     onToggleAlsoDialPhone: (Boolean) -> Unit,
     onSelectVoice: (FemaleAiVoiceOption) -> Unit,
@@ -106,6 +127,7 @@ fun AiCallCenterScreen(
 ) {
     val context = LocalContext.current
     var pendingCallAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var showTimePickerDialog by remember { mutableStateOf(false) }
 
     val callPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -135,7 +157,12 @@ fun AiCallCenterScreen(
         }
     }
 
-    LaunchedEffect(state.autoCallMondayEnabled, state.scheduledHour, state.scheduledMinute) {
+    LaunchedEffect(
+        state.autoCallMondayEnabled,
+        state.enabledDays,
+        state.scheduledHour,
+        state.scheduledMinute
+    ) {
         MondayAutoCallScheduler.syncSchedule(context)
     }
 
@@ -168,29 +195,40 @@ fun AiCallCenterScreen(
         onConsumePendingDial()
     }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .testTag("ai_call_center_screen"),
-        contentPadding = PaddingValues(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        if (state.isCallActive) {
-            item {
-                LiveFreeAiCallCard(
-                    state = state,
-                    onStop = onStopVoice
-                )
-            }
-        }
+    val femaleVoices = remember { FemaleAiVoiceOption.entries.filter { !it.isMale } }
+    val maleVoices = remember { FemaleAiVoiceOption.entries.filter { it.isMale } }
+    val activeDaysSummary = remember(state.enabledDays) {
+        AiCallCenterPrefsStore.formatEnabledDaysSummary(state.enabledDays)
+    }
+    val formattedCurrentTime = remember(state.scheduledHour, state.scheduledMinute) {
+        AiCallCenterPrefsStore.formatTimeSlot(state.scheduledHour, state.scheduledMinute)
+    }
 
-        item {
-            SectionPanelCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("ai_call_center_schedule_card")
-            ) {
+    UnifiedPageCardSurface(
+        modifier = modifier.testTag("ai_call_center_screen")
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (state.isCallActive) {
+                item {
+                    LiveFreeAiCallCard(
+                        state = state,
+                        onStop = onStopVoice
+                    )
+                    UnifiedPageSectionDivider(modifier = Modifier.padding(vertical = 14.dp))
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                        .testTag("ai_call_center_schedule_card")
+                ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -200,56 +238,42 @@ fun AiCallCenterScreen(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = HeroCardSolid,
-                            border = BorderStroke(1.dp, HeroCardBorderSolid),
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Outlined.PhoneInTalk,
-                                    contentDescription = null,
-                                    tint = IncomeEmerald,
-                                    modifier = Modifier.size(21.dp)
-                                )
-                            }
-                        }
+                        GlossyNeonIconOrb(
+                            icon = Icons.Outlined.PhoneInTalk,
+                            contentDescription = null,
+                            glowColor = NeonEmerald,
+                            size = 42.dp,
+                            iconSize = 21.dp
+                        )
                         Spacer(modifier = Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Free AI Call Center",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = GlassTextPrimary
-                            )
-                            Text(
-                                text = "Female AI auto-calls Monday dues (Free)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = GlassTextSecondary
-                            )
-                        }
+                        Text(
+                            text = "Free AI Call Center",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = GlassTextPrimary,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         shape = RoundedCornerShape(14.dp),
                         color = when {
                             state.isMondayToday && state.autoCallMondayEnabled -> IncomeSurface
-                            state.autoCallMondayEnabled -> MaterialTheme.colorScheme.primaryContainer
+                            state.autoCallMondayEnabled && state.enabledDays.isNotEmpty() -> MaterialTheme.colorScheme.primaryContainer
                             else -> ExpenseSurface
                         }
                     ) {
                         Text(
                             text = when {
-                                state.isMondayToday && state.autoCallMondayEnabled -> "Free • Active"
-                                state.autoCallMondayEnabled -> "Free • Monday"
+                                state.isMondayToday && state.autoCallMondayEnabled -> "Today • Active"
+                                state.autoCallMondayEnabled && state.enabledDays.isNotEmpty() -> "Scheduled"
                                 else -> "Paused"
                             },
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = when {
                                 state.isMondayToday && state.autoCallMondayEnabled -> IncomeEmerald
-                                state.autoCallMondayEnabled -> MaterialTheme.colorScheme.primary
+                                state.autoCallMondayEnabled && state.enabledDays.isNotEmpty() -> MaterialTheme.colorScheme.primary
                                 else -> ExpenseCrimson
                             },
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
@@ -259,10 +283,9 @@ fun AiCallCenterScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                Surface(
+                GlossyInnerMetricTile(
+                    accentColor = NeonCyan,
                     shape = RoundedCornerShape(14.dp),
-                    color = CardInnerTileSolid,
-                    border = BorderStroke(1.dp, CardBorderSolid),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
@@ -273,7 +296,7 @@ fun AiCallCenterScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Auto-Call on Monday",
+                                    text = "Auto-Call Schedule",
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = GlassTextPrimary
@@ -305,36 +328,132 @@ fun AiCallCenterScreen(
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 8.dp),
                             thickness = 0.8.dp,
-                            color = CardBorderSolid.copy(alpha = 0.7f)
+                            color = Color.White.copy(alpha = 0.12f)
+                        )
+
+                        Text(
+                            text = "Select Call Days (Turn ON days to call):",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GlassTextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        FlowRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("ai_call_seven_days_selector"),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            CallScheduleDay.entries.forEach { day ->
+                                val selected = day.calendarDay in state.enabledDays
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = {
+                                        onToggleCallDay(day.calendarDay)
+                                        if (!selected && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            val notifGranted = ContextCompat.checkSelfPermission(
+                                                context,
+                                                Manifest.permission.POST_NOTIFICATIONS
+                                            ) == PackageManager.PERMISSION_GRANTED
+                                            if (!notifGranted) {
+                                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                            }
+                                        }
+                                    },
+                                    label = {
+                                        Text(
+                                            text = if (selected) "${day.fullLabel} ON" else day.fullLabel,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    },
+                                    colors = hisabFilterChipColors(accentColor = NeonEmerald),
+                                    border = hisabFilterChipBorder(
+                                        selected = selected,
+                                        accentColor = NeonEmerald
+                                    ),
+                                    modifier = Modifier.testTag("ai_call_day_${day.name.lowercase()}")
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            thickness = 0.8.dp,
+                            color = Color.White.copy(alpha = 0.12f)
                         )
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Schedule,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Monday Call Time:",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = GlassTextPrimary
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Schedule,
+                                    contentDescription = null,
+                                    tint = NeonCyan,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Column {
+                                    Text(
+                                        text = "Call Time",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GlassTextPrimary
+                                    )
+                                    Text(
+                                        text = formattedCurrentTime,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = NeonCyan,
+                                        modifier = Modifier.testTag("ai_call_current_time_text")
+                                    )
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = { showTimePickerDialog = true },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = CardSurfaceSolid,
+                                    contentColor = NeonCyan
+                                ),
+                                border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.55f)),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier
+                                    .height(40.dp)
+                                    .hisab3DButtonSurface(accentColor = NeonCyan, cornerRadius = 12.dp)
+                                    .testTag("ai_call_update_time_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Edit,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text = "Update Time",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            MONDAY_HOUR_SLOTS.forEach { hour ->
-                                val selected = state.scheduledHour == hour
+                            QUICK_CALL_HOUR_SLOTS.forEach { hour ->
+                                val selected = state.scheduledHour == hour && state.scheduledMinute == 0
                                 FilterChip(
                                     selected = selected,
                                     onClick = { onSelectCallHour(hour) },
@@ -344,16 +463,21 @@ fun AiCallCenterScreen(
                                             style = MaterialTheme.typography.labelSmall
                                         )
                                     },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.primary
+                                    colors = hisabFilterChipColors(accentColor = NeonCyan),
+                                    border = hisabFilterChipBorder(
+                                        selected = selected,
+                                        accentColor = NeonCyan
                                     ),
                                     modifier = Modifier.testTag("ai_call_hour_${hour}")
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(6.dp))
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            thickness = 0.8.dp,
+                            color = Color.White.copy(alpha = 0.12f)
+                        )
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -362,13 +486,13 @@ fun AiCallCenterScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Female AI Speaker",
+                                    text = "AI Call Speaker",
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = GlassTextPrimary
                                 )
                                 Text(
-                                    text = "Female voice speaks automatically on every call",
+                                    text = "Active: ${state.selectedVoice.agentName} (${state.selectedVoice.genderLabel})",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = GlassTextSecondary
                                 )
@@ -380,12 +504,21 @@ fun AiCallCenterScreen(
                             )
                         }
 
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Female AI Speaker:",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = NeonPurple
+                        )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Row(
+                        FlowRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            FemaleAiVoiceOption.entries.forEach { voice ->
+                            femaleVoices.forEach { voice ->
                                 val selected = state.selectedVoice == voice
                                 FilterChip(
                                     selected = selected,
@@ -393,14 +526,54 @@ fun AiCallCenterScreen(
                                     label = {
                                         Text(
                                             text = voice.bnLabel,
-                                            style = MaterialTheme.typography.labelSmall
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                                         )
                                     },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.primary
+                                    colors = hisabFilterChipColors(accentColor = NeonPurple),
+                                    border = hisabFilterChipBorder(
+                                        selected = selected,
+                                        accentColor = NeonPurple
                                     ),
                                     modifier = Modifier.testTag("ai_call_voice_${voice.voiceId.lowercase()}")
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Male AI Speaker:",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = NeonGold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        FlowRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("ai_call_male_speakers_row"),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            maleVoices.forEach { voice ->
+                                val selected = state.selectedVoice == voice
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = { onSelectVoice(voice) },
+                                    label = {
+                                        Text(
+                                            text = voice.bnLabel,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    },
+                                    colors = hisabFilterChipColors(accentColor = NeonGold),
+                                    border = hisabFilterChipBorder(
+                                        selected = selected,
+                                        accentColor = NeonGold
+                                    ),
+                                    modifier = Modifier.testTag("ai_call_voice_${voice.name.lowercase()}")
                                 )
                             }
                         }
@@ -408,7 +581,7 @@ fun AiCallCenterScreen(
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 8.dp),
                             thickness = 0.8.dp,
-                            color = CardBorderSolid.copy(alpha = 0.7f)
+                            color = Color.White.copy(alpha = 0.12f)
                         )
 
                         Row(
@@ -454,6 +627,7 @@ fun AiCallCenterScreen(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
+                            .hisab3DButtonSurface(accentColor = NeonEmerald, cornerRadius = 12.dp)
                             .testTag("ai_call_start_queue_button")
                     ) {
                         if (state.isCallActive) {
@@ -467,7 +641,7 @@ fun AiCallCenterScreen(
                                 text = if (state.activeCallTotalCount > 1) {
                                     "Auto-Calling (${state.activeCallIndex}/${state.activeCallTotalCount})..."
                                 } else {
-                                    "Female AI Speaking..."
+                                    "${state.selectedVoice.agentName} Speaking..."
                                 },
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -498,6 +672,7 @@ fun AiCallCenterScreen(
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = ExpenseCrimson),
                             modifier = Modifier
                                 .height(48.dp)
+                                .hisab3DButtonSurface(accentColor = ExpenseCrimson, cornerRadius = 12.dp)
                                 .testTag("ai_call_stop_voice_button")
                         ) {
                             Icon(
@@ -511,9 +686,9 @@ fun AiCallCenterScreen(
 
                 if (state.progressMessage.isNotBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Surface(
+                    GlossyInnerMetricTile(
+                        accentColor = NeonEmerald,
                         shape = RoundedCornerShape(10.dp),
-                        color = IncomeSurface,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -539,9 +714,9 @@ fun AiCallCenterScreen(
 
                 if (!state.errorMessage.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Surface(
+                    GlossyInnerMetricTile(
+                        accentColor = ExpenseCrimson,
                         shape = RoundedCornerShape(10.dp),
-                        color = ExpenseSurface,
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("ai_call_error_banner")
@@ -566,17 +741,16 @@ fun AiCallCenterScreen(
 
                 if (state.activeCallScript.isNotBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Surface(
+                    GlossyInnerMetricTile(
+                        accentColor = NeonCyan,
                         shape = RoundedCornerShape(12.dp),
-                        color = CardInnerTileSolid,
-                        border = BorderStroke(1.dp, CardBorderSolid),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("ai_call_script_box")
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
                             Text(
-                                text = "${state.selectedVoice.agentName} (Female AI) Call Script",
+                                text = "${state.selectedVoice.agentName} (${state.selectedVoice.genderLabel}) Call Script",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -591,12 +765,14 @@ fun AiCallCenterScreen(
                     }
                 }
             }
+            UnifiedPageSectionDivider(modifier = Modifier.padding(vertical = 14.dp))
         }
 
         item {
-            SectionPanelCard(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
                     .testTag("ai_call_center_queue_card")
             ) {
                 Row(
@@ -605,7 +781,7 @@ fun AiCallCenterScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Monday Dues Call Queue",
+                        text = "Scheduled Dues Call Queue",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = GlassTextPrimary,
@@ -680,14 +856,17 @@ fun AiCallCenterScreen(
         }
 
         items(state.dueQueue, key = { it.memberId }) { item ->
-            SectionPanelCard(
+            UnifiedPageSectionDivider(modifier = Modifier.padding(vertical = 12.dp))
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
                     .testTag("ai_call_queue_item_${item.memberId}")
             ) {
                 DueMemberCallCardContent(
                     item = item,
                     isActive = state.activeMemberId == item.memberId && state.isCallActive,
+                    speakerLabel = state.selectedVoice.genderLabel,
                     onFreeAiCall = { onCallMember(item.memberId) },
                     onDialSim = {
                         launchWithCallPermissionIfNeeded(true) { onDialMemberPhone(item.memberId) }
@@ -707,17 +886,66 @@ fun AiCallCenterScreen(
     }
 }
 
+    if (showTimePickerDialog) {
+        val pickerState = rememberTimePickerState(
+            initialHour = state.scheduledHour,
+            initialMinute = state.scheduledMinute,
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePickerDialog = false },
+            containerColor = CardSurfaceSolid,
+            titleContentColor = GlassTextPrimary,
+            textContentColor = GlassTextSecondary,
+            title = {
+                Text(
+                    text = "Update Call Time",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TimePicker(state = pickerState)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUpdateCallTime(pickerState.hour, pickerState.minute)
+                        showTimePickerDialog = false
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .hisab3DButtonSurface(accentColor = NeonCyan, cornerRadius = 10.dp)
+                        .testTag("ai_call_confirm_time_button")
+                ) {
+                    Text("Update Time", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePickerDialog = false }) {
+                    Text("Cancel", color = GlassTextSecondary)
+                }
+            }
+        )
+    }
+}
+
 @Composable
 private fun LiveFreeAiCallCard(
     state: AiCallCenterUiState,
     onStop: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = HeroCardSolid,
-        border = BorderStroke(1.4.dp, IncomeEmerald.copy(alpha = 0.72f)),
+    CleanHomeMetricTile(
+        accentColor = NeonEmerald,
+        shape = RoundedCornerShape(14.dp),
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 14.dp)
             .testTag("ai_call_live_banner_card")
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -742,7 +970,7 @@ private fun LiveFreeAiCallCard(
                         )
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
-                            text = "FREE AI CALL • FEMALE VOICE",
+                            text = "FREE AI CALL • ${state.selectedVoice.genderLabel.uppercase()}",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = IncomeEmerald
@@ -798,7 +1026,7 @@ private fun LiveFreeAiCallCard(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = state.activeCallPhaseLabel.ifBlank {
-                            "${state.selectedVoice.agentName} (Female) Speaking..."
+                            "${state.selectedVoice.agentName} (${state.selectedVoice.genderLabel}) Speaking..."
                         },
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
@@ -813,7 +1041,9 @@ private fun LiveFreeAiCallCard(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = ExpenseCrimson),
                     shape = RoundedCornerShape(10.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    modifier = Modifier.height(38.dp)
+                    modifier = Modifier
+                        .height(38.dp)
+                        .hisab3DButtonSurface(accentColor = ExpenseCrimson, cornerRadius = 10.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Stop,
@@ -852,6 +1082,7 @@ private fun QueueStatBadge(
 private fun DueMemberCallCardContent(
     item: AiCallQueueItem,
     isActive: Boolean,
+    speakerLabel: String,
     onFreeAiCall: () -> Unit,
     onDialSim: () -> Unit,
     onPlayVoice: () -> Unit,
@@ -929,6 +1160,7 @@ private fun DueMemberCallCardContent(
             modifier = Modifier
                 .weight(1f)
                 .height(44.dp)
+                .hisab3DButtonSurface(accentColor = NeonCyan, cornerRadius = 10.dp)
                 .testTag("ai_call_member_button_${item.memberId}")
         ) {
             Icon(
@@ -950,6 +1182,7 @@ private fun DueMemberCallCardContent(
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                 modifier = Modifier
                     .height(44.dp)
+                    .hisab3DButtonSurface(accentColor = NeonBlue, cornerRadius = 10.dp)
                     .testTag("ai_dial_sim_button_${item.memberId}")
             ) {
                 Icon(
@@ -969,11 +1202,12 @@ private fun DueMemberCallCardContent(
             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
             modifier = Modifier
                 .height(44.dp)
+                .hisab3DButtonSurface(accentColor = NeonPurple, cornerRadius = 10.dp)
                 .testTag("ai_voice_member_button_${item.memberId}")
         ) {
             Icon(
                 imageVector = Icons.Outlined.RecordVoiceOver,
-                contentDescription = "Play female AI voice",
+                contentDescription = "Play $speakerLabel voice",
                 modifier = Modifier.size(16.dp)
             )
         }

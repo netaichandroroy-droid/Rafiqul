@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,11 +31,14 @@ import com.example.model.HisabTransaction
 import com.example.model.MemberTakaJoma
 import com.example.model.TxType
 import com.example.ui.components.AdminMemberTakaJomaTableCard
-import com.example.ui.components.SectionPanelCard
+import com.example.ui.components.CleanHomeMetricTile
+import com.example.ui.components.UnifiedPageCardSurface
+import com.example.ui.components.UnifiedPageSectionDivider
+import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.ExpenseCrimsonDark
-import com.example.ui.theme.ExpenseSurface
 import com.example.ui.theme.IncomeEmeraldDark
-import com.example.ui.theme.IncomeSurface
+import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.NeonEmerald
 
 @Composable
 fun TransactionsScreen(
@@ -58,103 +62,82 @@ fun TransactionsScreen(
     }
     val monthNetBalance = monthIncome - monthExpense
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        item {
-            SectionPanelCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("transactions_monthly_summary_card")
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+    UnifiedPageCardSurface(modifier = modifier) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                        .testTag("transactions_monthly_summary_card")
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "This Month's Summary",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = BanglaFormatters.formatBanglaMonth(currentMonth),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
+                    Text(
+                        text = "This Month's Summary",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "${monthTransactions.size} entries",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        MonthlySummaryMetricBox(
+                            label = stringResource(R.string.total_income),
+                            amount = BanglaFormatters.formatBdt(monthIncome),
+                            accentColor = NeonEmerald,
+                            contentColor = IncomeEmeraldDark,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("monthly_summary_income")
+                        )
+                        MonthlySummaryMetricBox(
+                            label = stringResource(R.string.total_expense),
+                            amount = BanglaFormatters.formatBdt(monthExpense),
+                            accentColor = ExpenseCrimson,
+                            contentColor = ExpenseCrimsonDark,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("monthly_summary_expense")
+                        )
+                        MonthlySummaryMetricBox(
+                            label = "Net Balance",
+                            amount = BanglaFormatters.formatBdt(monthNetBalance),
+                            accentColor = if (monthNetBalance >= 0) NeonCyan else ExpenseCrimson,
+                            contentColor = if (monthNetBalance >= 0) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                ExpenseCrimsonDark
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("monthly_summary_net_balance")
                         )
                     }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    MonthlySummaryMetricBox(
-                        label = stringResource(R.string.total_income),
-                        amount = BanglaFormatters.formatBdt(monthIncome),
-                        containerColor = IncomeSurface,
-                        contentColor = IncomeEmeraldDark,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("monthly_summary_income")
-                    )
-                    MonthlySummaryMetricBox(
-                        label = stringResource(R.string.total_expense),
-                        amount = BanglaFormatters.formatBdt(monthExpense),
-                        containerColor = ExpenseSurface,
-                        contentColor = ExpenseCrimsonDark,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("monthly_summary_expense")
-                    )
-                    MonthlySummaryMetricBox(
-                        label = "Net Balance",
-                        amount = BanglaFormatters.formatBdt(monthNetBalance),
-                        containerColor = if (monthNetBalance >= 0) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            ExpenseSurface
-                        },
-                        contentColor = if (monthNetBalance >= 0) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            ExpenseCrimsonDark
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("monthly_summary_net_balance")
-                    )
                 }
             }
-        }
 
-        item {
-            AdminMemberTakaJomaTableCard(
-                submissions = memberTakaJomaList,
-                onDeleteSubmission = onDeleteMemberTakaJoma,
-                onApproveSubmission = onApproveMemberTakaJoma,
-                onRejectSubmission = onRejectMemberTakaJoma,
-                onOpenForm = onOpenMemberTakaJoma
-            )
+            item { UnifiedPageSectionDivider() }
+
+            item {
+                AdminMemberTakaJomaTableCard(
+                    submissions = memberTakaJomaList,
+                    onDeleteSubmission = onDeleteMemberTakaJoma,
+                    onApproveSubmission = onApproveMemberTakaJoma,
+                    onRejectSubmission = onRejectMemberTakaJoma,
+                    onOpenForm = onOpenMemberTakaJoma,
+                    embeddedInOuterCard = true
+                )
+            }
         }
     }
 }
@@ -163,16 +146,16 @@ fun TransactionsScreen(
 private fun MonthlySummaryMetricBox(
     label: String,
     amount: String,
-    containerColor: Color,
+    accentColor: Color,
     contentColor: Color,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    CleanHomeMetricTile(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = containerColor
+        accentColor = accentColor,
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
@@ -180,7 +163,7 @@ private fun MonthlySummaryMetricBox(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = amount,
                 style = MaterialTheme.typography.titleSmall,

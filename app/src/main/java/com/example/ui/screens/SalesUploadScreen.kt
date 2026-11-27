@@ -58,14 +58,35 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.Color
 import com.example.data.ReportPictureRenderer
 import com.example.data.SalesSheetParser
 import com.example.model.BanglaFormatters
 import com.example.model.Member
 import com.example.model.MonthlySalesRecord
+import com.example.ui.components.CleanHomeMetricTile
+import com.example.ui.components.GlossyFormSectionHeader
 import com.example.ui.components.MonthlySalesTableCard
-import com.example.ui.components.SectionPanelCard
+import com.example.ui.components.UnifiedPageCardSurface
+import com.example.ui.components.UnifiedPageSectionDivider
+import com.example.ui.components.hisab3DButtonSurface
+import com.example.ui.components.hisab3DFieldDepth
+import com.example.ui.components.hisabFilterChipBorder
+import com.example.ui.components.hisabFilterChipColors
+import com.example.ui.components.hisabFormFieldColors
+import com.example.ui.theme.BrandHeroStart
+import com.example.ui.theme.CardInnerTileSolid
+import com.example.ui.theme.CardSurfaceSolid
+import com.example.ui.theme.ExpenseCrimson
+import com.example.ui.theme.GlassTextPrimary
+import com.example.ui.theme.GlassTextSecondary
 import com.example.ui.theme.IncomeEmerald
+import com.example.ui.theme.MetallicSilverRim
+import com.example.ui.theme.NeonBlue
+import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.NeonEmerald
+import com.example.ui.theme.NeonGold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -175,40 +196,32 @@ fun SalesUploadScreen(
         }
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // Month Selector & Summary Card
-        item {
-            SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+    UnifiedPageCardSurface(modifier = modifier) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Month Selector & Summary Section
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
                 ) {
-                    Text(
-                        text = "Monthly Sales Upload",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
+                    GlossyFormSectionHeader(
+                        icon = Icons.Outlined.CalendarMonth,
+                        title = "Monthly Sales Upload",
+                        glowColor = NeonCyan
                     )
-                    Icon(
-                        imageVector = Icons.Outlined.CalendarMonth,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                    CleanHomeMetricTile(
+                        accentColor = NeonCyan,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -224,13 +237,15 @@ fun SalesUploadScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                contentDescription = "Previous month"
+                                contentDescription = "Previous month",
+                                tint = NeonCyan
                             )
                         }
                         Text(
                             text = BanglaFormatters.formatBanglaMonth(selectedMonth),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                            color = GlassTextPrimary,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.testTag("sales_selected_month_text")
                         )
@@ -242,7 +257,8 @@ fun SalesUploadScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = "Next month"
+                                contentDescription = "Next month",
+                                tint = NeonCyan
                             )
                         }
                     }
@@ -254,36 +270,36 @@ fun SalesUploadScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Surface(
+                    CleanHomeMetricTile(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
+                        accentColor = NeonCyan,
+                        shape = RoundedCornerShape(14.dp)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
                                 text = "Total TP sales",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = GlassTextSecondary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = BanglaFormatters.formatBdt(totalTpSales),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = GlassTextPrimary
                             )
                         }
                     }
-                    Surface(
+                    CleanHomeMetricTile(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
+                        accentColor = NeonEmerald,
+                        shape = RoundedCornerShape(14.dp)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
                                 text = "Total TP+VAT sales",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = GlassTextSecondary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
@@ -296,18 +312,22 @@ fun SalesUploadScreen(
                     }
                 }
             }
+            UnifiedPageSectionDivider(modifier = Modifier.padding(vertical = 14.dp))
         }
 
-        // Upload & Entry Controls Card
+        // Upload & Entry Controls Section
         item {
-            SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "File Upload & Entry",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
+            ) {
+                GlossyFormSectionHeader(
+                    icon = Icons.Outlined.FileUpload,
+                    title = "File Upload & Entry",
+                    glowColor = NeonGold
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -318,20 +338,16 @@ fun SalesUploadScreen(
                         onClick = { replaceOnUpload = true },
                         label = { Text("Replace Month") },
                         modifier = Modifier.weight(1f),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.primary
-                        )
+                        colors = hisabFilterChipColors(accentColor = NeonGold),
+                        border = hisabFilterChipBorder(selected = replaceOnUpload, accentColor = NeonGold)
                     )
                     FilterChip(
                         selected = !replaceOnUpload,
                         onClick = { replaceOnUpload = false },
                         label = { Text("Append") },
                         modifier = Modifier.weight(1f),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.primary
-                        )
+                        colors = hisabFilterChipColors(accentColor = NeonEmerald),
+                        border = hisabFilterChipBorder(selected = !replaceOnUpload, accentColor = NeonEmerald)
                     )
                 }
 
@@ -350,10 +366,15 @@ fun SalesUploadScreen(
                             )
                         )
                     },
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BrandHeroStart,
+                        contentColor = Color.White
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .height(50.dp)
+                        .hisab3DButtonSurface(accentColor = NeonCyan, cornerRadius = 14.dp)
                         .testTag("sales_upload_file_button")
                 ) {
                     Icon(
@@ -362,7 +383,7 @@ fun SalesUploadScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Upload CSV / Excel (.xlsx)")
+                    Text("Upload CSV / Excel (.xlsx)", fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -374,15 +395,22 @@ fun SalesUploadScreen(
                     OutlinedButton(
                         onClick = { showPasteDialog = true },
                         shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = CardInnerTileSolid,
+                            contentColor = GlassTextPrimary
+                        ),
+                        border = BorderStroke(1.dp, MetallicSilverRim.copy(alpha = 0.42f)),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
+                            .hisab3DButtonSurface(accentColor = NeonCyan, cornerRadius = 12.dp)
                             .testTag("sales_paste_table_button")
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.ContentPaste,
                             contentDescription = null,
+                            tint = NeonCyan,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -394,15 +422,22 @@ fun SalesUploadScreen(
                             showManualDialog = true
                         },
                         shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = CardInnerTileSolid,
+                            contentColor = GlassTextPrimary
+                        ),
+                        border = BorderStroke(1.dp, MetallicSilverRim.copy(alpha = 0.42f)),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
+                            .hisab3DButtonSurface(accentColor = NeonEmerald, cornerRadius = 12.dp)
                             .testTag("sales_manual_add_button")
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Add,
                             contentDescription = null,
+                            tint = NeonEmerald,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -459,18 +494,21 @@ fun SalesUploadScreen(
                     }
                 }
             }
+            UnifiedPageSectionDivider(modifier = Modifier.padding(vertical = 14.dp))
         }
 
-        // Uploaded Sales Table Preview Card
+        // Uploaded Sales Table Section
         item {
             MonthlySalesTableCard(
                 title = "${BanglaFormatters.formatBanglaMonth(selectedMonth)} — Sales List",
                 records = monthRecords,
                 emptyMessage = "No sales uploaded for ${BanglaFormatters.formatBanglaMonth(selectedMonth)} yet.",
-                onRowClick = { record -> selectedActionRecord = record }
+                onRowClick = { record -> selectedActionRecord = record },
+                embeddedInOuterCard = true
             )
         }
     }
+}
 
     if (showPasteDialog) {
         PasteSalesTableDialog(
@@ -513,6 +551,9 @@ fun SalesUploadScreen(
     selectedActionRecord?.let { record ->
         AlertDialog(
             onDismissRequest = { selectedActionRecord = null },
+            containerColor = CardSurfaceSolid,
+            titleContentColor = GlassTextPrimary,
+            textContentColor = GlassTextSecondary,
             title = { Text("${record.name} (${record.code.ifBlank { "-" }})") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -546,7 +587,7 @@ fun SalesUploadScreen(
                             selectedActionRecord = null
                         },
                         colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
+                            contentColor = ExpenseCrimson
                         )
                     ) {
                         Text("Delete")
@@ -562,6 +603,9 @@ fun SalesUploadScreen(
     if (showClearMonthConfirm) {
         AlertDialog(
             onDismissRequest = { showClearMonthConfirm = false },
+            containerColor = CardSurfaceSolid,
+            titleContentColor = GlassTextPrimary,
+            textContentColor = GlassTextSecondary,
             title = { Text("Clear All Sales for This Month?") },
             text = {
                 Text("${monthRecords.size} sales record(s) for ${BanglaFormatters.formatBanglaMonth(selectedMonth)} will be deleted.")
@@ -573,7 +617,7 @@ fun SalesUploadScreen(
                         showClearMonthConfirm = false
                     },
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
+                        contentColor = ExpenseCrimson
                     )
                 ) {
                     Text("Clear")
@@ -599,13 +643,16 @@ private fun PasteSalesTableDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = CardSurfaceSolid,
+        titleContentColor = GlassTextPrimary,
+        textContentColor = GlassTextSecondary,
         title = { Text("Paste Excel / CSV Data") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = "Paste data copied from Excel or Google Sheets (columns: code, name, TP sales, TP+VAT sales):",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = GlassTextSecondary
                 )
                 OutlinedTextField(
                     value = rawText,
@@ -619,15 +666,17 @@ private fun PasteSalesTableDialog(
                     minLines = 5,
                     maxLines = 8,
                     shape = RoundedCornerShape(12.dp),
+                    colors = hisabFormFieldColors(accentColor = NeonCyan),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .hisab3DFieldDepth(accentColor = NeonCyan)
                         .testTag("sales_paste_text_input")
                 )
                 if (!errorText.isNullOrBlank()) {
                     Text(
                         text = errorText ?: "",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = ExpenseCrimson
                     )
                 }
             }
@@ -642,7 +691,14 @@ private fun PasteSalesTableDialog(
                         errorText = err.localizedMessage ?: "Please enter data in a valid format."
                     }
                 },
-                modifier = Modifier.testTag("sales_paste_import_button")
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BrandHeroStart,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .hisab3DButtonSurface(accentColor = BrandHeroStart, cornerRadius = 12.dp)
+                    .testTag("sales_paste_import_button")
             ) {
                 Text("Upload")
             }
@@ -674,6 +730,9 @@ private fun SalesRecordEditorDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = CardSurfaceSolid,
+        titleContentColor = GlassTextPrimary,
+        textContentColor = GlassTextSecondary,
         title = {
             Text(if (editingRecord == null) "Add Sales Record" else "Edit Sales Record")
         },
@@ -683,7 +742,7 @@ private fun SalesRecordEditorDialog(
                     Text(
                         text = "Auto-fill from Member:",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = GlassTextSecondary
                     )
                     Row(
                         modifier = Modifier
@@ -692,14 +751,17 @@ private fun SalesRecordEditorDialog(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         members.forEach { member ->
+                            val isPicked = name.equals(member.name, ignoreCase = true) &&
+                                code.equals(member.code, ignoreCase = true)
                             FilterChip(
-                                selected = name.equals(member.name, ignoreCase = true) &&
-                                    code.equals(member.code, ignoreCase = true),
+                                selected = isPicked,
                                 onClick = {
                                     code = member.code
                                     name = member.name
                                     errorText = null
                                 },
+                                colors = hisabFilterChipColors(accentColor = NeonCyan),
+                                border = hisabFilterChipBorder(selected = isPicked, accentColor = NeonCyan),
                                 label = {
                                     val label = if (member.code.isNotBlank()) {
                                         "${member.code} - ${member.name}"
@@ -722,8 +784,10 @@ private fun SalesRecordEditorDialog(
                     label = { Text("code") },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
+                    colors = hisabFormFieldColors(accentColor = NeonCyan),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .hisab3DFieldDepth(accentColor = NeonCyan)
                         .testTag("sales_manual_code_input")
                 )
 
@@ -736,8 +800,10 @@ private fun SalesRecordEditorDialog(
                     label = { Text("name") },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
+                    colors = hisabFormFieldColors(accentColor = NeonCyan),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .hisab3DFieldDepth(accentColor = NeonCyan)
                         .testTag("sales_manual_name_input")
                 )
 
@@ -751,8 +817,10 @@ private fun SalesRecordEditorDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     shape = RoundedCornerShape(12.dp),
+                    colors = hisabFormFieldColors(accentColor = NeonCyan),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .hisab3DFieldDepth(accentColor = NeonCyan)
                         .testTag("sales_manual_tp_input")
                 )
 
@@ -766,8 +834,10 @@ private fun SalesRecordEditorDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     shape = RoundedCornerShape(12.dp),
+                    colors = hisabFormFieldColors(accentColor = NeonEmerald),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .hisab3DFieldDepth(accentColor = NeonEmerald)
                         .testTag("sales_manual_tp_vat_input")
                 )
 
@@ -775,7 +845,7 @@ private fun SalesRecordEditorDialog(
                     Text(
                         text = errorText ?: "",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = ExpenseCrimson
                     )
                 }
             }
@@ -797,7 +867,14 @@ private fun SalesRecordEditorDialog(
                     }
                     onSave(cleanCode, cleanName.ifBlank { cleanCode }, tpSales, tpVat)
                 },
-                modifier = Modifier.testTag("sales_manual_save_button")
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BrandHeroStart,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .hisab3DButtonSurface(accentColor = BrandHeroStart, cornerRadius = 12.dp)
+                    .testTag("sales_manual_save_button")
             ) {
                 Text("Save")
             }

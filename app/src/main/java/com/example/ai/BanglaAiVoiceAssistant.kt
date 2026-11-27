@@ -28,22 +28,49 @@ import kotlin.math.roundToLong
 
 enum class FemaleAiVoiceOption(
     val voiceId: String,
+    val agentName: String,
     val bnLabel: String,
     val subtitle: String,
-    val agentName: String
+    val isMale: Boolean = false
 ) {
     AOEDE(
         voiceId = "Aoede",
-        bnLabel = "Warm Female Voice",
-        subtitle = "Warm & soothing tone",
-        agentName = "Ananya"
+        agentName = "Nadia",
+        bnLabel = "Nadia (Female)",
+        subtitle = "Warm female AI speaker",
+        isMale = false
     ),
     KORE(
         voiceId = "Kore",
-        bnLabel = "Clear Female Voice",
-        subtitle = "Crisp & expressive tone",
-        agentName = "Meghna"
-    )
+        agentName = "Sadia",
+        bnLabel = "Sadia (Female)",
+        subtitle = "Clear female AI speaker",
+        isMale = false
+    ),
+    RAFIQUL(
+        voiceId = "Charon",
+        agentName = "Md.Rafiqul",
+        bnLabel = "Md.Rafiqul",
+        subtitle = "Male AI speaker",
+        isMale = true
+    ),
+    NITAI(
+        voiceId = "Puck",
+        agentName = "Nitai Chondro Roy",
+        bnLabel = "Nitai Chondro Roy",
+        subtitle = "Male AI speaker",
+        isMale = true
+    ),
+    NIKHIL(
+        voiceId = "Fenrir",
+        agentName = "Nikhil Chondro Roy",
+        bnLabel = "Nikhil Chondro Roy",
+        subtitle = "Male AI speaker",
+        isMale = true
+    );
+
+    val genderLabel: String
+        get() = if (isMale) "Male AI" else "Female AI"
 }
 
 enum class AiVoiceScope(val bnLabel: String) {
@@ -109,6 +136,9 @@ class BanglaAiVoiceAssistant {
 
     private val aoedeTtsModel by lazy { buildTtsModel(FemaleAiVoiceOption.AOEDE.voiceId) }
     private val koreTtsModel by lazy { buildTtsModel(FemaleAiVoiceOption.KORE.voiceId) }
+    private val rafiqulTtsModel by lazy { buildTtsModel(FemaleAiVoiceOption.RAFIQUL.voiceId) }
+    private val nitaiTtsModel by lazy { buildTtsModel(FemaleAiVoiceOption.NITAI.voiceId) }
+    private val nikhilTtsModel by lazy { buildTtsModel(FemaleAiVoiceOption.NIKHIL.voiceId) }
 
     @OptIn(PublicPreviewAPI::class)
     private fun buildTtsModel(voiceName: String) = Firebase.ai.generativeModel(
@@ -171,9 +201,13 @@ class BanglaAiVoiceAssistant {
             val ttsModel = when (voiceOption) {
                 FemaleAiVoiceOption.AOEDE -> aoedeTtsModel
                 FemaleAiVoiceOption.KORE -> koreTtsModel
+                FemaleAiVoiceOption.RAFIQUL -> rafiqulTtsModel
+                FemaleAiVoiceOption.NITAI -> nitaiTtsModel
+                FemaleAiVoiceOption.NIKHIL -> nikhilTtsModel
             }
+            val voiceGender = if (voiceOption.isMale) "male" else "female"
             val ttsPrompt = "Please read the following English ledger summary aloud in a warm, calm, clear, " +
-                "and natural female voice at a steady pace. Do not add any extra introduction:\n\n$scriptText"
+                "and natural $voiceGender voice as ${voiceOption.agentName} at a steady pace. Do not add any extra introduction:\n\n$scriptText"
 
             val ttsResponse = withTimeout(TIMEOUT_MS) {
                 ttsModel.generateContent(ttsPrompt)
@@ -279,6 +313,32 @@ class BanglaAiVoiceAssistant {
                         track.flush()
                     }
                     track.release()
+                }
+            }
+        }
+    }
+
+    suspend fun playCallRingbackTone(pulses: Int = 2) {
+        withContext(Dispatchers.IO) {
+            val toneGen = runCatching {
+                android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 58)
+            }.getOrNull() ?: return@withContext
+            try {
+                repeat(pulses.coerceIn(1, 3)) { idx ->
+                    coroutineContext.ensureActive()
+                    runCatching {
+                        toneGen.startTone(android.media.ToneGenerator.TONE_SUP_RINGTONE, 420)
+                    }
+                    kotlinx.coroutines.delay(460)
+                    runCatching { toneGen.stopTone() }
+                    if (idx < pulses - 1) {
+                        kotlinx.coroutines.delay(240)
+                    }
+                }
+            } finally {
+                runCatching {
+                    toneGen.stopTone()
+                    toneGen.release()
                 }
             }
         }

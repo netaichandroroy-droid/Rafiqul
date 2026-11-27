@@ -63,6 +63,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.auth.AppLockCredentialStore
+import com.example.data.AppUpdateUiState
 import com.example.data.CloudAutoSyncRepository
 import com.example.data.CloudSyncPrefsStore
 import com.example.data.LocalTransactionStore
@@ -72,11 +73,13 @@ import com.example.data.MonthlySalesStore
 import com.example.data.OnlinePaymentStore
 import com.example.model.Member
 import com.example.model.TxType
+import com.example.ui.components.AppDataSuccessBanner
 import com.example.ui.components.AppFrostedGlassBackground
 import com.example.ui.components.AppGlassSnackbarHost
 import com.example.ui.components.GlassTopBarContainer
 import com.example.ui.components.StylishBottomNavBar
 import com.example.ui.components.StylishNavTab
+import com.example.ui.components.isSuccessFeedbackMessage
 import com.example.ui.screens.ChangePasswordDialog
 import com.example.ui.screens.MemberAvatarView
 import com.example.ui.screens.MemberHomeScreen
@@ -85,6 +88,7 @@ import com.example.ui.screens.MemberProfileScreen
 import com.example.ui.screens.MemberTakaJomaScreen
 import com.example.ui.screens.OnlinePaymentScreen
 import com.example.ui.screens.TransactionModalSheet
+import kotlinx.coroutines.delay
 
 private enum class MemberTab(val label: String) {
     HOME("Home"),
@@ -100,7 +104,12 @@ fun MemberMainApp(
     credentialStore: AppLockCredentialStore,
     onMemberLogout: () -> Unit,
     cloudSyncRepository: CloudAutoSyncRepository? = null,
-    syncOwnerUid: String = "local"
+    syncOwnerUid: String = "local",
+    appUpdateState: AppUpdateUiState = AppUpdateUiState(),
+    onToggleAutoUpdate: (Boolean) -> Unit = {},
+    onCheckAppUpdate: () -> Unit = {},
+    onCompleteAppUpdate: () -> Unit = {},
+    onOpenAppUpdateLink: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val localStore = remember(context) { LocalTransactionStore(context) }
@@ -143,6 +152,8 @@ fun MemberMainApp(
     var showModal by remember { mutableStateOf(false) }
     var modalInitialType by remember { mutableStateOf(TxType.EXPENSE) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
+    var activeSuccessBanner by remember { mutableStateOf<String?>(null) }
+    var activeSuccessSeq by remember { mutableStateOf(0L) }
 
     LaunchedEffect(activeMember.id, selectedTab, cloudSyncState.lastSyncedAtMs) {
         memberStore.findById(activeMember.id)?.let { latest ->
@@ -153,11 +164,24 @@ fun MemberMainApp(
         viewModel.refreshSharedData()
     }
 
-    LaunchedEffect(controls.snackbarMessage) {
+    LaunchedEffect(controls.snackbarMessage, controls.feedbackSequence) {
         val msg = controls.snackbarMessage
         if (!msg.isNullOrBlank()) {
-            snackbarHostState.showSnackbar(msg)
-            viewModel.clearSnackbar()
+            if (isSuccessFeedbackMessage(msg)) {
+                activeSuccessBanner = msg
+                activeSuccessSeq = controls.feedbackSequence
+                viewModel.clearSnackbar()
+            } else {
+                snackbarHostState.showSnackbar(msg)
+                viewModel.clearSnackbar()
+            }
+        }
+    }
+
+    LaunchedEffect(activeSuccessBanner, activeSuccessSeq) {
+        if (!activeSuccessBanner.isNullOrBlank()) {
+            delay(3600)
+            activeSuccessBanner = null
         }
     }
 
@@ -201,7 +225,8 @@ fun MemberMainApp(
                                 testTag = "member_nav_${tab.name.lowercase()}",
                                 onClick = { selectedTab = tab }
                             )
-                        }
+                        },
+                        dockedEdgeToEdge = true
                     )
                 }
             },
@@ -215,7 +240,7 @@ fun MemberMainApp(
                 if (useRail) {
                     NavigationRail(
                         modifier = Modifier.fillMaxHeight(),
-                        containerColor = Color(0xFF171024).copy(alpha = 0.80f)
+                        containerColor = Color(0xFF0A1324).copy(alpha = 0.92f)
                     ) {
                         MemberTab.entries.forEach { tab ->
                             val selected = selectedTab == tab
@@ -275,12 +300,26 @@ fun MemberMainApp(
                             member = activeMember,
                             transactionCount = transactions.size,
                             onOpenChangePassword = { showChangePasswordDialog = true },
-                            onLogout = onMemberLogout
+                            onLogout = onMemberLogout,
+                            appUpdateState = appUpdateState,
+                            onToggleAutoUpdate = onToggleAutoUpdate,
+                            onCheckAppUpdate = onCheckAppUpdate,
+                            onCompleteAppUpdate = onCompleteAppUpdate,
+                            onOpenAppUpdateLink = onOpenAppUpdateLink
                         )
                     }
                 }
             }
         }
+
+        AppDataSuccessBanner(
+            message = activeSuccessBanner,
+            onDismiss = { activeSuccessBanner = null },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 6.dp)
+        )
     }
 
     if (showModal) {
@@ -326,19 +365,18 @@ private fun MemberTopAppBar(
     member: Member,
     onProfileClick: () -> Unit
 ) {
-    GlassTopBarContainer {
+    GlassTopBarContainer(dockedEdgeToEdge = true) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
                 .clickable(onClick = onProfileClick)
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             MemberAvatarView(
                 name = member.name,
                 photoPath = member.profilePhotoPath,
-                size = 34.dp
+                size = 36.dp
             )
             Spacer(modifier = Modifier.width(10.dp))
             Text(

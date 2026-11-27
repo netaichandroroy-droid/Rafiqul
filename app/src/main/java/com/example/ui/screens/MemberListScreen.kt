@@ -4,11 +4,15 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,7 +37,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ContactPhone
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
@@ -43,7 +50,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -83,12 +89,28 @@ import com.example.data.MemberAppLinkStore
 import com.example.model.BanglaFormatters
 import com.example.model.Member
 import com.example.model.MemberSalesDuesCalculator
-import com.example.ui.components.GlassCardSurface
-import com.example.ui.components.SectionPanelCard
+import com.example.ui.components.GlossyFormSectionHeader
+import com.example.ui.components.GlossyInnerMetricTile
+import com.example.ui.components.GlossyNeonIconOrb
+import com.example.ui.components.UnifiedPageCardSurface
+import com.example.ui.components.glossyMetallicSurface
+import com.example.ui.components.hisab3DButtonSurface
+import com.example.ui.components.hisab3DFieldDepth
+import com.example.ui.components.hisabFilterChipBorder
+import com.example.ui.components.hisabFilterChipColors
+import com.example.ui.components.hisabFormFieldColors
+import com.example.ui.theme.BrandHeroStart
+import com.example.ui.theme.CardInnerTileSolid
+import com.example.ui.theme.CardSurfaceSolid
 import com.example.ui.theme.ExpenseCrimson
-import com.example.ui.theme.ExpenseSurface
+import com.example.ui.theme.GlassTextPrimary
+import com.example.ui.theme.GlassTextSecondary
 import com.example.ui.theme.IncomeEmerald
-import com.example.ui.theme.IncomeSurface
+import com.example.ui.theme.MetallicSilverRim
+import com.example.ui.theme.NeonBlue
+import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.NeonEmerald
+import com.example.ui.theme.NeonPurple
 
 @Composable
 fun MemberListScreen(
@@ -112,47 +134,16 @@ fun MemberListScreen(
     onResetPassword: ((Member) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val activeBg = IncomeSurface
-    val activeFg = IncomeEmerald
-    val inactiveBg = ExpenseSurface
-    val inactiveFg = ExpenseCrimson
     val borderColor = MaterialTheme.colorScheme.outline
 
     var showEditorSheet by remember { mutableStateOf(false) }
     var editingMember by remember { mutableStateOf<Member?>(null) }
     var viewingProfileMember by remember { mutableStateOf<Member?>(null) }
     var deletingMember by remember { mutableStateOf<Member?>(null) }
-    var selectedAreaFilter by remember { mutableStateOf<String?>(null) }
 
-    val sortedMembers = remember(members) {
+    val displayedMembers = remember(members) {
         MemberSalesDuesCalculator.sortMembersByArea(members)
     }
-    val distinctAreas = remember(sortedMembers) {
-        sortedMembers
-            .map { MemberSalesDuesCalculator.normalizeText(it.area) }
-            .filter { it.isNotEmpty() }
-            .distinctBy { it.lowercase() }
-    }
-    val effectiveAreaFilter = if (selectedAreaFilter != null && distinctAreas.any {
-            it.equals(selectedAreaFilter, ignoreCase = true)
-        }
-    ) {
-        selectedAreaFilter
-    } else {
-        null
-    }
-    val displayedMembers = remember(sortedMembers, effectiveAreaFilter) {
-        if (effectiveAreaFilter == null) {
-            sortedMembers
-        } else {
-            sortedMembers.filter {
-                MemberSalesDuesCalculator.normalizeText(it.area).equals(effectiveAreaFilter, ignoreCase = true)
-            }
-        }
-    }
-
-    val activeCount = remember(sortedMembers) { sortedMembers.count { it.isActive } }
-    val inactiveCount = sortedMembers.size - activeCount
     val tableHorizontalScroll = rememberScrollState()
 
     val textMeasurer = rememberTextMeasurer()
@@ -202,110 +193,13 @@ fun MemberListScreen(
     val activeColWidth = 46.dp
     val actionColWidth = 56.dp
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        item {
-            SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Member List",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Button(
-                        onClick = {
-                            editingMember = null
-                            showEditorSheet = true
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-                        modifier = Modifier
-                            .height(48.dp)
-                            .testTag("add_member_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Add Member")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    MemberStatChip(
-                        label = "Total: ${sortedMembers.size}",
-                        bg = MaterialTheme.colorScheme.primaryContainer,
-                        fg = MaterialTheme.colorScheme.primary
-                    )
-                    MemberStatChip(
-                        label = "Active: $activeCount",
-                        bg = activeBg,
-                        fg = activeFg
-                    )
-                    MemberStatChip(
-                        label = "Inactive: $inactiveCount",
-                        bg = inactiveBg,
-                        fg = inactiveFg
-                    )
-                }
-
-                if (distinctAreas.size > 1) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = effectiveAreaFilter == null,
-                            onClick = { selectedAreaFilter = null },
-                            label = { Text("All Areas (${sortedMembers.size})") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.primary
-                            ),
-                            modifier = Modifier.testTag("member_list_area_all")
-                        )
-                        distinctAreas.forEach { areaName ->
-                            val isSelected = effectiveAreaFilter.equals(areaName, ignoreCase = true)
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = {
-                                    selectedAreaFilter = if (isSelected) null else areaName
-                                },
-                                label = { Text(areaName) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.primary
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            GlassCardSurface(
-                contentPadding = PaddingValues(0.dp)
-            ) {
+    UnifiedPageCardSurface(modifier = modifier) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
                 if (displayedMembers.isEmpty()) {
                     Column(
                         modifier = Modifier
@@ -313,33 +207,28 @@ fun MemberListScreen(
                             .padding(vertical = 32.dp, horizontal = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Groups,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
+                        GlossyNeonIconOrb(
+                            icon = Icons.Outlined.Groups,
+                            contentDescription = null,
+                            glowColor = NeonCyan,
+                            size = 56.dp,
+                            iconSize = 28.dp
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "No members added yet. Tap 'Add Member' above to create your member list.",
+                            text = "No members added yet. Tap 'Member +' above to create your member list.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = GlassTextSecondary,
                             textAlign = TextAlign.Center
                         )
                     }
                 } else {
                     BoxWithConstraints(
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 2.dp)
                     ) {
-                        val borderOverhead = 7.dp
+                        val borderOverhead = 9.dp
                         val baseTotal = baseSlW + baseCodeW + baseNameW + baseDesigW + baseAreaW +
                             baseDepotW + activeColWidth + actionColWidth + borderOverhead
                         val extraWidth = (maxWidth - baseTotal).coerceAtLeast(0.dp)
@@ -354,7 +243,12 @@ fun MemberListScreen(
                                 .fillMaxWidth()
                                 .horizontalScroll(tableHorizontalScroll)
                         ) {
-                            Column {
+                            val tableShape = RoundedCornerShape(10.dp)
+                            Column(
+                                modifier = Modifier
+                                    .clip(tableShape)
+                                    .border(0.8.dp, borderColor.copy(alpha = 0.55f), tableShape)
+                            ) {
                                 // All-bordered Header Row
                                 Row(
                                     modifier = Modifier
@@ -584,6 +478,9 @@ fun MemberListScreen(
     deletingMember?.let { target ->
         AlertDialog(
             onDismissRequest = { deletingMember = null },
+            containerColor = CardSurfaceSolid,
+            titleContentColor = GlassTextPrimary,
+            textContentColor = GlassTextSecondary,
             title = { Text("Delete Member?") },
             text = { Text("${target.name} will be permanently removed from the member list.") },
             confirmButton = {
@@ -592,7 +489,7 @@ fun MemberListScreen(
                         onDeleteMember(target)
                         deletingMember = null
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    colors = ButtonDefaults.textButtonColors(contentColor = ExpenseCrimson),
                     modifier = Modifier.testTag("confirm_delete_member_button")
                 ) {
                     Text("Delete")
@@ -667,26 +564,6 @@ private fun TableTextCell(
     }
 }
 
-@Composable
-private fun MemberStatChip(
-    label: String,
-    bg: Color,
-    fg: Color
-) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = bg
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = fg,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-        )
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MemberProfileDetailSheet(
@@ -707,191 +584,241 @@ private fun MemberProfileDetailSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        containerColor = CardSurfaceSolid,
+        contentColor = GlassTextPrimary
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 14.dp)
+                .padding(bottom = 24.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                MemberAvatarView(
-                    name = member.name,
-                    photoPath = member.profilePhotoPath,
-                    size = 60.dp
-                )
-                Spacer(modifier = Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = member.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glossyMetallicSurface(
+                        shape = RoundedCornerShape(22.dp),
+                        accentColor = NeonCyan,
+                        secondaryGlow = NeonEmerald,
+                        borderWidth = 1.5.dp,
+                        isHero = true
                     )
-                    val profileMeta = listOfNotNull(
-                        member.designation.takeIf { it.isNotBlank() },
-                        member.depot.takeIf { it.isNotBlank() }
-                    ).joinToString(" • ")
-                    if (profileMeta.isNotBlank()) {
-                        Text(
-                            text = profileMeta,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                Switch(
-                    checked = member.isActive,
-                    onCheckedChange = onToggleActive
-                )
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
-
-            ProfileSheetFieldRow("Code (Login ID)", member.code.ifBlank { "-" })
-            ProfileSheetFieldRow(
-                "Password",
-                if (member.isDefaultPassword) {
-                    if (member.code.isNotBlank()) "${member.code} (Default)" else "Code not set"
-                } else {
-                    "Changed by member"
-                }
-            )
-            ProfileSheetFieldRow("Desig:", member.designation.ifBlank { "-" })
-            ProfileSheetFieldRow("Area", member.area.ifBlank { "-" })
-            ProfileSheetFieldRow("Depot", member.depot.ifBlank { "-" })
-            ProfileSheetFieldRow("Phone", member.phone.ifBlank { "-" })
-            ProfileSheetFieldRow("Email", member.email.ifBlank { "-" })
-            ProfileSheetFieldRow("Address", member.address.ifBlank { "-" })
-            ProfileSheetFieldRow("Sales", BanglaFormatters.formatBdt(member.salesAmount))
-            ProfileSheetFieldRow(
-                "Joining Date",
-                if (member.joiningDate.isNotBlank()) BanglaFormatters.formatBanglaDate(member.joiningDate) else "-"
-            )
-
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = "Member App Link",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = inviteText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MemberAvatarView(
+                            name = member.name,
+                            photoPath = member.profilePhotoPath,
+                            size = 60.dp
+                        )
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = member.name,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = GlassTextPrimary
+                            )
+                            val profileMeta = listOfNotNull(
+                                member.designation.takeIf { it.isNotBlank() },
+                                member.depot.takeIf { it.isNotBlank() }
+                            ).joinToString(" • ")
+                            if (profileMeta.isNotBlank()) {
+                                Text(
+                                    text = profileMeta,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = GlassTextSecondary
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = member.isActive,
+                            onCheckedChange = onToggleActive
+                        )
+                    }
+
+                    GlossyInnerMetricTile(
+                        accentColor = NeonBlue,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            ProfileSheetFieldRow("Code (Login ID)", member.code.ifBlank { "-" })
+                            ProfileSheetFieldRow(
+                                "Password",
+                                if (member.isDefaultPassword) {
+                                    if (member.code.isNotBlank()) "${member.code} (Default)" else "Code not set"
+                                } else {
+                                    "Changed by member"
+                                }
+                            )
+                            ProfileSheetFieldRow("Desig:", member.designation.ifBlank { "-" })
+                            ProfileSheetFieldRow("Area", member.area.ifBlank { "-" })
+                            ProfileSheetFieldRow("Depot", member.depot.ifBlank { "-" })
+                            ProfileSheetFieldRow("Phone", member.phone.ifBlank { "-" })
+                            ProfileSheetFieldRow("Email", member.email.ifBlank { "-" })
+                            ProfileSheetFieldRow("Address", member.address.ifBlank { "-" })
+                            ProfileSheetFieldRow("Sales", BanglaFormatters.formatBdt(member.salesAmount))
+                            ProfileSheetFieldRow(
+                                "Joining Date",
+                                if (member.joiningDate.isNotBlank()) BanglaFormatters.formatBanglaDate(member.joiningDate) else "-"
+                            )
+                        }
+                    }
+
+                    GlossyInnerMetricTile(
+                        accentColor = NeonCyan,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Member App Link",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = NeonCyan
+                            )
+                            Text(
+                                text = inviteText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GlassTextPrimary
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                        cm?.setPrimaryClip(ClipData.newPlainText("Member Login Link", inviteText))
+                                        linkStatusMessage = "Link and login details copied"
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = CardInnerTileSolid,
+                                        contentColor = GlassTextPrimary
+                                    ),
+                                    border = BorderStroke(1.dp, MetallicSilverRim.copy(alpha = 0.40f)),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .hisab3DButtonSurface(accentColor = NeonCyan, cornerRadius = 10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.ContentCopy,
+                                        contentDescription = null,
+                                        tint = NeonCyan,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Copy")
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, inviteText)
+                                        }
+                                        val chooser = Intent.createChooser(shareIntent, "Share Member Link").apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(chooser)
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = CardInnerTileSolid,
+                                        contentColor = GlassTextPrimary
+                                    ),
+                                    border = BorderStroke(1.dp, MetallicSilverRim.copy(alpha = 0.40f)),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .hisab3DButtonSurface(accentColor = NeonEmerald, cornerRadius = 10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Share,
+                                        contentDescription = null,
+                                        tint = NeonEmerald,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Share")
+                                }
+                            }
+                            if (!linkStatusMessage.isNullOrBlank()) {
+                                Text(
+                                    text = linkStatusMessage ?: "",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = NeonCyan
+                                )
+                            }
+                        }
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedButton(
-                            onClick = {
-                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                                cm?.setPrimaryClip(ClipData.newPlainText("Member Login Link", inviteText))
-                                linkStatusMessage = "Link and login details copied"
-                            },
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.weight(1f)
+                        Button(
+                            onClick = onEdit,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = BrandHeroStart,
+                                contentColor = Color.White
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
+                                .hisab3DButtonSurface(accentColor = NeonCyan, cornerRadius = 12.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
+                                imageVector = Icons.Outlined.Edit,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Copy")
+                            Text("Edit", fontWeight = FontWeight.Bold)
                         }
-                        OutlinedButton(
-                            onClick = {
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, inviteText)
-                                }
-                                val chooser = Intent.createChooser(shareIntent, "Share Member Link").apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                context.startActivity(chooser)
-                            },
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.weight(1f)
+                        TextButton(
+                            onClick = onDelete,
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Share,
+                                imageVector = Icons.Outlined.DeleteOutline,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Share")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Delete")
                         }
                     }
-                    if (!linkStatusMessage.isNullOrBlank()) {
-                        Text(
-                            text = linkStatusMessage ?: "",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+
+                    if (!member.isDefaultPassword && member.code.isNotBlank() && onResetPassword != null) {
+                        TextButton(
+                            onClick = {
+                                onResetPassword()
+                                onDismiss()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Reset Password to Default (${member.code})")
+                        }
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = onEdit,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Edit,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Edit")
-                }
-                TextButton(
-                    onClick = onDelete,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.DeleteOutline,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Delete")
-                }
-            }
-
-            if (!member.isDefaultPassword && member.code.isNotBlank() && onResetPassword != null) {
-                TextButton(
-                    onClick = {
-                        onResetPassword()
-                        onDismiss()
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Reset Password to Default (${member.code})")
                 }
             }
         }
@@ -956,304 +883,429 @@ internal fun MemberEditorModalSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        containerColor = CardSurfaceSolid,
+        contentColor = GlassTextPrimary
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 14.dp)
                 .padding(bottom = 24.dp)
         ) {
-            Text(
-                text = if (editingMember == null) "Add New Member" else "Edit Member Profile",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            OutlinedTextField(
-                value = code,
-                onValueChange = {
-                    code = it
-                    errorMessage = null
-                },
-                label = { Text("Code (Login ID & Default Password)") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                shape = RoundedCornerShape(12.dp),
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("member_code_input")
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedTextField(
-                value = name,
-                onValueChange = {
-                    name = it
-                    errorMessage = null
-                },
-                label = { Text("Name") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("member_name_input")
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedTextField(
-                value = designation,
-                onValueChange = {
-                    designation = it
-                    errorMessage = null
-                },
-                label = { Text("Designation") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("member_designation_input")
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    .glossyMetallicSurface(
+                        shape = RoundedCornerShape(22.dp),
+                        accentColor = NeonCyan,
+                        secondaryGlow = NeonEmerald,
+                        borderWidth = 1.5.dp,
+                        isHero = true
+                    )
             ) {
-                listOf("MPO", "AM", "RSC", "RSM", "ASM").forEach { roleChip ->
-                    val isPicked = designation.trim().equals(roleChip, ignoreCase = true)
-                    FilterChip(
-                        selected = isPicked,
-                        onClick = {
-                            designation = roleChip
-                            errorMessage = null
-                        },
-                        label = { Text(roleChip) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.primary
-                        ),
-                        modifier = Modifier.testTag("member_designation_chip_${roleChip.lowercase()}")
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    GlossyFormSectionHeader(
+                        icon = Icons.Outlined.Groups,
+                        title = if (editingMember == null) "Add New Member" else "Edit Member Profile",
+                        subtitle = if (editingMember == null) "Create Login Code & Profile" else "Update Details",
+                        glowColor = NeonCyan
                     )
-                }
-            }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedTextField(
-                value = area,
-                onValueChange = {
-                    area = it
-                    errorMessage = null
-                },
-                label = { Text("Area") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("member_area_input")
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedTextField(
-                value = depot,
-                onValueChange = {
-                    depot = it
-                    errorMessage = null
-                },
-                label = { Text("Depot") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("member_depot_input")
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedTextField(
-                value = phone,
-                onValueChange = {
-                    phone = it
-                    errorMessage = null
-                },
-                label = { Text("Phone (Optional)") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Phone,
-                    imeAction = ImeAction.Next
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("member_phone_input")
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Email (Optional)") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Next
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("member_email_input")
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedTextField(
-                value = address,
-                onValueChange = { address = it },
-                label = { Text("Address (Optional)") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("member_address_input")
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedTextField(
-                value = joiningDate,
-                onValueChange = { joiningDate = it },
-                label = { Text("Joining Date (YYYY-MM-DD)") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("member_joining_date_input")
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Active Status",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = if (isActive) "Active (ON)" else "Inactive (OFF)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = isActive,
-                    onCheckedChange = { isActive = it },
-                    modifier = Modifier.testTag("member_editor_active_switch")
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            val previewCredential = code.trim().ifBlank { "Member Code" }
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = "Member App Login Credentials",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Login ID: $previewCredential  •  Password: $previewCredential",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    if (editingMember != null && !editingMember.isDefaultPassword && code.isNotBlank() && onResetPassword != null) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        TextButton(
-                            onClick = {
-                                onResetPassword(editingMember)
-                                onDismiss()
-                            },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                            modifier = Modifier.testTag("reset_member_password_button")
+                    // 3D Card 1: Member Identity & Assignment
+                    GlossyInnerMetricTile(
+                        accentColor = NeonCyan,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Text("Reset Password to Default ($previewCredential)")
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Badge,
+                                    contentDescription = null,
+                                    tint = NeonCyan,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Identity & Role",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeonCyan
+                                )
+                            }
+
+                            OutlinedTextField(
+                                value = code,
+                                onValueChange = {
+                                    code = it
+                                    errorMessage = null
+                                },
+                                label = { Text("Code (Login ID & Default Password)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = hisabFormFieldColors(accentColor = NeonCyan),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .hisab3DFieldDepth(accentColor = NeonCyan)
+                                    .testTag("member_code_input")
+                            )
+
+                            OutlinedTextField(
+                                value = name,
+                                onValueChange = {
+                                    name = it
+                                    errorMessage = null
+                                },
+                                label = { Text("Name") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = hisabFormFieldColors(accentColor = NeonCyan),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .hisab3DFieldDepth(accentColor = NeonCyan)
+                                    .testTag("member_name_input")
+                            )
+
+                            OutlinedTextField(
+                                value = designation,
+                                onValueChange = {
+                                    designation = it
+                                    errorMessage = null
+                                },
+                                label = { Text("Designation") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = hisabFormFieldColors(accentColor = NeonCyan),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .hisab3DFieldDepth(accentColor = NeonCyan)
+                                    .testTag("member_designation_input")
+                            )
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                listOf("MPO", "AM", "RSC", "RSM", "ASM").forEach { roleChip ->
+                                    val isPicked = designation.trim().equals(roleChip, ignoreCase = true)
+                                    FilterChip(
+                                        selected = isPicked,
+                                        onClick = {
+                                            designation = roleChip
+                                            errorMessage = null
+                                        },
+                                        label = { Text(roleChip) },
+                                        colors = hisabFilterChipColors(accentColor = NeonCyan),
+                                        border = hisabFilterChipBorder(selected = isPicked, accentColor = NeonCyan),
+                                        modifier = Modifier.testTag("member_designation_chip_${roleChip.lowercase()}")
+                                    )
+                                }
+                            }
+
+                            OutlinedTextField(
+                                value = area,
+                                onValueChange = {
+                                    area = it
+                                    errorMessage = null
+                                },
+                                label = { Text("Area") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = hisabFormFieldColors(accentColor = NeonCyan),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .hisab3DFieldDepth(accentColor = NeonCyan)
+                                    .testTag("member_area_input")
+                            )
+
+                            OutlinedTextField(
+                                value = depot,
+                                onValueChange = {
+                                    depot = it
+                                    errorMessage = null
+                                },
+                                label = { Text("Depot") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = hisabFormFieldColors(accentColor = NeonCyan),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .hisab3DFieldDepth(accentColor = NeonCyan)
+                                    .testTag("member_depot_input")
+                            )
+                        }
+                    }
+
+                    // 3D Card 2: Contact, Joining & Active Status
+                    GlossyInnerMetricTile(
+                        accentColor = NeonPurple,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ContactPhone,
+                                    contentDescription = null,
+                                    tint = NeonPurple,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Contact & Status",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeonPurple
+                                )
+                            }
+
+                            OutlinedTextField(
+                                value = phone,
+                                onValueChange = {
+                                    phone = it
+                                    errorMessage = null
+                                },
+                                label = { Text("Phone (Optional)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Phone,
+                                    imeAction = ImeAction.Next
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = hisabFormFieldColors(accentColor = NeonPurple),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .hisab3DFieldDepth(accentColor = NeonPurple)
+                                    .testTag("member_phone_input")
+                            )
+
+                            OutlinedTextField(
+                                value = email,
+                                onValueChange = { email = it },
+                                label = { Text("Email (Optional)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Email,
+                                    imeAction = ImeAction.Next
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = hisabFormFieldColors(accentColor = NeonPurple),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .hisab3DFieldDepth(accentColor = NeonPurple)
+                                    .testTag("member_email_input")
+                            )
+
+                            OutlinedTextField(
+                                value = address,
+                                onValueChange = { address = it },
+                                label = { Text("Address (Optional)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = hisabFormFieldColors(accentColor = NeonPurple),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .hisab3DFieldDepth(accentColor = NeonPurple)
+                                    .testTag("member_address_input")
+                            )
+
+                            OutlinedTextField(
+                                value = joiningDate,
+                                onValueChange = { joiningDate = it },
+                                label = { Text("Joining Date (YYYY-MM-DD)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = hisabFormFieldColors(accentColor = NeonPurple),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .hisab3DFieldDepth(accentColor = NeonPurple)
+                                    .testTag("member_joining_date_input")
+                            )
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 2.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "Active Status",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GlassTextPrimary
+                                    )
+                                    Text(
+                                        text = if (isActive) "Active (ON)" else "Inactive (OFF)",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = GlassTextSecondary
+                                    )
+                                }
+                                Switch(
+                                    checked = isActive,
+                                    onCheckedChange = { isActive = it },
+                                    modifier = Modifier.testTag("member_editor_active_switch")
+                                )
+                            }
+                        }
+                    }
+
+                    // 3D Card 3: Login Credentials Preview
+                    val previewCredential = code.trim().ifBlank { "Member Code" }
+                    GlossyInnerMetricTile(
+                        accentColor = NeonEmerald,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "Member App Login Credentials",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = IncomeEmerald
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Login ID: $previewCredential  •  Password: $previewCredential",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GlassTextPrimary
+                            )
+                            if (editingMember != null && !editingMember.isDefaultPassword && code.isNotBlank() && onResetPassword != null) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                TextButton(
+                                    onClick = {
+                                        onResetPassword(editingMember)
+                                        onDismiss()
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.testTag("reset_member_password_button")
+                                ) {
+                                    Text("Reset Password to Default ($previewCredential)")
+                                }
+                            }
+                        }
+                    }
+
+                    if (!errorMessage.isNullOrBlank()) {
+                        GlossyInnerMetricTile(
+                            accentColor = ExpenseCrimson,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = errorMessage ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = ExpenseCrimson,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)
+                            )
+                        }
+                    }
+
+                    // 3D Tactile Push Button
+                    val saveInteraction = remember { MutableInteractionSource() }
+                    val isSavePressed by saveInteraction.collectIsPressedAsState()
+                    val savePressOffset by animateDpAsState(
+                        targetValue = if (isSavePressed) 3.dp else 0.dp,
+                        animationSpec = spring(stiffness = 750f),
+                        label = "member_save_3d_press"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .offset(y = 4.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFF06162E))
+                        )
+                        Button(
+                            onClick = {
+                                if (code.isBlank()) {
+                                    errorMessage = "Please enter member code."
+                                    return@Button
+                                }
+                                if (name.isBlank()) {
+                                    errorMessage = "Please enter member name."
+                                    return@Button
+                                }
+                                onSave(
+                                    editingMember?.id,
+                                    code,
+                                    name,
+                                    designation,
+                                    area,
+                                    phone,
+                                    depot,
+                                    isActive,
+                                    email,
+                                    address,
+                                    joiningDate
+                                )
+                            },
+                            interactionSource = saveInteraction,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = BrandHeroStart,
+                                contentColor = Color.White
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .offset(y = savePressOffset)
+                                .hisab3DButtonSurface(accentColor = NeonCyan, cornerRadius = 14.dp)
+                                .testTag("save_member_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.CheckCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(19.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (editingMember == null) "Save Member" else "Update Member",
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
-            }
-
-            if (!errorMessage.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = errorMessage ?: "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = {
-                    if (code.isBlank()) {
-                        errorMessage = "Please enter member code."
-                        return@Button
-                    }
-                    if (name.isBlank()) {
-                        errorMessage = "Please enter member name."
-                        return@Button
-                    }
-                    onSave(
-                        editingMember?.id,
-                        code,
-                        name,
-                        designation,
-                        area,
-                        phone,
-                        depot,
-                        isActive,
-                        email,
-                        address,
-                        joiningDate
-                    )
-                },
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("save_member_button")
-            ) {
-                Text(if (editingMember == null) "Save Member" else "Update Member")
             }
         }
     }

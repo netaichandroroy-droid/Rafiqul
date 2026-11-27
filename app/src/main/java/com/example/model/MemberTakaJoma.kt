@@ -161,21 +161,4 @@ object BangladeshBankDirectory {
                 item.searchAliases.contains(trimmed, ignoreCase = true)
         }
     }
-
-    fun isCashPaymentMethod(bankName: String): Boolean {
-        val cleaned = bankName.trim()
-        if (cleaned.isEmpty()) return false
-        val matched = ALL_PAYMENT_METHODS.firstOrNull { item ->
-            item.displayTitle.equals(cleaned, ignoreCase = true) ||
-                item.enName.equals(cleaned, ignoreCase = true) ||
-                item.bnName == cleaned ||
-                item.shortCode.equals(cleaned, ignoreCase = true)
-        }
-        if (matched != null) {
-            return matched.category == PaymentMethodCategory.CASH
-        }
-        return cleaned.equals("Cash", ignoreCase = true) ||
-            cleaned == "ক্যাশ" ||
-            cleaned.equals("ক্যাশ (Cash)", ignoreCase = true)
-    }
 }

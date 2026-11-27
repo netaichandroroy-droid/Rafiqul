@@ -40,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -68,6 +69,7 @@ fun MemberSalesDuesCard(
     members: List<Member>,
     monthlySales: List<MonthlySalesRecord>,
     submissions: List<MemberTakaJoma>,
+    embeddedInOuterCard: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val borderColor = MaterialTheme.colorScheme.outline
@@ -149,11 +151,10 @@ fun MemberSalesDuesCard(
         )
     }
 
-    GlassCardSurface(
-        modifier = modifier.testTag("admin_member_sales_dues_card"),
-        contentPadding = PaddingValues(vertical = 8.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+    val tableBorderColor = if (embeddedInOuterCard) borderColor.copy(alpha = 0.55f) else borderColor
+
+    val cardBody: @Composable () -> Unit = {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
             Text(
                 text = "Member TP+VAT sales & Dues",
                 style = MaterialTheme.typography.titleMedium,
@@ -164,50 +165,52 @@ fun MemberSalesDuesCard(
                     .padding(horizontal = 14.dp)
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            if (!embeddedInOuterCard) {
+                Spacer(modifier = Modifier.height(8.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(pillsScrollState)
-                    .padding(horizontal = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(pillsScrollState)
+                        .padding(horizontal = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "Total TP+VAT sales: ${BanglaFormatters.formatBdt(totals.totalSales)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = IncomeSurface
-                ) {
-                    Text(
-                        text = "Approved Deposit: ${BanglaFormatters.formatBdt(totals.totalApprovedJoma)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = IncomeEmerald,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (totals.totalDues > 0.0) ExpenseSurface else IncomeSurface
-                ) {
-                    Text(
-                        text = "Total Dues: ${BanglaFormatters.formatBdt(totals.totalDues)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (totals.totalDues > 0.0) ExpenseCrimson else IncomeEmerald,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = "Total TP+VAT sales: ${BanglaFormatters.formatBdt(totals.totalSales)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = IncomeSurface
+                    ) {
+                        Text(
+                            text = "Approved Deposit: ${BanglaFormatters.formatBdt(totals.totalApprovedJoma)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = IncomeEmerald,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (totals.totalDues > 0.0) ExpenseSurface else IncomeSurface
+                    ) {
+                        Text(
+                            text = "Total Dues: ${BanglaFormatters.formatBdt(totals.totalDues)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (totals.totalDues > 0.0) ExpenseCrimson else IncomeEmerald,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
                 }
             }
 
@@ -249,7 +252,7 @@ fun MemberSalesDuesCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
@@ -257,7 +260,7 @@ fun MemberSalesDuesCard(
                         imageVector = Icons.Outlined.AccountBalanceWallet,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -274,7 +277,7 @@ fun MemberSalesDuesCard(
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 6.dp)
+                        .padding(horizontal = if (embeddedInOuterCard) 14.dp else 6.dp)
                 ) {
                     val borderOverhead = 6.dp
                     val baseTotal = codeColW + nameColW + salesColW + jomaColW + duesColW + borderOverhead
@@ -290,8 +293,11 @@ fun MemberSalesDuesCard(
                             .fillMaxWidth()
                             .horizontalScroll(scrollState)
                     ) {
+                        val tableShape = RoundedCornerShape(if (embeddedInOuterCard) 10.dp else 0.dp)
                         Column(
-                            modifier = Modifier.border(1.dp, borderColor)
+                            modifier = Modifier
+                                .clip(tableShape)
+                                .border(if (embeddedInOuterCard) 0.8.dp else 1.dp, tableBorderColor, tableShape)
                         ) {
                             Row(
                                 modifier = Modifier
@@ -521,6 +527,19 @@ fun MemberSalesDuesCard(
                     }
                 }
             }
+        }
+    }
+
+    if (embeddedInOuterCard) {
+        Box(modifier = modifier.fillMaxWidth().testTag("admin_member_sales_dues_card")) {
+            cardBody()
+        }
+    } else {
+        GlassCardSurface(
+            modifier = modifier.testTag("admin_member_sales_dues_card"),
+            contentPadding = PaddingValues(vertical = 8.dp)
+        ) {
+            cardBody()
         }
     }
 

@@ -53,9 +53,11 @@ import com.example.data.AppUpdateUiState
 import com.example.model.BanglaFormatters
 import com.example.model.Member
 import com.example.ui.components.AppAutoUpdateCard
-import com.example.ui.components.SectionPanelCard
+import com.example.ui.components.UnifiedPageCardSurface
+import com.example.ui.components.UnifiedPageSectionDivider
 import com.example.ui.theme.BrandHeroEnd
 import com.example.ui.theme.BrandHeroStart
+import com.example.ui.theme.CardBorderSolid
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.GlassTextPrimary
 import com.example.ui.theme.ExpenseSurface
@@ -72,72 +74,70 @@ fun MemberProfileScreen(
     onToggleAutoUpdate: (Boolean) -> Unit = {},
     onCheckAppUpdate: () -> Unit = {},
     onCompleteAppUpdate: () -> Unit = {},
+    onOpenAppUpdateLink: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        item {
-            SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+    UnifiedPageCardSurface(modifier = modifier) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
                 ) {
-                    MemberAvatarView(
-                        name = member.name,
-                        size = 72.dp
-                    )
-
-                    Spacer(modifier = Modifier.width(14.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = member.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MemberAvatarView(
+                            name = member.name,
+                            size = 72.dp
                         )
-                        val profileMeta = listOfNotNull(
-                            member.designation.takeIf { it.isNotBlank() },
-                            member.depot.takeIf { it.isNotBlank() }
-                        ).joinToString(" • ")
-                        if (profileMeta.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(2.dp))
+
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = profileMeta,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = if (member.isActive) IncomeSurface else ExpenseSurface
-                        ) {
-                            Text(
-                                text = if (member.isActive) "Active" else "Inactive",
-                                style = MaterialTheme.typography.labelSmall,
+                                text = member.name,
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = if (member.isActive) IncomeEmerald else ExpenseCrimson,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                color = MaterialTheme.colorScheme.onSurface
                             )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = if (member.isActive) IncomeSurface else ExpenseSurface
+                            ) {
+                                Text(
+                                    text = if (member.isActive) "Active" else "Inactive",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (member.isActive) IncomeEmerald else ExpenseCrimson,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
                         }
                     }
                 }
+                UnifiedPageSectionDivider(modifier = Modifier.padding(vertical = 14.dp))
             }
-        }
 
-        item {
-            SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Personal Info & Profile",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                ) {
+                    Text(
+                        text = "Personal Info & Profile",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 Spacer(modifier = Modifier.height(8.dp))
                 ProfileListDivider()
 
@@ -214,10 +214,15 @@ fun MemberProfileScreen(
                     value = transactionCount.toString()
                 )
             }
+            UnifiedPageSectionDivider(modifier = Modifier.padding(vertical = 14.dp))
         }
 
         item {
-            SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
+            ) {
                 Text(
                     text = "Account & Security",
                     style = MaterialTheme.typography.titleMedium,
@@ -253,6 +258,7 @@ fun MemberProfileScreen(
                     testTag = "member_logout_button"
                 )
             }
+            UnifiedPageSectionDivider(modifier = Modifier.padding(vertical = 14.dp))
         }
 
         item {
@@ -260,10 +266,13 @@ fun MemberProfileScreen(
                 updateState = appUpdateState,
                 onToggleAutoUpdate = onToggleAutoUpdate,
                 onCheckForUpdate = onCheckAppUpdate,
-                onCompleteUpdate = onCompleteAppUpdate
+                onCompleteUpdate = onCompleteAppUpdate,
+                onOpenUpdateLink = onOpenAppUpdateLink,
+                embeddedInOuterCard = true
             )
         }
     }
+}
 }
 
 @Composable
@@ -302,8 +311,8 @@ fun MemberAvatarView(
 @Composable
 private fun ProfileListDivider() {
     HorizontalDivider(
-        thickness = 1.dp,
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+        thickness = 0.75.dp,
+        color = CardBorderSolid.copy(alpha = 0.35f)
     )
 }
 

@@ -60,11 +60,10 @@ import com.example.model.HisabTransaction
 import com.example.model.MemberTakaJoma
 import com.example.model.TakaJomaStatus
 import com.example.model.TxType
-import com.example.ui.components.GlassCardSurface
-import com.example.ui.components.SectionPanelCard
 import com.example.ui.components.TakaJomaStatusPill
 import com.example.ui.components.TransactionItemRow
-import com.example.ui.components.rememberLiveCurrentYearMonth
+import com.example.ui.components.UnifiedPageCardSurface
+import com.example.ui.components.UnifiedPageSectionDivider
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeEmeraldDark
@@ -87,7 +86,7 @@ fun MemberLendenScreen(
 
     var previewItem by remember { mutableStateOf<Pair<Int, MemberTakaJoma>?>(null) }
 
-    val currentMonth = rememberLiveCurrentYearMonth()
+    val currentMonth = remember { BanglaFormatters.currentYearMonth() }
     val monthTotalTaka = remember(submissions, currentMonth) {
         submissions
             .filter { it.date.startsWith(currentMonth) && it.resolvedStatus == TakaJomaStatus.APPROVED }
@@ -138,85 +137,92 @@ fun MemberLendenScreen(
         measureColumnWidth("Taka", takaLabels, minWidth = 62.dp, maxWidth = 120.dp)
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        item {
-            SectionPanelCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("member_lenden_summary_card")
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+    UnifiedPageCardSurface(modifier = modifier) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                        .testTag("member_lenden_summary_card")
                 ) {
-                    Text(
-                        text = "Member Transactions (Deposits)",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Button(
-                        onClick = onOpenTakaJomaForm,
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        modifier = Modifier
-                            .height(48.dp)
-                            .testTag("member_lenden_add_joma_button")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
+                        Text(
+                            text = "Member Transactions (Deposits)",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Add Deposit")
+                        Button(
+                            onClick = onOpenTakaJomaForm,
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            modifier = Modifier
+                                .height(48.dp)
+                                .testTag("member_lenden_add_joma_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Add Deposit")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        LendenStatTile(
+                            label = "Approved",
+                            value = BanglaFormatters.formatBdt(approvedTaka),
+                            containerColor = IncomeSurface,
+                            contentColor = IncomeEmerald,
+                            modifier = Modifier.weight(1f)
+                        )
+                        LendenStatTile(
+                            label = "Pending",
+                            value = BanglaFormatters.formatBdt(pendingTaka),
+                            containerColor = NagadSurface,
+                            contentColor = NagadAccent,
+                            modifier = Modifier.weight(1f)
+                        )
+                        LendenStatTile(
+                            label = "This Month",
+                            value = BanglaFormatters.formatBdt(monthTotalTaka),
+                            containerColor = IncomeSurface,
+                            contentColor = IncomeEmeraldDark,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(
+                    thickness = 0.8.dp,
+                    color = Color.White.copy(alpha = 0.14f),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("member_lenden_table_card")
                 ) {
-                    LendenStatTile(
-                        label = "Approved",
-                        value = BanglaFormatters.formatBdt(approvedTaka),
-                        containerColor = IncomeSurface,
-                        contentColor = IncomeEmerald,
-                        modifier = Modifier.weight(1f)
-                    )
-                    LendenStatTile(
-                        label = "Pending",
-                        value = BanglaFormatters.formatBdt(pendingTaka),
-                        containerColor = NagadSurface,
-                        contentColor = NagadAccent,
-                        modifier = Modifier.weight(1f)
-                    )
-                    LendenStatTile(
-                        label = "This Month",
-                        value = BanglaFormatters.formatBdt(monthTotalTaka),
-                        containerColor = IncomeSurface,
-                        contentColor = IncomeEmeraldDark,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-
-        item {
-            GlassCardSurface(
-                modifier = Modifier.testTag("member_lenden_table_card"),
-                contentPadding = PaddingValues(vertical = 4.dp)
-            ) {
-                if (submissions.isEmpty()) {
+                    if (submissions.isEmpty()) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -413,35 +419,42 @@ fun MemberLendenScreen(
                         }
                     }
                 }
+                }
             }
-        }
 
-        if (transactions.isNotEmpty()) {
-            item {
-                SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+            if (transactions.isNotEmpty()) {
+                item { UnifiedPageSectionDivider() }
+
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp)
                     ) {
-                        Text(
-                            text = "Personal Transactions",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        TextButton(onClick = { onAddPersonalTx(TxType.EXPENSE) }) {
-                            Text("+ Add")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Personal Transactions",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            TextButton(onClick = { onAddPersonalTx(TxType.EXPENSE) }) {
+                                Text("+ Add")
+                            }
                         }
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    transactions.forEachIndexed { index, tx ->
-                        TransactionItemRow(
-                            transaction = tx,
-                            onEdit = null,
-                            onDelete = null,
-                            showDivider = index < transactions.lastIndex
-                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        transactions.forEachIndexed { index, tx ->
+                            TransactionItemRow(
+                                transaction = tx,
+                                onEdit = null,
+                                onDelete = null,
+                                showDivider = index < transactions.lastIndex
+                            )
+                        }
                     }
                 }
             }

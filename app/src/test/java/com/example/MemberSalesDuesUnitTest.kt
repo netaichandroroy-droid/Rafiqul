@@ -420,4 +420,111 @@ class MemberSalesDuesUnitTest {
         assertEquals(2, breakdown.bankWiseChannels.size)
         assertEquals(1, breakdown.mobileBankChannels.size)
     }
+
+    @Test
+    fun calculateDepositsSalesNetSummary_computesDepositsMinusSalesUsingApprovedOnly() {
+        val members = listOf(
+            Member(
+                id = "m1",
+                name = "Karim",
+                designation = "SR",
+                phone = "01711111111",
+                depot = "Dhaka",
+                code = "K-01",
+                salesAmount = 2500.0
+            ),
+            Member(
+                id = "m2",
+                name = "Rahim",
+                designation = "SR",
+                phone = "01722222222",
+                depot = "Bogura",
+                code = "R-02",
+                salesAmount = 0.0
+            )
+        )
+        val sales = listOf(
+            MonthlySalesRecord(
+                id = "s1",
+                yearMonth = "2026-11",
+                code = "K-01",
+                name = "Karim",
+                tpSales = 9000.0,
+                tpPlusVat = 10000.0
+            ),
+            MonthlySalesRecord(
+                id = "s2",
+                yearMonth = "2026-11",
+                code = "R-02",
+                name = "Rahim",
+                tpSales = 4500.0,
+                tpPlusVat = 5000.0
+            )
+        )
+        val submissions = listOf(
+            MemberTakaJoma(
+                id = "d1",
+                memberId = "m1",
+                name = "Karim",
+                code = "K-01",
+                depot = "Dhaka",
+                amount = 12000.0,
+                date = "2026-11-22",
+                approvalStatus = TakaJomaStatus.APPROVED.wireValue
+            ),
+            MemberTakaJoma(
+                id = "d2",
+                memberId = "m2",
+                name = "Rahim",
+                code = "R-02",
+                depot = "Bogura",
+                amount = 8000.0,
+                date = "2026-11-22",
+                approvalStatus = TakaJomaStatus.APPROVED.wireValue
+            ),
+            MemberTakaJoma(
+                id = "d3",
+                memberId = "m1",
+                name = "Karim",
+                code = "K-01",
+                depot = "Dhaka",
+                amount = 4000.0,
+                date = "2026-11-22",
+                approvalStatus = TakaJomaStatus.PENDING.wireValue
+            ),
+            MemberTakaJoma(
+                id = "d4",
+                memberId = "m2",
+                name = "Rahim",
+                code = "R-02",
+                depot = "Bogura",
+                amount = 1500.0,
+                date = "2026-11-22",
+                approvalStatus = TakaJomaStatus.REJECTED.wireValue
+            )
+        )
+
+        // Approved deposits = 12000 + 8000 = 20000; total sales = 10000 + 5000 + 2500 = 17500; net = +2500
+        val positiveSummary = MemberSalesDuesCalculator.calculateDepositsSalesNetSummary(
+            members = members,
+            monthlySales = sales,
+            submissions = submissions
+        )
+        assertEquals(20000.0, positiveSummary.totalDeposits, 0.001)
+        assertEquals(4000.0, positiveSummary.pendingDeposits, 0.001)
+        assertEquals(17500.0, positiveSummary.totalSales, 0.001)
+        assertEquals(2500.0, positiveSummary.netBalance, 0.001)
+        assertEquals(2, positiveSummary.approvedDepositCount)
+        assertEquals(2, positiveSummary.salesRecordCount)
+
+        // When only d2 (8000) is approved, net balance = 8000 - 17500 = -9500
+        val negativeSummary = MemberSalesDuesCalculator.calculateDepositsSalesNetSummary(
+            members = members,
+            monthlySales = sales,
+            submissions = listOf(submissions[1])
+        )
+        assertEquals(8000.0, negativeSummary.totalDeposits, 0.001)
+        assertEquals(17500.0, negativeSummary.totalSales, 0.001)
+        assertEquals(-9500.0, negativeSummary.netBalance, 0.001)
+    }
 }

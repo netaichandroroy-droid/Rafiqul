@@ -46,11 +46,17 @@ import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.ui.components.AppFrostedGlassBackground
 import com.example.ui.components.GlassCardSurface
-import com.example.ui.theme.BrandDeep
-import com.example.ui.theme.BrandHeroEnd
+import com.example.ui.components.GlossyInnerMetricTile
+import com.example.ui.components.GlossyNeonIconOrb
+import com.example.ui.components.NetaiBrandLogoBadge
+import com.example.ui.components.hisab3DButtonSurface
 import com.example.ui.theme.BrandHeroStart
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.ExpenseSurface
+import com.example.ui.theme.GlassTextPrimary
+import com.example.ui.theme.NeonBlue
+import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.NeonEmerald
 
 @Composable
 fun CloudSyncAuthScreen(
@@ -76,20 +82,11 @@ fun CloudSyncAuthScreen(
                 .padding(horizontal = 12.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier = Modifier
-                    .size(76.dp)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(BrandHeroStart, BrandHeroEnd))),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.CloudSync,
-                    contentDescription = "Cloud Auto-Sync",
-                    tint = Color.White,
-                    modifier = Modifier.size(38.dp)
-                )
-            }
+            NetaiBrandLogoBadge(
+                size = 80.dp,
+                glowColor = NeonCyan,
+                modifier = Modifier.testTag("cloud_auth_logo")
+            )
 
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -97,14 +94,16 @@ fun CloudSyncAuthScreen(
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
+                color = GlassTextPrimary,
                 textAlign = TextAlign.Center
             )
 
             Spacer(modifier = Modifier.height(18.dp))
 
             GlassCardSurface(
-                horizontalOuterPadding = 4.dp
+                horizontalOuterPadding = 4.dp,
+                accentColor = NeonCyan,
+                secondaryGlow = NeonBlue
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -112,21 +111,24 @@ fun CloudSyncAuthScreen(
                 ) {
                     CloudFeatureRow(
                         icon = Icons.Outlined.Sync,
-                        title = "Real-Time Auto-Sync"
+                        title = "Real-Time Auto-Sync",
+                        glowColor = NeonCyan
                     )
                     CloudFeatureRow(
                         icon = Icons.Outlined.Devices,
-                        title = "Multi-Device Access"
+                        title = "Multi-Device Access",
+                        glowColor = NeonBlue
                     )
                     CloudFeatureRow(
                         icon = Icons.Outlined.Lock,
-                        title = "Private & Secure Storage"
+                        title = "Private & Secure Storage",
+                        glowColor = NeonEmerald
                     )
 
                     if (!errorMessage.isNullOrBlank()) {
-                        Surface(
+                        GlossyInnerMetricTile(
+                            accentColor = ExpenseCrimson,
                             shape = RoundedCornerShape(12.dp),
-                            color = ExpenseSurface,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
@@ -152,6 +154,7 @@ fun CloudSyncAuthScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)
+                            .hisab3DButtonSurface(accentColor = NeonCyan, cornerRadius = 14.dp)
                             .testTag("google_sign_in_button")
                     ) {
                         if (isCheckingSession || isSigningIn) {
@@ -186,32 +189,26 @@ fun CloudSyncAuthScreen(
 @Composable
 private fun CloudFeatureRow(
     icon: ImageVector,
-    title: String
+    title: String,
+    glowColor: Color = NeonCyan
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
-            )
-        }
+        GlossyNeonIconOrb(
+            icon = icon,
+            contentDescription = title,
+            glowColor = glowColor,
+            size = 34.dp,
+            iconSize = 18.dp
+        )
         Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = title,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = GlassTextPrimary,
             modifier = Modifier.weight(1f)
         )
     }

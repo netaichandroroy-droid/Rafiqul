@@ -8,7 +8,7 @@ const fs = require("node:fs");
 
 let testEnv;
 const PROJECT_ID = process.env.GCP_PROJECT || "demo-no-project";
-const DATABASE_ID = "ai-studio-android-rafiqul-f8f3bebd-a4f0-4402-8eda-8c722b4f5f2a";
+const DATABASE_ID = "ai-studio-android-rafiqul-475a7f52-b8c2-42de-b632-57fc8b66bbcd";
 const ALICE_UID = "alice_123";
 const BOB_UID = "bob_456";
 const VALID_HASH = "pbkdf2_sha256$120000$YWJjZGVmZ2hpamtsbW5vcA==$MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=";

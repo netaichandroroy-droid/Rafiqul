@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -82,6 +83,7 @@ fun AdminMemberTakaJomaTableCard(
     onRejectSubmission: ((MemberTakaJoma) -> Unit)? = null,
     onOpenForm: (() -> Unit)? = null,
     pendingOnlyMode: Boolean = false,
+    embeddedInOuterCard: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val borderColor = MaterialTheme.colorScheme.outline
@@ -167,15 +169,15 @@ fun AdminMemberTakaJomaTableCard(
     }
     val statusColW = if (onApproveSubmission != null) 104.dp else 80.dp
 
-    GlassCardSurface(
-        modifier = modifier.testTag("admin_member_taka_joma_card"),
-        contentPadding = PaddingValues(vertical = 8.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+    val sectionPad = if (embeddedInOuterCard) 14.dp else 12.dp
+    val tableBorderColor = if (embeddedInOuterCard) borderColor.copy(alpha = 0.55f) else borderColor
+
+    val tableContent: @Composable () -> Unit = {
+        Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 4.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp),
+                    .padding(horizontal = sectionPad),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -185,7 +187,7 @@ fun AdminMemberTakaJomaTableCard(
                     } else {
                         "Member Deposits"
                     },
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
@@ -193,58 +195,63 @@ fun AdminMemberTakaJomaTableCard(
                 if (onOpenForm != null) {
                     TextButton(
                         onClick = onOpenForm,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                         modifier = Modifier
                             .minimumInteractiveComponentSize()
                             .testTag("admin_lenden_open_taka_joma")
                     ) {
-                        Text("+ Add Entry")
+                        Text(
+                            text = "+ Add Entry",
+                            style = MaterialTheme.typography.labelMedium
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            if (!embeddedInOuterCard) {
+                Spacer(modifier = Modifier.height(3.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(pillsScrollState)
-                    .padding(horizontal = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = IncomeSurface
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(pillsScrollState)
+                        .padding(horizontal = sectionPad),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "Approved: ${BanglaFormatters.formatBdt(approvedAmount)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = IncomeEmerald,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (pendingEntries.isNotEmpty()) NagadSurface else MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Text(
-                        text = "Pending: ${pendingEntries.size} (${BanglaFormatters.formatBdt(pendingAmount)})",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (pendingEntries.isNotEmpty()) NagadAccent else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = IncomeSurface
+                    ) {
+                        Text(
+                            text = "Approved: ${BanglaFormatters.formatBdt(approvedAmount)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = IncomeEmerald,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (pendingEntries.isNotEmpty()) NagadSurface else MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = "Pending: ${pendingEntries.size} (${BanglaFormatters.formatBdt(pendingAmount)})",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (pendingEntries.isNotEmpty()) NagadAccent else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
                 }
             }
 
             if (!pendingOnlyMode && submissions.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     FilterChip(
                         selected = statusFilter == TakaJomaStatusFilter.ALL,
@@ -279,13 +286,13 @@ fun AdminMemberTakaJomaTableCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             if (visibleSubmissions.isEmpty()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                        .padding(horizontal = sectionPad, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
@@ -293,7 +300,7 @@ fun AdminMemberTakaJomaTableCard(
                         imageVector = Icons.AutoMirrored.Outlined.ReceiptLong,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -310,7 +317,7 @@ fun AdminMemberTakaJomaTableCard(
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 6.dp)
+                        .padding(horizontal = if (embeddedInOuterCard) 14.dp else 6.dp)
                 ) {
                     val borderOverhead = 11.dp
                     val baseTotal = submitColW + slColW + codeColW + nameColW + desigColW +
@@ -326,8 +333,11 @@ fun AdminMemberTakaJomaTableCard(
                             .fillMaxWidth()
                             .horizontalScroll(scrollState)
                     ) {
+                        val tableShape = RoundedCornerShape(if (embeddedInOuterCard) 10.dp else 0.dp)
                         Column(
-                            modifier = Modifier.border(1.dp, borderColor)
+                            modifier = Modifier
+                                .clip(tableShape)
+                                .border(if (embeddedInOuterCard) 0.8.dp else 1.dp, tableBorderColor, tableShape)
                         ) {
                             // Header row matching form headers + Status
                             Row(
@@ -599,13 +609,29 @@ fun AdminMemberTakaJomaTableCard(
         }
     }
 
+    if (embeddedInOuterCard) {
+        Box(modifier = modifier.fillMaxWidth().testTag("admin_member_taka_joma_card")) {
+            tableContent()
+        }
+    } else {
+        GlassCardSurface(
+            modifier = modifier.testTag("admin_member_taka_joma_card"),
+            contentPadding = PaddingValues(vertical = 4.dp)
+        ) {
+            tableContent()
+        }
+    }
+
     previewItem?.let { (sl, item) ->
         val status = item.resolvedStatus
         AlertDialog(
             onDismissRequest = { previewItem = null },
             title = { Text("SL ${sl.toString().padStart(2, '0')} • ${item.name}") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -635,6 +661,11 @@ fun AdminMemberTakaJomaTableCard(
                         text = "Amount: ${BanglaFormatters.formatBdt(item.amount)}",
                         fontWeight = FontWeight.Bold,
                         color = IncomeEmerald
+                    )
+                    DepositSlipAttachmentPreview(
+                        photoPath = item.photoPath,
+                        slipHash = item.slipHash,
+                        title = "Deposit Slip Photo"
                     )
                     if (onApproveSubmission != null || onRejectSubmission != null) {
                         Spacer(modifier = Modifier.height(6.dp))
@@ -788,7 +819,7 @@ private fun AdminTableHeaderCell(
         modifier = Modifier
             .width(width)
             .fillMaxHeight()
-            .padding(horizontal = 5.dp, vertical = 7.dp),
+            .padding(horizontal = 5.dp, vertical = 5.dp),
         contentAlignment = when (textAlign) {
             TextAlign.Center -> Alignment.Center
             TextAlign.End -> Alignment.CenterEnd

@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import com.example.MainActivity
 import com.example.R
 import com.example.data.AiCallCenterPrefsStore
+import com.example.data.CallScheduleDay
 import com.example.data.MemberStore
 import com.example.data.MemberTakaJomaStore
 import com.example.data.MonthlySalesStore
@@ -38,15 +39,20 @@ object MondayAutoCallScheduler {
         val alarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val pendingIntent = buildAlarmPendingIntent(appContext)
 
-        if (!config.autoCallMondayEnabled) {
+        if (!config.autoCallMondayEnabled || config.enabledDays.isEmpty()) {
             runCatching { alarmManager.cancel(pendingIntent) }
             return
         }
 
-        val triggerAtMs = AiCallCenterPrefsStore.nextMondayTriggerMs(
+        val triggerAtMs = AiCallCenterPrefsStore.nextScheduleTriggerMs(
+            enabledDays = config.enabledDays,
             hour = config.scheduledHour,
             minute = config.scheduledMinute
-        )
+        ) ?: run {
+            runCatching { alarmManager.cancel(pendingIntent) }
+            return
+        }
+
         runCatching {
             alarmManager.setAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
@@ -56,7 +62,12 @@ object MondayAutoCallScheduler {
         }
     }
 
-    fun showMondayCallQueueNotification(context: Context, dueCount: Int, totalDues: Double) {
+    fun showMondayCallQueueNotification(
+        context: Context,
+        dueCount: Int,
+        totalDues: Double,
+        speakerLabel: String = "AI Speaker"
+    ) {
         if (dueCount <= 0) return
         val appContext = context.applicationContext
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -72,10 +83,10 @@ object MondayAutoCallScheduler {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Monday AI Call Center",
+                "Scheduled AI Call Center",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Alerts when the Monday due-member auto-call queue is ready."
+                description = "Alerts when the scheduled due-member auto-call queue is ready."
             }
             manager.createNotificationChannel(channel)
         }
@@ -92,11 +103,13 @@ object MondayAutoCallScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val todayName = CallScheduleDay.fromCalendarDay(AiCallCenterPrefsStore.todayDayOfWeek())?.fullLabel
+            ?: "Scheduled"
         val formattedTotal = BanglaFormatters.formatBdt(totalDues)
         val notification = NotificationCompat.Builder(appContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Monday Free AI Call Ready")
-            .setContentText("$dueCount member(s) have dues ($formattedTotal). Tap to start female AI calls.")
+            .setContentTitle("$todayName Free AI Call Ready")
+            .setContentText("$dueCount member(s) have dues ($formattedTotal). Tap to start $speakerLabel calls.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
@@ -125,7 +138,10 @@ class MondayAutoCallReceiver : BroadcastReceiver() {
         val appContext = context.applicationContext
         val prefs = AiCallCenterPrefsStore(appContext)
         val config = prefs.loadConfig()
-        if (!config.autoCallMondayEnabled) return
+        if (!config.autoCallMondayEnabled || !AiCallCenterPrefsStore.isDayEnabled(config.enabledDays)) {
+            MondayAutoCallScheduler.syncSchedule(appContext)
+            return
+        }
 
         val members = MemberStore(appContext).loadAll()
         val monthlySales = MonthlySalesStore(appContext).loadAll()
@@ -137,16 +153,17 @@ class MondayAutoCallReceiver : BroadcastReceiver() {
         ).filter { it.dues > 0.0 }
 
         if (dueSummaries.isNotEmpty()) {
-            prefs.setPendingAutoStartMondayKey(AiCallCenterPrefsStore.currentCycleKey())
+            prefs.setPendingAutoStartMondayKey(AiCallCenterPrefsStore.scheduleSlotKey(config))
             val totalDues = dueSummaries.sumOf { it.dues }
             MondayAutoCallScheduler.showMondayCallQueueNotification(
                 context = appContext,
                 dueCount = dueSummaries.size,
-                totalDues = totalDues
+                totalDues = totalDues,
+                speakerLabel = config.selectedVoice.agentName
             )
         }
 
-        // Schedule next Monday automatically
+        // Schedule next enabled day automatically
         MondayAutoCallScheduler.syncSchedule(appContext)
     }
 }

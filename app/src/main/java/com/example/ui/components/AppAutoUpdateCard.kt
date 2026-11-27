@@ -16,32 +16,40 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.CloudDownload
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.AppUpdateStatus
 import com.example.data.AppUpdateUiState
 import com.example.ui.theme.CardBorderSolid
 import com.example.ui.theme.CardInnerTileSolid
-import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.GlassTextPrimary
 import com.example.ui.theme.GlassTextSecondary
 import com.example.ui.theme.HeroCardBorderSolid
@@ -50,6 +58,7 @@ import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeSurface
 import com.example.ui.theme.NagadAccent
 import com.example.ui.theme.NagadSurface
+import com.example.ui.theme.NeonCyan
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -61,8 +70,12 @@ fun AppAutoUpdateCard(
     onCheckForUpdate: () -> Unit,
     onCompleteUpdate: () -> Unit,
     onOpenUpdateLink: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    embeddedInOuterCard: Boolean = false
 ) {
+    val canDownloadGitHubUpdate = updateState.status == AppUpdateStatus.UPDATE_AVAILABLE &&
+        !updateState.downloadUrl.isNullOrBlank()
+
     val badgeBg = when (updateState.status) {
         AppUpdateStatus.DOWNLOADED,
         AppUpdateStatus.UP_TO_DATE -> IncomeSurface
@@ -80,7 +93,9 @@ fun AppAutoUpdateCard(
     val badgeText = when (updateState.status) {
         AppUpdateStatus.CHECKING -> "Checking"
         AppUpdateStatus.UP_TO_DATE -> "Latest"
-        AppUpdateStatus.UPDATE_AVAILABLE -> "Update Ready"
+        AppUpdateStatus.UPDATE_AVAILABLE -> updateState.availableVersionName
+            ?.let { if (it.startsWith("v", ignoreCase = true)) it else "v$it" }
+            ?: "Update Ready"
         AppUpdateStatus.DOWNLOADING -> "${updateState.downloadProgressPercent}%"
         AppUpdateStatus.DOWNLOADED -> "Restart App"
         AppUpdateStatus.PLAY_UNAVAILABLE,
@@ -88,7 +103,7 @@ fun AppAutoUpdateCard(
         AppUpdateStatus.ERROR -> "Retry"
     }
 
-    SectionPanelCard(modifier = modifier.fillMaxWidth().testTag("app_auto_update_card")) {
+    val cardContent: @Composable () -> Unit = {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -113,19 +128,13 @@ fun AppAutoUpdateCard(
                     )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Mobile App Auto-Update",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = GlassTextPrimary
-                    )
-                    Text(
-                        text = "Version ${updateState.currentVersionName} (Build ${updateState.currentVersionCode})",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = GlassTextSecondary
-                    )
-                }
+                Text(
+                    text = "Mobile App Auto-Update",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = GlassTextPrimary,
+                    modifier = Modifier.weight(1f)
+                )
             }
             Spacer(modifier = Modifier.width(8.dp))
             if (updateState.status == AppUpdateStatus.CHECKING) {
@@ -151,10 +160,9 @@ fun AppAutoUpdateCard(
 
         if (updateState.statusMessage.isNotBlank() || updateState.lastCheckedAtMs > 0L) {
             Spacer(modifier = Modifier.height(10.dp))
-            Surface(
+            CleanHomeMetricTile(
+                accentColor = if (canDownloadGitHubUpdate) IncomeEmerald else NeonCyan,
                 shape = RoundedCornerShape(12.dp),
-                color = CardInnerTileSolid,
-                border = BorderStroke(1.dp, CardBorderSolid),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -166,6 +174,17 @@ fun AppAutoUpdateCard(
                             text = updateState.statusMessage,
                             style = MaterialTheme.typography.bodySmall,
                             color = GlassTextPrimary
+                        )
+                    }
+                    if (updateState.releaseNotes.isNotBlank() &&
+                        updateState.status == AppUpdateStatus.UPDATE_AVAILABLE
+                    ) {
+                        Text(
+                            text = "Latest change: ${updateState.releaseNotes}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = GlassTextSecondary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                     if (updateState.lastCheckedAtMs > 0L) {
@@ -211,8 +230,8 @@ fun AppAutoUpdateCard(
         }
 
         HorizontalDivider(
-            thickness = 1.dp,
-            color = CardBorderSolid
+            thickness = 0.75.dp,
+            color = CardBorderSolid.copy(alpha = 0.35f)
         )
         Spacer(modifier = Modifier.height(10.dp))
 
@@ -220,48 +239,89 @@ fun AppAutoUpdateCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (updateState.status == AppUpdateStatus.DOWNLOADED) {
-                Button(
-                    onClick = onCompleteUpdate,
-                    colors = ButtonDefaults.buttonColors(containerColor = IncomeEmerald),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .testTag("complete_app_update_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CheckCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Restart & Install", fontWeight = FontWeight.Bold)
+            when {
+                updateState.status == AppUpdateStatus.DOWNLOADED -> {
+                    Button(
+                        onClick = onCompleteUpdate,
+                        colors = ButtonDefaults.buttonColors(containerColor = IncomeEmerald),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .hisab3DButtonSurface(accentColor = IncomeEmerald, cornerRadius = 12.dp)
+                            .testTag("complete_app_update_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Restart & Install", fontWeight = FontWeight.Bold)
+                    }
                 }
-            } else {
-                Button(
-                    onClick = onCheckForUpdate,
-                    enabled = updateState.status != AppUpdateStatus.CHECKING,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .testTag("check_app_update_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CloudDownload,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (updateState.status == AppUpdateStatus.CHECKING) {
-                            "Checking..."
-                        } else {
-                            "Check for Update"
-                        },
-                        fontWeight = FontWeight.Bold
-                    )
+
+                canDownloadGitHubUpdate -> {
+                    Button(
+                        onClick = onCompleteUpdate,
+                        colors = ButtonDefaults.buttonColors(containerColor = IncomeEmerald),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .hisab3DButtonSurface(accentColor = IncomeEmerald, cornerRadius = 12.dp)
+                            .testTag("download_github_update_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.CloudDownload,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Download Update", fontWeight = FontWeight.Bold, maxLines = 1)
+                    }
+
+                    OutlinedButton(
+                        onClick = onCheckForUpdate,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .height(48.dp)
+                            .testTag("check_app_update_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Refresh,
+                            contentDescription = "Re-check for updates",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                else -> {
+                    Button(
+                        onClick = onCheckForUpdate,
+                        enabled = updateState.status != AppUpdateStatus.CHECKING,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .hisab3DButtonSurface(accentColor = NeonCyan, cornerRadius = 12.dp)
+                            .testTag("check_app_update_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.CloudDownload,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (updateState.status == AppUpdateStatus.CHECKING) {
+                                "Checking..."
+                            } else {
+                                "Check for Update"
+                            },
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
@@ -275,13 +335,32 @@ fun AppAutoUpdateCard(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                        contentDescription = "Open App Link",
+                        contentDescription = "Open GitHub Releases",
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("App Link", fontWeight = FontWeight.SemiBold)
+                    Text("Releases", fontWeight = FontWeight.SemiBold)
                 }
             }
+        }
+    }
+
+    if (embeddedInOuterCard) {
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp)
+                .testTag("app_auto_update_card")
+        ) {
+            cardContent()
+        }
+    } else {
+        SectionPanelCard(
+            modifier = modifier
+                .fillMaxWidth()
+                .testTag("app_auto_update_card")
+        ) {
+            cardContent()
         }
     }
 }
@@ -292,11 +371,39 @@ fun AppUpdateReadyBanner(
     onRestartToInstall: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (updateState.status != AppUpdateStatus.DOWNLOADED &&
-        updateState.status != AppUpdateStatus.DOWNLOADING
-    ) {
+    val hasGitHubUpdate = updateState.status == AppUpdateStatus.UPDATE_AVAILABLE &&
+        !updateState.downloadUrl.isNullOrBlank()
+    val shouldShow = updateState.status == AppUpdateStatus.DOWNLOADED ||
+        updateState.status == AppUpdateStatus.DOWNLOADING ||
+        hasGitHubUpdate
+
+    val updateKey = "${updateState.status}_${updateState.availableVersionCode}_${updateState.availableVersionName}"
+    var dismissedKey by rememberSaveable { mutableStateOf("") }
+
+    if (!shouldShow || dismissedKey == updateKey) {
         return
     }
+
+    val titleText = when {
+        updateState.status == AppUpdateStatus.DOWNLOADED -> "New App Update Ready"
+        updateState.status == AppUpdateStatus.DOWNLOADING ->
+            "Downloading App Update (${updateState.downloadProgressPercent}%)..."
+        else -> {
+            val ver = updateState.availableVersionName?.let {
+                if (it.startsWith("v", ignoreCase = true)) it else "v$it"
+            } ?: "Update"
+            "New GitHub Update ($ver)"
+        }
+    }
+
+    val subtitleText = when {
+        updateState.status == AppUpdateStatus.DOWNLOADED ->
+            "Tap Restart to install the latest version."
+        hasGitHubUpdate ->
+            updateState.releaseNotes.ifBlank { "Tap Update to download & install from GitHub." }
+        else -> ""
+    }
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -310,20 +417,18 @@ fun AppUpdateReadyBanner(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (updateState.status == AppUpdateStatus.DOWNLOADED) {
-                        "New App Update Ready"
-                    } else {
-                        "Downloading App Update (${updateState.downloadProgressPercent}%)..."
-                    },
+                    text = titleText,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    color = GlassTextPrimary
+                    color = GlassTextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 if (updateState.status == AppUpdateStatus.DOWNLOADING) {
                     Spacer(modifier = Modifier.height(6.dp))
@@ -331,23 +436,44 @@ fun AppUpdateReadyBanner(
                         progress = { (updateState.downloadProgressPercent / 100f).coerceIn(0f, 1f) },
                         modifier = Modifier.fillMaxWidth()
                     )
-                } else {
+                } else if (subtitleText.isNotBlank()) {
                     Text(
-                        text = "Tap Restart to install the latest version.",
+                        text = subtitleText,
                         style = MaterialTheme.typography.labelSmall,
-                        color = GlassTextSecondary
+                        color = GlassTextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-            if (updateState.status == AppUpdateStatus.DOWNLOADED) {
-                Spacer(modifier = Modifier.width(10.dp))
+            if (updateState.status == AppUpdateStatus.DOWNLOADED || hasGitHubUpdate) {
+                Spacer(modifier = Modifier.width(8.dp))
                 Button(
                     onClick = onRestartToInstall,
                     colors = ButtonDefaults.buttonColors(containerColor = IncomeEmerald),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.testTag("banner_restart_update_button")
                 ) {
-                    Text("Restart", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = if (updateState.status == AppUpdateStatus.DOWNLOADED) "Restart" else "Update",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            if (hasGitHubUpdate) {
+                IconButton(
+                    onClick = { dismissedKey = updateKey },
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("banner_dismiss_update_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = "Dismiss update banner",
+                        tint = GlassTextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         }

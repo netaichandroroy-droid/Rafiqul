@@ -46,8 +46,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.MemberPhotoStorage
+import com.example.ui.theme.GlassTextPrimary
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeSurface
+import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.NeonEmerald
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -74,19 +77,18 @@ fun DepositSlipAttachmentPreview(
 
     var showFullScreen by remember { mutableStateOf(false) }
 
-    if (slipBitmap != null) {
-        val bmp = slipBitmap!!
-        Surface(
+    val bmp = slipBitmap
+    if (bmp != null) {
+        GlossyInnerMetricTile(
+            accentColor = NeonEmerald,
+            shape = RoundedCornerShape(14.dp),
             modifier = modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(14.dp))
                 .clickable { showFullScreen = true }
-                .testTag("deposit_slip_preview_box"),
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
+                .testTag("deposit_slip_preview_box")
         ) {
-            Column(modifier = Modifier.padding(8.dp)) {
+            Column(modifier = Modifier.padding(10.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -104,14 +106,14 @@ fun DepositSlipAttachmentPreview(
                             text = title,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = GlassTextPrimary
                         )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Outlined.ZoomIn,
                             contentDescription = "Zoom Slip",
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = NeonCyan,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
@@ -119,7 +121,7 @@ fun DepositSlipAttachmentPreview(
                             text = "View",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = NeonCyan
                         )
                     }
                 }
@@ -131,7 +133,7 @@ fun DepositSlipAttachmentPreview(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(150.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(10.dp))
                 )
             }
         }

@@ -10,7 +10,6 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
-import com.example.R
 import com.example.data.CloudSyncPrefsStore
 import com.google.android.gms.tasks.Task
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -35,6 +34,12 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 fun safeFirebaseAuth(): FirebaseAuth? = runCatching { Firebase.auth }.getOrNull()
+
+private fun resolveDefaultWebClientId(context: Context): String? {
+    val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+    if (resId == 0) return null
+    return runCatching { context.getString(resId) }.getOrNull()?.takeIf { it.isNotBlank() }
+}
 
 tailrec fun Context.findActivityOrNull(): Activity? = when (this) {
     is Activity -> this
@@ -83,13 +88,8 @@ fun attemptAutoSignIn(
         onUnauthenticated()
         return
     }
-    val clientId = try {
-        context.getString(R.string.default_web_client_id)
-    } catch (_: Throwable) {
-        onUnauthenticated()
-        return
-    }
-    if (clientId.isBlank()) {
+    val clientId = resolveDefaultWebClientId(context)
+    if (clientId.isNullOrBlank()) {
         onUnauthenticated()
         return
     }
@@ -136,14 +136,9 @@ fun onGoogleSignInClicked(
         onAuthError("Google Sign-In service is not available on this device.")
         return
     }
-    val clientId = try {
-        context.getString(R.string.default_web_client_id)
-    } catch (_: Throwable) {
+    val clientId = resolveDefaultWebClientId(context)
+    if (clientId.isNullOrBlank()) {
         onAuthError("Google Sign-In configuration is missing.")
-        return
-    }
-    if (clientId.isBlank()) {
-        onAuthError("Google Sign-In client ID is missing.")
         return
     }
 

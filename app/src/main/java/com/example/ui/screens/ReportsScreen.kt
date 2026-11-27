@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.outlined.ManageAccounts
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.SupervisorAccount
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -43,9 +45,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -75,15 +79,24 @@ import com.example.model.ReportCategory
 import com.example.model.ReportPeriodScope
 import com.example.model.TakaJomaStatus
 import com.example.model.TxType
+import com.example.ui.components.CleanHomeMetricTile
+import com.example.ui.components.GlossyNeonIconOrb
 import com.example.ui.components.GroupedWiseReportSection
 import com.example.ui.components.MpoWiseReportSection
+import com.example.ui.components.UnifiedPageCardSurface
+import com.example.ui.components.UnifiedPageSectionDivider
+import com.example.ui.components.glossyMetallicSurface
 import com.example.ui.theme.BrandDeep
-import com.example.ui.theme.BrandHeroStart
 import com.example.ui.theme.BrandPrimary
-import com.example.ui.theme.BrandTint
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.NagadAccent
+import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.NeonEmerald
+import com.example.ui.theme.NeonGold
+import com.example.ui.theme.NeonPurple
+import java.util.Calendar
+import java.util.Locale
 
 @Composable
 fun ReportsScreen(
@@ -96,6 +109,7 @@ fun ReportsScreen(
     monthlySales: List<MonthlySalesRecord> = emptyList(),
     memberTakaJomaList: List<MemberTakaJoma> = emptyList(),
     selectedCategory: ReportCategory = ReportCategory.MONTHLY,
+    isDetailOpen: Boolean = true,
     periodScope: ReportPeriodScope = ReportPeriodScope.SELECTED_MONTH,
     asmNameScope: AsmNameReportScope = AsmNameReportScope.DEPOT_TEAM,
     areaRoleFilter: AreaManagerRoleFilter = AreaManagerRoleFilter.ALL,
@@ -103,7 +117,7 @@ fun ReportsScreen(
     onSelectPeriodScope: (ReportPeriodScope) -> Unit = {},
     onSelectAsmNameScope: (AsmNameReportScope) -> Unit = {},
     onSelectAreaRoleFilter: (AreaManagerRoleFilter) -> Unit = {},
-    onOpenReportMenu: () -> Unit = {}
+    onBackToReportCards: () -> Unit = {}
 ) {
     val monthItems = remember(transactions, selectedMonth) {
         transactions.filter { it.date.startsWith(selectedMonth) }
@@ -320,55 +334,184 @@ fun ReportsScreen(
     val incomeColor = IncomeEmerald
     val expenseColor = ExpenseCrimson
 
-    Surface(
+    if (!isDetailOpen) {
+        val mpoOverviewTotals = remember(mpoReportResult) {
+            ReportAnalyticsCalculator.calculateMemberTotals(mpoReportResult.items)
+        }
+        val asmDepotOverviewTotals = remember(asmDepotGroupsAll) {
+            ReportAnalyticsCalculator.calculateGroupTotals(asmDepotGroupsAll)
+        }
+        val asmNameOverviewTotals = remember(asmNameReport) {
+            ReportAnalyticsCalculator.calculateGroupTotals(asmNameReport.rows)
+        }
+        val areaOverviewTotals = remember(areaRoleReport) {
+            ReportAnalyticsCalculator.calculateGroupTotals(areaRoleReport.rows)
+        }
+        val regionOverviewTotals = remember(regionGroupsAll) {
+            ReportAnalyticsCalculator.calculateGroupTotals(regionGroupsAll)
+        }
+
+        UnifiedPageCardSurface(
+            modifier = modifier.testTag("report_selection_screen")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                CompactReportCalendarBar(
+                    selectedMonth = selectedMonth,
+                    periodScope = periodScope,
+                    onShiftMonth = onShiftMonth,
+                    onSelectPeriodScope = onSelectPeriodScope
+                )
+
+                UnifiedPageSectionDivider()
+
+                val monthNet = monthIncome - monthExpense
+                ReportCategoryFullCard(
+                    category = ReportCategory.MONTHLY,
+                    badgeText = BanglaFormatters.formatBanglaMonth(selectedMonth),
+                    badgeColor = BrandDeep,
+                    kpi1Label = "Income",
+                    kpi1Value = BanglaFormatters.formatBdt(monthIncome),
+                    kpi1Color = incomeColor,
+                    kpi2Label = "Expense",
+                    kpi2Value = BanglaFormatters.formatBdt(monthExpense),
+                    kpi2Color = expenseColor,
+                    kpi3Label = "Net",
+                    kpi3Value = BanglaFormatters.formatBdt(monthNet),
+                    kpi3Color = if (monthNet >= 0.0) incomeColor else expenseColor,
+                    footerSummary = "TP+VAT Sales: ${BanglaFormatters.formatBdt(monthTpPlusVat)} • Approved Deposit: ${BanglaFormatters.formatBdt(monthApprovedJoma)}",
+                    onClick = { onSelectCategory(ReportCategory.MONTHLY) }
+                )
+
+                UnifiedPageSectionDivider()
+
+                ReportCategoryFullCard(
+                    category = ReportCategory.MPO_WISE,
+                    badgeText = "Collection ${mpoOverviewTotals.collectionPercent}%",
+                    badgeColor = incomeColor,
+                    kpi1Label = "TP+VAT sales",
+                    kpi1Value = BanglaFormatters.formatBdt(mpoOverviewTotals.totalTpPlusVat),
+                    kpi1Color = MaterialTheme.colorScheme.primary,
+                    kpi2Label = "Deposit",
+                    kpi2Value = BanglaFormatters.formatBdt(mpoOverviewTotals.approvedJoma),
+                    kpi2Color = incomeColor,
+                    kpi3Label = "Dues",
+                    kpi3Value = BanglaFormatters.formatBdt(mpoOverviewTotals.dues),
+                    kpi3Color = if (mpoOverviewTotals.dues > 0.0) expenseColor else incomeColor,
+                    footerSummary = "MPOs: ${mpoReportResult.items.size} • Pending: ${BanglaFormatters.formatBdt(mpoOverviewTotals.pendingJoma)}",
+                    onClick = { onSelectCategory(ReportCategory.MPO_WISE) }
+                )
+
+                UnifiedPageSectionDivider()
+
+                ReportCategoryFullCard(
+                    category = ReportCategory.ASM_DEPOT_WISE,
+                    badgeText = "Collection ${asmDepotOverviewTotals.collectionPercent}%",
+                    badgeColor = incomeColor,
+                    kpi1Label = "TP+VAT sales",
+                    kpi1Value = BanglaFormatters.formatBdt(asmDepotOverviewTotals.totalTpPlusVat),
+                    kpi1Color = MaterialTheme.colorScheme.primary,
+                    kpi2Label = "Deposit",
+                    kpi2Value = BanglaFormatters.formatBdt(asmDepotOverviewTotals.approvedJoma),
+                    kpi2Color = incomeColor,
+                    kpi3Label = "Dues",
+                    kpi3Value = BanglaFormatters.formatBdt(asmDepotOverviewTotals.dues),
+                    kpi3Color = if (asmDepotOverviewTotals.dues > 0.0) expenseColor else incomeColor,
+                    footerSummary = "Depots: ${asmDepotGroupsAll.size} • Members: ${asmDepotOverviewTotals.memberCount}",
+                    onClick = { onSelectCategory(ReportCategory.ASM_DEPOT_WISE) }
+                )
+
+                UnifiedPageSectionDivider()
+
+                ReportCategoryFullCard(
+                    category = ReportCategory.ASM_NAME_WISE,
+                    badgeText = "Collection ${asmNameOverviewTotals.collectionPercent}%",
+                    badgeColor = incomeColor,
+                    kpi1Label = "TP+VAT sales",
+                    kpi1Value = BanglaFormatters.formatBdt(asmNameOverviewTotals.totalTpPlusVat),
+                    kpi1Color = MaterialTheme.colorScheme.primary,
+                    kpi2Label = "Deposit",
+                    kpi2Value = BanglaFormatters.formatBdt(asmNameOverviewTotals.approvedJoma),
+                    kpi2Color = incomeColor,
+                    kpi3Label = "Dues",
+                    kpi3Value = BanglaFormatters.formatBdt(asmNameOverviewTotals.dues),
+                    kpi3Color = if (asmNameOverviewTotals.dues > 0.0) expenseColor else incomeColor,
+                    footerSummary = "ASMs: ${asmNameReport.rows.size} • Members: ${asmNameOverviewTotals.memberCount}",
+                    onClick = { onSelectCategory(ReportCategory.ASM_NAME_WISE) }
+                )
+
+                UnifiedPageSectionDivider()
+
+                ReportCategoryFullCard(
+                    category = ReportCategory.AM_WISE,
+                    badgeText = "Collection ${areaOverviewTotals.collectionPercent}%",
+                    badgeColor = incomeColor,
+                    kpi1Label = "TP+VAT sales",
+                    kpi1Value = BanglaFormatters.formatBdt(areaOverviewTotals.totalTpPlusVat),
+                    kpi1Color = MaterialTheme.colorScheme.primary,
+                    kpi2Label = "Deposit",
+                    kpi2Value = BanglaFormatters.formatBdt(areaOverviewTotals.approvedJoma),
+                    kpi2Color = incomeColor,
+                    kpi3Label = "Dues",
+                    kpi3Value = BanglaFormatters.formatBdt(areaOverviewTotals.dues),
+                    kpi3Color = if (areaOverviewTotals.dues > 0.0) expenseColor else incomeColor,
+                    footerSummary = "Areas: ${areaRoleReport.rows.size} • Members: ${areaOverviewTotals.memberCount}",
+                    onClick = { onSelectCategory(ReportCategory.AM_WISE) }
+                )
+
+                UnifiedPageSectionDivider()
+
+                ReportCategoryFullCard(
+                    category = ReportCategory.REGION_WISE,
+                    badgeText = "Collection ${regionOverviewTotals.collectionPercent}%",
+                    badgeColor = incomeColor,
+                    kpi1Label = "TP+VAT sales",
+                    kpi1Value = BanglaFormatters.formatBdt(regionOverviewTotals.totalTpPlusVat),
+                    kpi1Color = MaterialTheme.colorScheme.primary,
+                    kpi2Label = "Deposit",
+                    kpi2Value = BanglaFormatters.formatBdt(regionOverviewTotals.approvedJoma),
+                    kpi2Color = incomeColor,
+                    kpi3Label = "Dues",
+                    kpi3Value = BanglaFormatters.formatBdt(regionOverviewTotals.dues),
+                    kpi3Color = if (regionOverviewTotals.dues > 0.0) expenseColor else incomeColor,
+                    footerSummary = "Regions: ${regionGroupsAll.size} • Members: ${regionOverviewTotals.memberCount}",
+                    onClick = { onSelectCategory(ReportCategory.REGION_WISE) }
+                )
+            }
+        }
+        return
+    }
+
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 4.dp, vertical = 4.dp)
-            .testTag("report_full_page_card_${selectedCategory.name.lowercase()}"),
-        shape = RoundedCornerShape(20.dp),
-        color = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(
-            width = 1.dp,
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    Color.White.copy(alpha = 0.36f),
-                    Color.White.copy(alpha = 0.12f)
-                )
+            .glossyMetallicSurface(
+                shape = RoundedCornerShape(0.dp),
+                accentColor = reportCategoryGlowColor(selectedCategory),
+                secondaryGlow = NeonCyan,
+                borderWidth = 1.dp,
+                streakIntensity = 0.25f,
+                isHero = true
             )
-        ),
-        shadowElevation = 0.dp
+            .testTag("report_full_page_card_${selectedCategory.name.lowercase()}")
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.12f),
-                            Color.White.copy(alpha = 0.06f)
-                        )
-                    )
-                )
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            BrandHeroStart.copy(alpha = 0.16f),
-                            Color.Transparent,
-                            BrandTint.copy(alpha = 0.18f)
-                        )
-                    )
-                )
+            modifier = Modifier.fillMaxSize()
         ) {
             // Dedicated Full Report Card Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = onOpenReportMenu,
+                    onClick = onBackToReportCards,
                     modifier = Modifier
                         .minimumInteractiveComponentSize()
                         .testTag("report_subpage_back_button")
@@ -380,21 +523,14 @@ fun ReportsScreen(
                     )
                 }
 
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color.White.copy(alpha = 0.12f))
-                        .border(0.8.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = reportCategoryIcon(selectedCategory),
-                        contentDescription = null,
-                        tint = BrandDeep,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
+                GlossyNeonIconOrb(
+                    icon = reportCategoryIcon(selectedCategory),
+                    contentDescription = null,
+                    glowColor = reportCategoryGlowColor(selectedCategory),
+                    iconTint = Color.White,
+                    size = 38.dp,
+                    iconSize = 19.dp
+                )
 
                 Spacer(modifier = Modifier.width(10.dp))
 
@@ -417,7 +553,7 @@ fun ReportsScreen(
                     modifier = Modifier
                         .minimumInteractiveComponentSize()
                         .clip(RoundedCornerShape(14.dp))
-                        .clickable(onClick = onOpenReportMenu)
+                        .clickable(onClick = onBackToReportCards)
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -425,13 +561,13 @@ fun ReportsScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.GridView,
-                            contentDescription = "Switch Report",
+                            contentDescription = "All Reports",
                             tint = BrandDeep,
                             modifier = Modifier.size(15.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Reports",
+                            text = "All Reports",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = BrandDeep
@@ -449,8 +585,8 @@ fun ReportsScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 // Month & Period Controls integrated inside the full card
                 item {
@@ -869,11 +1005,10 @@ private fun ReportStatBox(
     valueColor: Color,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    CleanHomeMetricTile(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        color = Color.White.copy(alpha = 0.10f),
-        border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.22f))
+        accentColor = valueColor,
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
@@ -931,6 +1066,406 @@ private fun ComparisonBarRow(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+private fun reportCategoryGlowColor(category: ReportCategory): Color = when (category) {
+    ReportCategory.MONTHLY -> NeonCyan
+    ReportCategory.MPO_WISE -> NeonEmerald
+    ReportCategory.ASM_DEPOT_WISE -> NeonGold
+    ReportCategory.ASM_NAME_WISE -> NeonPurple
+    ReportCategory.AM_WISE -> NeonCyan
+    ReportCategory.REGION_WISE -> NeonEmerald
+}
+
+@Composable
+private fun ReportGlassCard(
+    modifier: Modifier = Modifier,
+    accentColor: Color = NeonCyan,
+    onClick: (() -> Unit)? = null,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .let { base -> if (onClick != null) base.clickable(onClick = onClick) else base }
+            .padding(horizontal = 14.dp, vertical = 2.dp),
+        content = content
+    )
+}
+
+@Composable
+private fun ReportCategoryFullCard(
+    category: ReportCategory,
+    badgeText: String,
+    badgeColor: Color,
+    kpi1Label: String,
+    kpi1Value: String,
+    kpi1Color: Color,
+    kpi2Label: String,
+    kpi2Value: String,
+    kpi2Color: Color,
+    kpi3Label: String,
+    kpi3Value: String,
+    kpi3Color: Color,
+    footerSummary: String,
+    onClick: () -> Unit
+) {
+    val glowColor = reportCategoryGlowColor(category)
+    ReportGlassCard(
+        modifier = Modifier.testTag(category.menuTestTag),
+        accentColor = glowColor,
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            GlossyNeonIconOrb(
+                icon = reportCategoryIcon(category),
+                contentDescription = null,
+                glowColor = glowColor,
+                iconTint = Color.White,
+                size = 44.dp,
+                iconSize = 22.dp
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = category.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Open ${category.title}",
+                tint = BrandDeep,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            OverviewMiniKpi(
+                label = kpi1Label,
+                value = kpi1Value,
+                valueColor = kpi1Color,
+                accentColor = glowColor,
+                modifier = Modifier.weight(1f)
+            )
+            OverviewMiniKpi(
+                label = kpi2Label,
+                value = kpi2Value,
+                valueColor = kpi2Color,
+                accentColor = NeonEmerald,
+                modifier = Modifier.weight(1f)
+            )
+            OverviewMiniKpi(
+                label = kpi3Label,
+                value = kpi3Value,
+                valueColor = kpi3Color,
+                accentColor = kpi3Color,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun OverviewMiniKpi(
+    label: String,
+    value: String,
+    valueColor: Color,
+    accentColor: Color = NeonCyan,
+    modifier: Modifier = Modifier
+) {
+    CleanHomeMetricTile(
+        modifier = modifier,
+        accentColor = accentColor,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = valueColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactReportCalendarBar(
+    selectedMonth: String,
+    periodScope: ReportPeriodScope,
+    onShiftMonth: (Int) -> Unit,
+    onSelectPeriodScope: (ReportPeriodScope) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showCalendarDialog by remember { mutableStateOf(false) }
+
+    val parsedParts = remember(selectedMonth) {
+        val parts = selectedMonth.split("-")
+        val defaultYear = Calendar.getInstance(Locale.US).get(Calendar.YEAR)
+        val year = parts.getOrNull(0)?.toIntOrNull() ?: defaultYear
+        val month = (parts.getOrNull(1)?.toIntOrNull() ?: 1).coerceIn(1, 12)
+        year to month
+    }
+    val currentYear = parsedParts.first
+    val currentMonth = parsedParts.second
+
+    CleanHomeMetricTile(
+        accentColor = NeonCyan,
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp)
+            .testTag("compact_report_calendar_bar")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .minimumInteractiveComponentSize()
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { showCalendarDialog = true }
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .testTag("overview_calendar_button"),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CalendarMonth,
+                    contentDescription = "Open Calendar",
+                    tint = BrandDeep,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = if (periodScope == ReportPeriodScope.ALL_TIME) {
+                        "All Months (Total)"
+                    } else {
+                        BanglaFormatters.formatBanglaMonth(selectedMonth)
+                    },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            IconButton(
+                onClick = {
+                    if (periodScope != ReportPeriodScope.SELECTED_MONTH) {
+                        onSelectPeriodScope(ReportPeriodScope.SELECTED_MONTH)
+                    }
+                    onShiftMonth(-1)
+                },
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("overview_prev_month_button")
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = "Previous Month",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            IconButton(
+                onClick = {
+                    if (periodScope != ReportPeriodScope.SELECTED_MONTH) {
+                        onSelectPeriodScope(ReportPeriodScope.SELECTED_MONTH)
+                    }
+                    onShiftMonth(1)
+                },
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("overview_next_month_button")
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "Next Month",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = if (periodScope == ReportPeriodScope.ALL_TIME) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    Color.White.copy(alpha = 0.10f)
+                },
+                border = BorderStroke(
+                    width = 0.8.dp,
+                    color = if (periodScope == ReportPeriodScope.ALL_TIME) {
+                        BrandDeep.copy(alpha = 0.55f)
+                    } else {
+                        Color.White.copy(alpha = 0.22f)
+                    }
+                ),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable {
+                        onSelectPeriodScope(
+                            if (periodScope == ReportPeriodScope.ALL_TIME) {
+                                ReportPeriodScope.SELECTED_MONTH
+                            } else {
+                                ReportPeriodScope.ALL_TIME
+                            }
+                        )
+                    }
+                    .testTag("overview_scope_toggle")
+            ) {
+                Text(
+                    text = if (periodScope == ReportPeriodScope.ALL_TIME) "All" else "Month",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+        }
+    }
+
+    if (showCalendarDialog) {
+        var pickerYear by remember(selectedMonth) { mutableIntStateOf(currentYear) }
+        val shortMonths = remember {
+            listOf(
+                "Jan", "Feb", "Mar", "Apr",
+                "May", "Jun", "Jul", "Aug",
+                "Sep", "Oct", "Nov", "Dec"
+            )
+        }
+        AlertDialog(
+            onDismissRequest = { showCalendarDialog = false },
+            modifier = Modifier.testTag("report_calendar_dialog"),
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { pickerYear -= 1 },
+                        modifier = Modifier.minimumInteractiveComponentSize()
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = "Previous Year"
+                        )
+                    }
+                    Text(
+                        text = pickerYear.toString(),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(
+                        onClick = { pickerYear += 1 },
+                        modifier = Modifier.minimumInteractiveComponentSize()
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Next Year"
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (row in 0 until 3) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            for (col in 0 until 4) {
+                                val monthNumber = row * 4 + col + 1
+                                val isCurrentSelection = periodScope == ReportPeriodScope.SELECTED_MONTH &&
+                                    pickerYear == currentYear &&
+                                    monthNumber == currentMonth
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isCurrentSelection) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        Color.White.copy(alpha = 0.08f)
+                                    },
+                                    border = BorderStroke(
+                                        width = 0.8.dp,
+                                        color = if (isCurrentSelection) {
+                                            BrandDeep.copy(alpha = 0.65f)
+                                        } else {
+                                            Color.White.copy(alpha = 0.18f)
+                                        }
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable {
+                                            val delta = (pickerYear - currentYear) * 12 + (monthNumber - currentMonth)
+                                            onSelectPeriodScope(ReportPeriodScope.SELECTED_MONTH)
+                                            if (delta != 0) {
+                                                onShiftMonth(delta)
+                                            }
+                                            showCalendarDialog = false
+                                        }
+                                ) {
+                                    Text(
+                                        text = shortMonths[monthNumber - 1],
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (isCurrentSelection) FontWeight.Bold else FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(vertical = 10.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onSelectPeriodScope(ReportPeriodScope.ALL_TIME)
+                        showCalendarDialog = false
+                    }
+                ) {
+                    Text("All Months")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCalendarDialog = false }) {
+                    Text("Close")
+                }
+            }
         )
     }
 }

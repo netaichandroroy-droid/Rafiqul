@@ -130,10 +130,10 @@ class AiCallCenterEngine {
             modelName = SCRIPT_MODEL,
             systemInstruction = content {
                 text(
-                    "You are a warm, polite female AI Call Center representative for Rangpur Depot. " +
+                    "You are a warm, polite AI Call Center representative for Rangpur Depot. " +
                         "Write a short, courteous, natural 2-to-3 sentence phone call greeting reminding the member " +
-                        "about their Monday dues balance and requesting deposit confirmation. " +
-                        "Introduce yourself using the female agent name provided. " +
+                        "about their dues balance and requesting deposit confirmation. " +
+                        "Introduce yourself using the representative name provided. " +
                         "Never mention any external AI provider, model, or third-party service name. " +
                         "Use only the exact name, area, and BDT figures provided. Do not use markdown or bullet symbols."
                 )
@@ -143,6 +143,9 @@ class AiCallCenterEngine {
 
     private val aoedeTtsModel by lazy { buildTtsModel(FemaleAiVoiceOption.AOEDE.voiceId) }
     private val koreTtsModel by lazy { buildTtsModel(FemaleAiVoiceOption.KORE.voiceId) }
+    private val rafiqulTtsModel by lazy { buildTtsModel(FemaleAiVoiceOption.RAFIQUL.voiceId) }
+    private val nitaiTtsModel by lazy { buildTtsModel(FemaleAiVoiceOption.NITAI.voiceId) }
+    private val nikhilTtsModel by lazy { buildTtsModel(FemaleAiVoiceOption.NIKHIL.voiceId) }
 
     @OptIn(PublicPreviewAPI::class)
     private fun buildTtsModel(voiceName: String) = Firebase.ai.generativeModel(
@@ -159,18 +162,21 @@ class AiCallCenterEngine {
         onProgress: (String) -> Unit = {}
     ): Result<AiGeneratedCallScriptResult> {
         return try {
-            onProgress("${voiceOption.agentName} (Female AI) preparing call for ${item.memberName}...")
+            val speakerLabel = voiceOption.genderLabel
+            val voiceGender = if (voiceOption.isMale) "male" else "female"
+            onProgress("${voiceOption.agentName} ($speakerLabel) preparing call for ${item.memberName}...")
             val prompt = buildString {
-                appendLine("Compose a polite Monday dues reminder phone call message in clear spoken English.")
-                appendLine("Female Agent Name: ${voiceOption.agentName}")
+                appendLine("Compose a polite scheduled dues reminder phone call message in clear spoken English.")
+                appendLine("Representative Name: ${voiceOption.agentName}")
+                appendLine("Representative Voice: $voiceGender")
                 appendLine("Member Name: ${item.memberName}")
                 if (item.code.isNotBlank()) appendLine("Member Code: ${item.code}")
                 if (item.area.isNotBlank()) appendLine("Area: ${item.area}")
                 appendLine("Depot: ${item.depot.ifBlank { "Rangpur Depot" }}")
                 appendLine("Total TP+VAT Sales: ${item.totalSales.roundToLong()} BDT")
                 appendLine("Approved Deposit: ${item.approvedDeposit.roundToLong()} BDT")
-                appendLine("Pending Monday Dues: ${item.duesAmount.roundToLong()} BDT")
-                appendLine("Keep it warm, courteous, and brief (under 45 words) so it sounds natural spoken by a female representative on a phone call.")
+                appendLine("Pending Dues: ${item.duesAmount.roundToLong()} BDT")
+                appendLine("Keep it warm, courteous, and brief (under 45 words) so it sounds natural spoken by a $voiceGender representative named ${voiceOption.agentName} on a phone call.")
             }
 
             val scriptResponse = withTimeout(TIMEOUT_MS) {
@@ -181,12 +187,15 @@ class AiCallCenterEngine {
                 throw IllegalStateException("AI call script could not be prepared.")
             }
 
-            onProgress("${voiceOption.agentName} (Female AI) generating voice for ${item.memberName}...")
+            onProgress("${voiceOption.agentName} ($speakerLabel) generating voice for ${item.memberName}...")
             val ttsModel = when (voiceOption) {
                 FemaleAiVoiceOption.AOEDE -> aoedeTtsModel
                 FemaleAiVoiceOption.KORE -> koreTtsModel
+                FemaleAiVoiceOption.RAFIQUL -> rafiqulTtsModel
+                FemaleAiVoiceOption.NITAI -> nitaiTtsModel
+                FemaleAiVoiceOption.NIKHIL -> nikhilTtsModel
             }
-            val ttsPrompt = "Speak the following phone call reminder in a warm, natural, polite female voice:\n\n$script"
+            val ttsPrompt = "Speak the following phone call reminder in a warm, natural, polite $voiceGender voice:\n\n$script"
             val ttsResponse = withTimeout(TIMEOUT_MS) {
                 ttsModel.generateContent(ttsPrompt)
             }

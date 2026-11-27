@@ -17,4 +17,5 @@
     <string name="delete_confirm_body">This transaction will be permanently deleted.</string>
     <string name="delete_action">Delete</string>
     <string name="cancel_action">Cancel</string>
+    <string name="login_depot_title">RANGPUR DEPOT</string>
 </resources>

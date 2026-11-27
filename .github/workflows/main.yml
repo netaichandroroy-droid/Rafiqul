@@ -7,6 +7,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,8 +24,23 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Configure Android SDK
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          mkdir -p "$SDK_ROOT/licenses"
+          grep -q "24333f8a63b6825ea9c5514f83c2829b004d1fee" "$SDK_ROOT/licenses/android-sdk-license" 2>/dev/null || \
+            printf "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" >> "$SDK_ROOT/licenses/android-sdk-license"
+          grep -q "d56f5187479451eabf01fb78af6dfcb131a6481e" "$SDK_ROOT/licenses/android-sdk-license" 2>/dev/null || \
+            printf "\nd56f5187479451eabf01fb78af6dfcb131a6481e" >> "$SDK_ROOT/licenses/android-sdk-license"
+          SDKMANAGER=$(command -v sdkmanager || find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1 || true)
+          if [ -n "$SDKMANAGER" ]; then
+            echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+            echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+            set +o pipefail
+            yes 2>/dev/null | head -n 50 | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null 2>&1 || true
+          fi
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -37,29 +55,72 @@ jobs:
             printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
           fi
           if [ ! -f app/google-services.json ]; then
-            echo "ERROR: app/google-services.json is missing. Commit app/google-services.json or set the GOOGLE_SERVICES_JSON repository secret."
-            exit 1
+            echo "WARNING: app/google-services.json is missing; proceeding with MissingGoogleServicesStrategy.WARN."
           fi
           if [ ! -f .env.example ]; then
             echo "# Secrets Gradle Plugin defaults" > .env.example
+          fi
+          if [ ! -f .env ]; then
+            touch .env
           fi
 
       - name: Generate Debug Keystore
         run: |
           if [ ! -f debug.keystore ]; then
-            keytool -genkeypair -v \
-              -keystore debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
+            if [ -f debug.keystore.base64 ]; then
+              base64 -d debug.keystore.base64 > debug.keystore
+            else
+              keytool -genkeypair -v \
+                -keystore debug.keystore \
+                -storepass android \
+                -alias androiddebugkey \
+                -keypass android \
+                -keyalg RSA \
+                -keysize 2048 \
+                -validity 10000 \
+                -dname "CN=Android Debug,O=Android,C=US"
+            fi
           fi
+
+      - name: Compute App Version
+        run: |
+          VER_CODE=$((10 + GITHUB_RUN_NUMBER))
+          VER_NAME="1.0.${GITHUB_RUN_NUMBER}"
+          TAG_NAME="v${VER_NAME}-b${VER_CODE}"
+          echo "APP_VERSION_CODE=${VER_CODE}" >> "$GITHUB_ENV"
+          echo "APP_VERSION_NAME=${VER_NAME}" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=${TAG_NAME}" >> "$GITHUB_ENV"
 
       - name: Build Debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Prepare Release APK
+        run: |
+          APK_SOURCE=$(find app/build/outputs/apk/debug -maxdepth 1 -name "*.apk" | head -n 1)
+          if [ -z "$APK_SOURCE" ]; then
+            echo "Debug APK not found!"
+            exit 1
+          fi
+          mkdir -p release_assets
+          RELEASE_APK="release_assets/Rafiqul-Islam-v${APP_VERSION_NAME}-b${APP_VERSION_CODE}.apk"
+          cp "$APK_SOURCE" "$RELEASE_APK"
+          echo "RELEASE_APK=$RELEASE_APK" >> "$GITHUB_ENV"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+          NOTES=$(printf "Build Code: %s\nVersion: %s\nCommit: %s (%s)\n\nDownload and install the attached APK to update your mobile app." "$APP_VERSION_CODE" "$APP_VERSION_NAME" "$COMMIT_MSG" "$SHORT_SHA")
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$RELEASE_APK" --clobber
+          else
+            gh release create "$RELEASE_TAG" "$RELEASE_APK" \
+              --title "Rafiqul Islam v${APP_VERSION_NAME} (Build ${APP_VERSION_CODE})" \
+              --notes "$NOTES" \
+              --latest
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

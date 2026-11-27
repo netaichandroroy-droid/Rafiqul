@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -60,6 +61,7 @@ fun MonthlySalesTableCard(
     headerAction: (@Composable () -> Unit)? = null,
     filterContent: (@Composable () -> Unit)? = null,
     onRowClick: ((MonthlySalesRecord) -> Unit)? = null,
+    embeddedInOuterCard: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val borderColor = MaterialTheme.colorScheme.outline
@@ -115,11 +117,10 @@ fun MonthlySalesTableCard(
         )
     }
 
-    GlassCardSurface(
-        modifier = modifier.testTag("monthly_sales_table_card"),
-        contentPadding = PaddingValues(vertical = 8.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+    val tableBorderColor = if (embeddedInOuterCard) borderColor.copy(alpha = 0.55f) else borderColor
+
+    val tableBody: @Composable () -> Unit = {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = if (embeddedInOuterCard) 4.dp else 6.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -134,7 +135,7 @@ fun MonthlySalesTableCard(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    if (subtitle.isNotBlank()) {
+                    if (!embeddedInOuterCard && subtitle.isNotBlank()) {
                         Text(
                             text = subtitle,
                             style = MaterialTheme.typography.bodySmall,
@@ -152,37 +153,39 @@ fun MonthlySalesTableCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            if (!embeddedInOuterCard) {
+                Spacer(modifier = Modifier.height(8.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "Entries: ${records.size}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = IncomeSurface
-                ) {
-                    Text(
-                        text = "Total TP+VAT sales: ${BanglaFormatters.formatBdt(totalTpPlusVat)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = IncomeEmerald,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = "Entries: ${records.size}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = IncomeSurface
+                    ) {
+                        Text(
+                            text = "Total TP+VAT sales: ${BanglaFormatters.formatBdt(totalTpPlusVat)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = IncomeEmerald,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
                 }
             }
 
@@ -213,7 +216,7 @@ fun MonthlySalesTableCard(
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 6.dp)
+                        .padding(horizontal = if (embeddedInOuterCard) 14.dp else 6.dp)
                 ) {
                     val borderOverhead = 5.dp
                     val baseTotal = codeColW + nameColW + tpSalesColW + tpVatColW + borderOverhead
@@ -228,8 +231,11 @@ fun MonthlySalesTableCard(
                             .fillMaxWidth()
                             .horizontalScroll(scrollState)
                     ) {
+                        val tableShape = RoundedCornerShape(if (embeddedInOuterCard) 10.dp else 0.dp)
                         Column(
-                            modifier = Modifier.border(1.dp, borderColor)
+                            modifier = Modifier
+                                .clip(tableShape)
+                                .border(if (embeddedInOuterCard) 0.8.dp else 1.dp, tableBorderColor, tableShape)
                         ) {
                             // Header row with requested columns: code, name, TP sales, TP+Vat
                             Row(
@@ -434,6 +440,19 @@ fun MonthlySalesTableCard(
                     }
                 }
             }
+        }
+    }
+
+    if (embeddedInOuterCard) {
+        Box(modifier = modifier.fillMaxWidth().testTag("monthly_sales_table_card")) {
+            tableBody()
+        }
+    } else {
+        GlassCardSurface(
+            modifier = modifier.testTag("monthly_sales_table_card"),
+            contentPadding = PaddingValues(vertical = 8.dp)
+        ) {
+            tableBody()
         }
     }
 }

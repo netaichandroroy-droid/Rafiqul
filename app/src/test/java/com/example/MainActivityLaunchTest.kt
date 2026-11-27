@@ -2,11 +2,15 @@ package com.example
 
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.example.auth.AppLockCredentialStore
@@ -47,6 +51,8 @@ class MainActivityLaunchTest {
     fun `launch MainActivity logged out renders login screen`() {
         ActivityScenario.launch(MainActivity::class.java).use {
             composeRule.waitForIdle()
+            composeRule.onNodeWithTag("login_depot_title").assertIsDisplayed()
+            composeRule.onNodeWithText("RANGPUR DEPOT").assertIsDisplayed()
             composeRule.onNodeWithTag("app_login_id_input").assertIsDisplayed()
             composeRule.onNodeWithTag("app_login_submit_button")
                 .performScrollTo()
@@ -134,6 +140,7 @@ class MainActivityLaunchTest {
 
         ActivityScenario.launch(MainActivity::class.java).use {
             composeRule.waitForIdle()
+            composeRule.onNodeWithTag("firestore_net_balance_card").assertIsDisplayed()
             composeRule.onNodeWithTag("hero_balance_card").assertIsDisplayed()
             composeRule.onNodeWithText("Rafiqul Islam").assertIsDisplayed()
 
@@ -143,6 +150,8 @@ class MainActivityLaunchTest {
             composeRule.onNodeWithTag("nav_reports").performClick()
             composeRule.waitForIdle()
             composeRule.onNodeWithTag("report_selection_screen").assertIsDisplayed()
+            composeRule.onNodeWithTag("compact_report_calendar_bar").assertIsDisplayed()
+            composeRule.onNodeWithTag("overview_calendar_button").assertIsDisplayed()
             composeRule.onNodeWithTag("report_menu_monthly").performScrollTo().assertIsDisplayed()
             composeRule.onNodeWithTag("report_menu_mpo_wise").performScrollTo().assertIsDisplayed()
             composeRule.onNodeWithTag("report_menu_am_wise").performScrollTo().assertIsDisplayed()
@@ -242,4 +251,213 @@ class MainActivityLaunchTest {
         ) as ByteArray
         assertTrue(expected.contentEquals(actual))
     }
+
+    @Test
+    fun `homeScreen renders top firestore net balance summary card above hero card`() {
+        MemberStore(context).saveAll(
+            listOf(
+                Member(
+                    id = "m1",
+                    name = "TestMember",
+                    designation = "SR",
+                    phone = "01700000000",
+                    depot = "Dhaka",
+                    code = "M-101",
+                    salesAmount = 500.0,
+                    isActive = true
+                )
+            )
+        )
+        MemberTakaJomaStore(context).saveAll(
+            listOf(
+                MemberTakaJoma(
+                    id = "j1",
+                    memberId = "m1",
+                    name = "TestMember",
+                    code = "M-101",
+                    depot = "Dhaka",
+                    amount = 3500.0,
+                    date = "2026-11-22",
+                    approvalStatus = TakaJomaStatus.APPROVED.wireValue
+                )
+            )
+        )
+        MonthlySalesStore(context).saveAll(
+            listOf(
+                MonthlySalesRecord(
+                    id = "s1",
+                    yearMonth = "2026-11",
+                    code = "M-101",
+                    name = "TestMember",
+                    tpSales = 1800.0,
+                    tpPlusVat = 2000.0
+                )
+            )
+        )
+        AppLockCredentialStore(context).login("rafiqul", "rafiqul")
+
+        ActivityScenario.launch(MainActivity::class.java).use {
+            composeRule.waitForIdle()
+            composeRule.onNodeWithTag("firestore_net_balance_card").assertIsDisplayed()
+            composeRule.onNodeWithTag("firestore_net_balance_amount").assertIsDisplayed()
+            composeRule.onNodeWithTag("firestore_total_deposits_value").assertIsDisplayed()
+            composeRule.onNodeWithTag("firestore_total_sales_value").assertIsDisplayed()
+            composeRule.onNodeWithTag("firestore_net_balance_status").assertIsDisplayed()
+            composeRule.onNodeWithTag("hero_balance_card").assertIsDisplayed()
+            composeRule.onNodeWithText("+৳ 1,000").assertIsDisplayed()
+            composeRule.onNodeWithText("৳ 3,500").assertIsDisplayed()
+            composeRule.onNodeWithText("৳ 2,500").assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun `member deposit tab displays 3d form with photo upload options and profile shows auto update card`() {
+        MemberStore(context).saveAll(
+            listOf(
+                Member(
+                    id = "m1",
+                    name = "TestMember",
+                    designation = "SR",
+                    phone = "01700000000",
+                    depot = "Dhaka",
+                    code = "M-101",
+                    isActive = true
+                )
+            )
+        )
+        AppLockCredentialStore(context).loginAsMember("m1")
+
+        ActivityScenario.launch(MainActivity::class.java).use {
+            composeRule.waitForIdle()
+            composeRule.onNodeWithTag("member_nav_taka_joma").performClick()
+            composeRule.waitForIdle()
+
+            composeRule.onNodeWithTag("taka_joma_3d_form_card").assertIsDisplayed()
+            composeRule.onNodeWithTag("taka_joma_photo_upload_section")
+                .performScrollTo()
+                .assertIsDisplayed()
+            composeRule.onNodeWithTag("taka_joma_pick_photo_button")
+                .performScrollTo()
+                .assertIsDisplayed()
+            composeRule.onNodeWithTag("taka_joma_camera_button")
+                .performScrollTo()
+                .assertIsDisplayed()
+            composeRule.onNodeWithTag("taka_joma_submit_button")
+                .performScrollTo()
+                .assertIsDisplayed()
+
+            composeRule.onNodeWithTag("member_nav_profile").performClick()
+            composeRule.waitForIdle()
+            composeRule.onNode(hasScrollAction())
+                .performScrollToNode(hasTestTag("app_auto_update_card"))
+            composeRule.onNodeWithTag("app_auto_update_card")
+                .performScrollTo()
+                .assertIsDisplayed()
+            composeRule.onNodeWithTag("app_auto_update_switch")
+                .performScrollTo()
+                .assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun `submitting member deposit displays successful message banners`() {
+        MemberStore(context).saveAll(
+            listOf(
+                Member(
+                    id = "m1",
+                    name = "TestMember",
+                    designation = "SR",
+                    phone = "01700000000",
+                    depot = "Dhaka",
+                    code = "M-101",
+                    isActive = true
+                )
+            )
+        )
+        AppLockCredentialStore(context).loginAsMember("m1")
+
+        ActivityScenario.launch(MainActivity::class.java).use {
+            composeRule.waitForIdle()
+            composeRule.onNodeWithTag("member_nav_taka_joma").performClick()
+            composeRule.waitForIdle()
+
+            composeRule.onNodeWithTag("taka_joma_amount_input")
+                .performScrollTo()
+                .performTextInput("2500")
+            composeRule.onNodeWithTag("taka_joma_payment_dropdown")
+                .performScrollTo()
+                .performClick()
+            composeRule.waitForIdle()
+            composeRule.onNodeWithTag("taka_joma_dropdown_menu")
+                .performScrollTo()
+            composeRule.onNodeWithTag("bank_row_CASH")
+                .performScrollTo()
+                .performClick()
+            composeRule.waitForIdle()
+
+            composeRule.onNodeWithTag("taka_joma_submit_button")
+                .performScrollTo()
+                .performClick()
+            composeRule.waitForIdle()
+
+            composeRule.onNodeWithTag("app_success_banner").assertIsDisplayed()
+            composeRule.onNodeWithTag("taka_joma_success_banner")
+                .performScrollTo()
+                .assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun `settings AI Call Center opens Monday dues queue without third party text`() {
+        MemberStore(context).saveAll(
+            listOf(
+                Member(
+                    id = "m_due_ui",
+                    name = "DueMember",
+                    designation = "SR",
+                    phone = "01799001122",
+                    depot = "Rangpur",
+                    code = "D-201",
+                    salesAmount = 4200.0,
+                    isActive = true
+                )
+            )
+        )
+        AppLockCredentialStore(context).login("rafiqul", "rafiqul")
+
+        ActivityScenario.launch(MainActivity::class.java).use {
+            composeRule.waitForIdle()
+            composeRule.onNodeWithTag("nav_settings").performClick()
+            composeRule.waitForIdle()
+
+            composeRule.onNodeWithTag("settings_ai_call_center_item")
+                .performScrollTo()
+                .assertIsDisplayed()
+                .performClick()
+            composeRule.waitForIdle()
+
+            composeRule.onNodeWithTag("ai_call_center_screen").assertIsDisplayed()
+            composeRule.onNodeWithTag("ai_call_monday_switch").assertIsDisplayed()
+            composeRule.onNodeWithText("Nadia (Female)").performScrollTo().assertIsDisplayed()
+            composeRule.onNodeWithText("Sadia (Female)").performScrollTo().assertIsDisplayed()
+            composeRule.onNodeWithTag("ai_call_sim_dial_switch")
+                .performScrollTo()
+                .assertIsDisplayed()
+            composeRule.onNodeWithTag("ai_call_start_queue_button")
+                .performScrollTo()
+                .assertIsDisplayed()
+            composeRule.onNodeWithTag("ai_call_center_screen")
+                .performScrollToNode(hasTestTag("ai_call_center_queue_card"))
+            composeRule.onNodeWithTag("ai_call_center_queue_card").assertIsDisplayed()
+            composeRule.onNodeWithTag("ai_call_center_screen")
+                .performScrollToNode(hasTestTag("ai_call_queue_item_m_due_ui"))
+            composeRule.onNodeWithTag("ai_call_queue_item_m_due_ui").assertIsDisplayed()
+            composeRule.onNodeWithText("Free AI Call").assertIsDisplayed()
+            composeRule.onNodeWithText("Gemini", substring = true, ignoreCase = true).assertDoesNotExist()
+            composeRule.onNodeWithText("Firebase", substring = true, ignoreCase = true).assertDoesNotExist()
+            composeRule.onNodeWithText("Twilio", substring = true, ignoreCase = true).assertDoesNotExist()
+            composeRule.onNodeWithText("OpenAI", substring = true, ignoreCase = true).assertDoesNotExist()
+        }
+    }
 }
+

@@ -47,6 +47,7 @@ import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.ExpenseSurface
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeSurface
+import com.example.ui.theme.NeonCyan
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -148,13 +149,9 @@ fun CloudAutoSyncCard(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        Surface(
+        GlossyInnerMetricTile(
+            accentColor = if (cloudSyncState.isConnected) IncomeEmerald else NeonCyan,
             shape = RoundedCornerShape(12.dp),
-            color = if (cloudSyncState.isConnected) {
-                IncomeSurface.copy(alpha = 0.72f)
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
-            },
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -220,6 +217,7 @@ fun CloudAutoSyncCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
+                    .hisab3DButtonSurface(accentColor = NeonCyan, cornerRadius = 12.dp)
                     .testTag("cloud_google_sign_in_button")
             ) {
                 if (isSigningIn) {

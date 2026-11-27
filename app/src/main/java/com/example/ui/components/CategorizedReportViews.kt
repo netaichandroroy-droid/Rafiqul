@@ -65,12 +65,15 @@ import com.example.model.GroupedReportRow
 import com.example.model.MemberReportItem
 import com.example.model.ReportCategory
 import com.example.model.ReportTotals
+import com.example.ui.components.GlossyInnerMetricTile
+import com.example.ui.components.hisab3DFieldDepth
 import com.example.ui.theme.BrandPrimary
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.ExpenseSurface
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeSurface
 import com.example.ui.theme.NagadAccent
+import com.example.ui.theme.NeonCyan
 
 @Composable
 fun ReportTotalsSummaryStrip(
@@ -162,11 +165,10 @@ private fun MiniReportKpiBox(
     valueColor: Color,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    GlossyInnerMetricTile(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = Color.White.copy(alpha = 0.10f),
-        border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.22f))
+        accentColor = valueColor,
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)) {
             Text(
@@ -221,8 +223,10 @@ fun ReportSearchField(
         },
         singleLine = true,
         shape = RoundedCornerShape(12.dp),
+        colors = hisabFormFieldColors(),
         modifier = modifier
             .fillMaxWidth()
+            .hisab3DFieldDepth(accentColor = NeonCyan, topLabelOffset = 4.dp)
             .testTag(testTag)
     )
 }

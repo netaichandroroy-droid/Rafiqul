@@ -39,7 +39,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -51,14 +50,20 @@ import com.example.model.MemberSalesDuesCalculator
 import com.example.model.MemberTakaJoma
 import com.example.model.MonthlySalesRecord
 import com.example.model.TakaJomaStatus
+import com.example.ui.components.CleanHomeMetricTile
 import com.example.ui.components.MonthlySalesTableCard
-import com.example.ui.components.SectionPanelCard
+import com.example.ui.components.UnifiedPageCardSurface
+import com.example.ui.components.UnifiedPageSectionDivider
 import com.example.ui.components.isMatchingMember
-import com.example.ui.theme.BrandHeroEnd
-import com.example.ui.theme.BrandHeroStart
+import com.example.ui.theme.CardBorderSolid
 import com.example.ui.theme.ExpenseCrimson
+import com.example.ui.theme.GlassTextPrimary
+import com.example.ui.theme.GlassTextSecondary
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.NagadAccent
+import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.NeonEmerald
+import com.example.ui.theme.NeonPurple
 
 @Composable
 fun MemberHomeScreen(
@@ -113,108 +118,47 @@ fun MemberHomeScreen(
         }
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    UnifiedPageCardSurface(
+        modifier = modifier,
+        accentColor = NeonCyan,
+        secondaryGlow = NeonPurple
     ) {
-        // Hero Dashboard displaying Sales, Dues, and Total Submit Taka
-        item {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .testTag("member_home_hero_card"),
-                shape = RoundedCornerShape(20.dp),
-                color = Color.Transparent,
-                contentColor = Color.White,
-                border = BorderStroke(
-                    width = 1.dp,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.48f),
-                            Color.White.copy(alpha = 0.16f)
-                        )
-                    )
-                ),
-                shadowElevation = 0.dp
-            ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Hero Dashboard displaying Sales, Dues, and Total Submit Taka
+            item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    BrandHeroStart.copy(alpha = 0.68f),
-                                    BrandHeroEnd.copy(alpha = 0.64f)
-                                )
-                            )
-                        )
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.16f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                        .padding(18.dp)
+                        .padding(horizontal = 14.dp)
+                        .testTag("member_home_hero_card")
                 ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Welcome, ${member.name}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            val details = listOfNotNull(
-                                member.designation.takeIf { it.isNotBlank() },
-                                member.depot.takeIf { it.isNotBlank() }
-                            ).joinToString(" • ")
-                            if (details.isNotBlank()) {
-                                Text(
-                                    text = details,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White.copy(alpha = 0.80f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = Color.White.copy(alpha = 0.16f)
-                        ) {
-                            Text(
-                                text = "${submissions.size} deposit(s)",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
+                    Text(
+                        text = "Welcome, ${member.name}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = GlassTextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Sales, Dues, Total Submit Taka 3-metric grid
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         HeroSummaryMetricTile(
                             title = "TP+VAT sales",
                             value = BanglaFormatters.formatBdt(salesAmount),
-                            highlightColor = Color.White,
+                            highlightColor = GlassTextPrimary,
+                            accentColor = NeonCyan,
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("member_home_sales_box")
@@ -223,10 +167,11 @@ fun MemberHomeScreen(
                             title = "Dues",
                             value = BanglaFormatters.formatBdt(duesAmount),
                             highlightColor = if (duesAmount > 0.0) {
-                                Color(0xFFFFD5D5)
+                                ExpenseCrimson
                             } else {
-                                Color(0xFFC8F7DC)
+                                IncomeEmerald
                             },
+                            accentColor = if (duesAmount > 0.0) ExpenseCrimson else NeonEmerald,
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("member_home_dues_box")
@@ -234,81 +179,62 @@ fun MemberHomeScreen(
                         HeroSummaryMetricTile(
                             title = "Total Deposit",
                             value = BanglaFormatters.formatBdt(totalSubmitTaka),
-                            highlightColor = Color(0xFFC8F7DC),
+                            highlightColor = IncomeEmerald,
+                            accentColor = NeonEmerald,
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("member_home_submit_taka_box")
                         )
                     }
-
-                    if (pendingSubmitTaka > 0.0) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFFFFF3CD).copy(alpha = 0.22f)
-                        ) {
-                            Text(
-                                text = "Pending Deposits: ${BanglaFormatters.formatBdt(pendingSubmitTaka)} (${salesSummary.pendingCount} awaiting admin approval)",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFFFFE082),
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-
-                    if (advanceAmount > 0.0) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Advance Deposit Balance: ${BanglaFormatters.formatBdt(advanceAmount)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFFC8F7DC),
-                            fontWeight = FontWeight.SemiBold
-                        )
                     }
                 }
             }
-            }
-        }
 
-        // Quick Action Card for submitting Deposit Form
-        item {
-            SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Quick Action",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(10.dp))
+            item { UnifiedPageSectionDivider() }
 
-                Button(
-                    onClick = onOpenTakaJomaForm,
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+            // Quick Action for submitting Deposit Form
+            item {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("member_home_go_taka_joma_button")
+                        .padding(horizontal = 14.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                    Text(
+                        text = "Quick Action",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Deposit Form", maxLines = 1)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Button(
+                        onClick = onOpenTakaJomaForm,
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("member_home_go_taka_joma_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Deposit Form", maxLines = 1)
+                    }
                 }
             }
-        }
 
-        // Detailed Breakdown Card (Sales / Total Submit Taka / Dues) + Current Month
-        item {
-            SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            item { UnifiedPageSectionDivider() }
+
+            // Detailed Breakdown (Sales / Total Submit Taka / Dues) + Current Month
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
                 ) {
                     Text(
                         text = "Monthly & Overall Summary",
@@ -316,84 +242,80 @@ fun MemberHomeScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = BanglaFormatters.formatBanglaMonth(currentMonth),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(
+                        thickness = 0.75.dp,
+                        color = CardBorderSolid.copy(alpha = 0.35f)
                     )
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                HorizontalDivider(
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
-                )
 
-                if (salesSummary.uploadedTpSales > 0.0) {
+                    if (salesSummary.uploadedTpSales > 0.0) {
+                        MemberMetricListRow(
+                            label = "Total TP sales (Info Only)",
+                            value = BanglaFormatters.formatBdt(salesSummary.uploadedTpSales),
+                            valueColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        HorizontalDivider(
+                            thickness = 0.75.dp,
+                            color = CardBorderSolid.copy(alpha = 0.35f)
+                        )
+                    }
                     MemberMetricListRow(
-                        label = "Total TP sales (Info Only)",
-                        value = BanglaFormatters.formatBdt(salesSummary.uploadedTpSales),
-                        valueColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        label = "Total TP+VAT sales",
+                        value = BanglaFormatters.formatBdt(salesAmount),
+                        valueColor = MaterialTheme.colorScheme.onSurface
                     )
                     HorizontalDivider(
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
-                    )
-                }
-                MemberMetricListRow(
-                    label = "Total TP+VAT sales",
-                    value = BanglaFormatters.formatBdt(salesAmount),
-                    valueColor = MaterialTheme.colorScheme.onSurface
-                )
-                HorizontalDivider(
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
-                )
-                MemberMetricListRow(
-                    label = "Approved Deposits",
-                    value = BanglaFormatters.formatBdt(totalSubmitTaka),
-                    valueColor = IncomeEmerald
-                )
-                if (pendingSubmitTaka > 0.0) {
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                        thickness = 0.75.dp,
+                        color = CardBorderSolid.copy(alpha = 0.35f)
                     )
                     MemberMetricListRow(
-                        label = "Pending Deposits (${salesSummary.pendingCount})",
-                        value = BanglaFormatters.formatBdt(pendingSubmitTaka),
-                        valueColor = NagadAccent
+                        label = "Approved Deposits",
+                        value = BanglaFormatters.formatBdt(totalSubmitTaka),
+                        valueColor = IncomeEmerald
+                    )
+                    if (pendingSubmitTaka > 0.0) {
+                        HorizontalDivider(
+                            thickness = 0.75.dp,
+                            color = CardBorderSolid.copy(alpha = 0.35f)
+                        )
+                        MemberMetricListRow(
+                            label = "Pending Deposits (${salesSummary.pendingCount})",
+                            value = BanglaFormatters.formatBdt(pendingSubmitTaka),
+                            valueColor = NagadAccent
+                        )
+                    }
+                    HorizontalDivider(
+                        thickness = 0.75.dp,
+                        color = CardBorderSolid.copy(alpha = 0.35f)
+                    )
+                    MemberMetricListRow(
+                        label = "Current Dues (TP+VAT sales − Deposit)",
+                        value = BanglaFormatters.formatBdt(duesAmount),
+                        valueColor = if (duesAmount > 0.0) ExpenseCrimson else IncomeEmerald
+                    )
+                    HorizontalDivider(
+                        thickness = 0.75.dp,
+                        color = CardBorderSolid.copy(alpha = 0.35f)
+                    )
+                    MemberMetricListRow(
+                        label = "This Month Approved (${monthApprovedSubmissions.size})",
+                        value = BanglaFormatters.formatBdt(monthSubmitTotal),
+                        valueColor = MaterialTheme.colorScheme.primary
                     )
                 }
-                HorizontalDivider(
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
-                )
-                MemberMetricListRow(
-                    label = "Current Dues (TP+VAT sales − Deposit)",
-                    value = BanglaFormatters.formatBdt(duesAmount),
-                    valueColor = if (duesAmount > 0.0) ExpenseCrimson else IncomeEmerald
-                )
-                HorizontalDivider(
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
-                )
-                MemberMetricListRow(
-                    label = "This Month Approved (${monthApprovedSubmissions.size})",
-                    value = BanglaFormatters.formatBdt(monthSubmitTotal),
-                    valueColor = MaterialTheme.colorScheme.primary
-                )
             }
-        }
 
-        // Uploaded Monthly Sales Table (code, name, TP sales, TP+Vat)
-        item {
-            MonthlySalesTableCard(
-                title = "Sales List (${BanglaFormatters.formatBanglaMonth(selectedSalesMonth)})",
-                records = displayedSalesRows,
-                emptyMessage = "No sales uploaded for ${BanglaFormatters.formatBanglaMonth(selectedSalesMonth)} yet.",
-                highlightedMemberCode = member.code,
-                highlightedMemberName = member.name,
+            item { UnifiedPageSectionDivider() }
+
+            // Uploaded Monthly Sales Table (code, name, TP sales, TP+Vat)
+            item {
+                MonthlySalesTableCard(
+                    title = "Sales List (${BanglaFormatters.formatBanglaMonth(selectedSalesMonth)})",
+                    records = displayedSalesRows,
+                    emptyMessage = "No sales uploaded for ${BanglaFormatters.formatBanglaMonth(selectedSalesMonth)} yet.",
+                    highlightedMemberCode = member.code,
+                    highlightedMemberName = member.name,
+                    embeddedInOuterCard = true,
                 headerAction = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
@@ -455,6 +377,7 @@ fun MemberHomeScreen(
                 },
                 onRowClick = { record -> inspectingSalesRecord = record }
             )
+            }
         }
     }
 
@@ -490,19 +413,20 @@ private fun HeroSummaryMetricTile(
     value: String,
     highlightColor: Color,
     modifier: Modifier = Modifier,
+    accentColor: Color = NeonCyan,
     subtitle: String = ""
 ) {
-    Surface(
+    CleanHomeMetricTile(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = Color.White.copy(alpha = 0.14f)
+        accentColor = accentColor,
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = GlassTextPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -510,7 +434,7 @@ private fun HeroSummaryMetricTile(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.72f),
+                    color = GlassTextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

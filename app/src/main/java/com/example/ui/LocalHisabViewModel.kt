@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.ai.AiCallCenterEngine
 import com.example.ai.AiCallQueueItem
 import com.example.ai.AiVoiceResult
 import com.example.ai.AiVoiceScope
@@ -13,6 +14,12 @@ import com.example.ai.BanglaAiVoiceAssistant
 import com.example.ai.FemaleAiVoiceOption
 import com.example.auth.AppLockCredentialStore
 import com.example.auth.PasswordHasher
+import com.example.data.AiCallCenterPrefsStore
+import com.example.data.AiCallRecord
+import com.example.data.AiCallScheduleConfig
+import com.example.data.AiCallStatus
+import com.example.data.CallScheduleDay
+import java.util.Calendar
 import com.example.data.BackupExporter
 import com.example.data.CloudAutoSyncRepository
 import com.example.data.CloudSyncPrefsStore
@@ -46,6 +53,7 @@ import com.example.model.TxType
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -67,13 +75,15 @@ enum class SettingsSubPage {
     MEMBER_LIST,
     ONLINE_PAYMENT,
     MEMBER_TAKA_JOMA,
-    SALES_UPLOAD
+    SALES_UPLOAD,
+    AI_CALL_CENTER
 }
 
 data class HisabUiControls(
     val selectedTab: HisabTab = HisabTab.HOME,
     val settingsSubPage: SettingsSubPage = SettingsSubPage.MAIN,
     val selectedReportCategory: ReportCategory = ReportCategory.MONTHLY,
+    val isReportDetailOpen: Boolean = false,
     val reportPeriodScope: ReportPeriodScope = ReportPeriodScope.SELECTED_MONTH,
     val asmNameScope: AsmNameReportScope = AsmNameReportScope.DEPOT_TEAM,
     val areaRoleFilter: AreaManagerRoleFilter = AreaManagerRoleFilter.ALL,
@@ -81,7 +91,8 @@ data class HisabUiControls(
     val reportMonth: String = BanglaFormatters.currentYearMonth(),
     val salesMonth: String = BanglaFormatters.currentYearMonth(),
     val isSaving: Boolean = false,
-    val snackbarMessage: String? = null
+    val snackbarMessage: String? = null,
+    val feedbackSequence: Long = 0L
 )
 
 data class DriveUiState(
@@ -113,31 +124,44 @@ data class AiVoiceUiState(
 }
 
 data class AiCallCenterUiState(
-    val autoCallMondayEnabled: Boolean = false,
+    val autoCallMondayEnabled: Boolean = true,
+    val enabledDays: Set<Int> = setOf(Calendar.MONDAY),
     val scheduledHour: Int = 10,
     val scheduledMinute: Int = 0,
     val autoVoiceGreeting: Boolean = true,
     val alsoDialPhoneNumber: Boolean = false,
     val selectedVoice: FemaleAiVoiceOption = FemaleAiVoiceOption.AOEDE,
-    val isMondayToday: Boolean = false,
-    val nextScheduleLabel: String = "",
+    val isMondayToday: Boolean = AiCallCenterPrefsStore.isDayEnabled(setOf(Calendar.MONDAY)),
+    val nextScheduleLabel: String = AiCallCenterPrefsStore.formatNextScheduleLabel(setOf(Calendar.MONDAY), 10, 0),
     val dueQueue: List<AiCallQueueItem> = emptyList(),
-    val totalDuesAmount: Double = 0.0,
-    val pendingCount: Int = 0,
-    val calledCount: Int = 0,
-    val isCallActive: Boolean = false,
     val activeMemberId: String? = null,
+    val activeCallScript: String = "",
+    val isAutoCallingQueue: Boolean = false,
     val activeCallIndex: Int = 0,
     val activeCallTotalCount: Int = 0,
     val activeCallMemberName: String = "",
     val activeCallMemberPhone: String = "",
     val activeCallDuesAmount: Double = 0.0,
     val activeCallPhaseLabel: String = "",
-    val activeCallScript: String = "",
+    val isGeneratingVoice: Boolean = false,
+    val isPlayingVoice: Boolean = false,
     val progressMessage: String = "",
     val errorMessage: String? = null,
-    val pendingDialNumber: String? = null
-)
+    val pendingDialNumber: String? = null,
+    val pendingDialMemberName: String? = null
+) {
+    val totalDuesAmount: Double
+        get() = dueQueue.sumOf { it.duesAmount }
+
+    val calledCount: Int
+        get() = dueQueue.count { it.callStatus == AiCallStatus.CALLED }
+
+    val pendingCount: Int
+        get() = dueQueue.count { it.callStatus == AiCallStatus.PENDING || it.callStatus == AiCallStatus.NO_PHONE }
+
+    val isCallActive: Boolean
+        get() = isAutoCallingQueue || isGeneratingVoice || isPlayingVoice
+}
 
 class LocalHisabViewModel(
     private val localStore: LocalTransactionStore,
@@ -150,7 +174,8 @@ class LocalHisabViewModel(
     private val memberAppLinkStore: MemberAppLinkStore? = null,
     private val driveBackupStore: GoogleDriveBackupStore? = null,
     private val cloudSyncRepository: CloudAutoSyncRepository? = null,
-    private val cloudSyncPrefs: CloudSyncPrefsStore? = null
+    private val cloudSyncPrefs: CloudSyncPrefsStore? = null,
+    private val aiCallCenterPrefs: AiCallCenterPrefsStore? = null
 ) : ViewModel() {
 
     private var allTransactions: List<HisabTransaction> = localStore.loadAll()
@@ -204,6 +229,11 @@ class LocalHisabViewModel(
     private val _aiVoiceState = MutableStateFlow(AiVoiceUiState())
     val aiVoiceState: StateFlow<AiVoiceUiState> = _aiVoiceState.asStateFlow()
 
+    private val aiCallCenterEngine by lazy { AiCallCenterEngine() }
+    private var aiCallVoiceJob: Job? = null
+    private val _aiCallCenterState = MutableStateFlow(AiCallCenterUiState())
+    val aiCallCenterState: StateFlow<AiCallCenterUiState> = _aiCallCenterState.asStateFlow()
+
     val cloudSyncState: StateFlow<CloudSyncUiState> = cloudSyncRepository?.syncState
         ?: MutableStateFlow(CloudSyncUiState()).asStateFlow()
 
@@ -211,6 +241,7 @@ class LocalHisabViewModel(
 
     init {
         lastSyncedDataSignature = computeDomainSignature()
+        refreshAiCallCenterQueue()
         cloudSyncRepository?.let { repo ->
             viewModelScope.launch {
                 repo.remoteUpdates.collect {
@@ -293,6 +324,7 @@ class LocalHisabViewModel(
 
     private fun notifyAdminDataChanged() {
         lastSyncedDataSignature = computeDomainSignature()
+        refreshAiCallCenterQueue()
         if (isAdminSession && _driveState.value.isConnected && _driveState.value.autoBackupEnabled) {
             _autoBackupRevision.update { it + 1 }
         }
@@ -353,6 +385,7 @@ class LocalHisabViewModel(
                 }
             }
         }
+        refreshAiCallCenterQueue()
     }
 
     fun selectTab(tab: HisabTab) {
@@ -360,7 +393,8 @@ class LocalHisabViewModel(
         _controls.update {
             it.copy(
                 selectedTab = tab,
-                settingsSubPage = if (tab == HisabTab.SETTINGS) it.settingsSubPage else SettingsSubPage.MAIN
+                settingsSubPage = if (tab == HisabTab.SETTINGS) it.settingsSubPage else SettingsSubPage.MAIN,
+                isReportDetailOpen = if (tab == HisabTab.REPORTS) false else it.isReportDetailOpen
             )
         }
     }
@@ -371,8 +405,15 @@ class LocalHisabViewModel(
             it.copy(
                 selectedTab = HisabTab.REPORTS,
                 settingsSubPage = SettingsSubPage.MAIN,
-                selectedReportCategory = category
+                selectedReportCategory = category,
+                isReportDetailOpen = true
             )
+        }
+    }
+
+    fun closeReportDetail() {
+        _controls.update {
+            it.copy(isReportDetailOpen = false)
         }
     }
 
@@ -413,7 +454,12 @@ class LocalHisabViewModel(
     }
 
     fun showMessage(message: String) {
-        _controls.update { it.copy(snackbarMessage = message) }
+        _controls.update {
+            it.copy(
+                snackbarMessage = message,
+                feedbackSequence = it.feedbackSequence + 1L
+            )
+        }
     }
 
     fun saveTransaction(
@@ -495,7 +541,8 @@ class LocalHisabViewModel(
                     "$submittedName submitted successfully"
                 } else {
                     "$submittedName updated successfully"
-                }
+                },
+                feedbackSequence = it.feedbackSequence + 1L
             )
         }
         onComplete(true)
@@ -518,7 +565,12 @@ class LocalHisabViewModel(
         )
         pushCloudMutation { deleteTransaction(transaction.id) }
         notifyAdminDataChanged()
-        _controls.update { it.copy(snackbarMessage = "Transaction deleted") }
+        _controls.update {
+            it.copy(
+                snackbarMessage = "Transaction deleted",
+                feedbackSequence = it.feedbackSequence + 1L
+            )
+        }
     }
 
     fun buildFullBackupJson(): String {
@@ -634,7 +686,10 @@ class LocalHisabViewModel(
         pushCloudMutation { syncAllNow() }
         notifyAdminDataChanged()
         _controls.update {
-            it.copy(snackbarMessage = "All data restored (${backup.buildBanglaSummary()})")
+            it.copy(
+                snackbarMessage = "All data restored (${backup.buildBanglaSummary()})",
+                feedbackSequence = it.feedbackSequence + 1L
+            )
         }
         return true
     }
@@ -1732,8 +1787,592 @@ class LocalHisabViewModel(
         }
     }
 
+    fun refreshAiCallCenterQueue() {
+        if (!isAdminSession) return
+        val config = aiCallCenterPrefs?.loadConfig() ?: AiCallScheduleConfig()
+        val savedRecords = aiCallCenterPrefs?.loadCallRecordsForCurrentCycle().orEmpty()
+        val queue = AiCallCenterEngine.buildDueQueue(
+            members = _members.value,
+            monthlySales = _monthlySales.value,
+            submissions = _takaJomaList.value,
+            savedRecords = savedRecords
+        )
+        _aiCallCenterState.update { current ->
+            current.copy(
+                autoCallMondayEnabled = config.autoCallMondayEnabled,
+                enabledDays = config.enabledDays,
+                scheduledHour = config.scheduledHour,
+                scheduledMinute = config.scheduledMinute,
+                autoVoiceGreeting = config.autoVoiceGreeting,
+                alsoDialPhoneNumber = config.alsoDialPhoneNumber,
+                selectedVoice = config.selectedVoice,
+                isMondayToday = AiCallCenterPrefsStore.isDayEnabled(config.enabledDays),
+                nextScheduleLabel = AiCallCenterPrefsStore.formatNextScheduleLabel(
+                    enabledDays = config.enabledDays,
+                    hour = config.scheduledHour,
+                    minute = config.scheduledMinute,
+                    autoEnabled = config.autoCallMondayEnabled
+                ),
+                dueQueue = queue
+            )
+        }
+    }
+
+    fun setMondayAutoCallEnabled(enabled: Boolean) {
+        if (!isAdminSession) return
+        val current = aiCallCenterPrefs?.loadConfig() ?: AiCallScheduleConfig()
+        val updatedDays = if (enabled && current.enabledDays.isEmpty()) {
+            setOf(AiCallCenterPrefsStore.todayDayOfWeek())
+        } else {
+            current.enabledDays
+        }
+        aiCallCenterPrefs?.saveConfig(
+            current.copy(
+                autoCallMondayEnabled = enabled,
+                enabledDays = updatedDays
+            )
+        )
+        if (enabled) {
+            aiCallCenterPrefs?.clearRunMarkersForUpdatedSchedule()
+        }
+        refreshAiCallCenterQueue()
+        val daysSummary = AiCallCenterPrefsStore.formatEnabledDaysSummary(updatedDays)
+        showMessage(
+            if (enabled) "Auto-call enabled ($daysSummary)"
+            else "Scheduled AI auto-call paused"
+        )
+    }
+
+    fun toggleAiCallDay(calendarDay: Int) {
+        if (!isAdminSession) return
+        val current = aiCallCenterPrefs?.loadConfig() ?: AiCallScheduleConfig()
+        val wasEnabled = calendarDay in current.enabledDays
+        val updatedDays = if (wasEnabled) {
+            current.enabledDays - calendarDay
+        } else {
+            current.enabledDays + calendarDay
+        }
+        val nextAutoEnabled = updatedDays.isNotEmpty()
+        aiCallCenterPrefs?.saveConfig(
+            current.copy(
+                autoCallMondayEnabled = nextAutoEnabled,
+                enabledDays = updatedDays
+            )
+        )
+        if (!wasEnabled && calendarDay == AiCallCenterPrefsStore.todayDayOfWeek()) {
+            aiCallCenterPrefs?.clearRunMarkersForUpdatedSchedule()
+        }
+        refreshAiCallCenterQueue()
+        val dayName = CallScheduleDay.fromCalendarDay(calendarDay)?.fullLabel ?: "Day"
+        showMessage(
+            if (!wasEnabled) "$dayName auto-call ON (${AiCallCenterPrefsStore.formatTimeSlot(current.scheduledHour, current.scheduledMinute)})"
+            else "$dayName auto-call OFF"
+        )
+    }
+
+    fun setMondayCallHour(hour: Int) {
+        setMondayCallTime(hour = hour, minute = 0)
+    }
+
+    fun setMondayCallTime(hour: Int, minute: Int) {
+        if (!isAdminSession) return
+        val current = aiCallCenterPrefs?.loadConfig() ?: AiCallScheduleConfig()
+        val cleanHour = hour.coerceIn(0, 23)
+        val cleanMinute = minute.coerceIn(0, 59)
+        aiCallCenterPrefs?.saveConfig(
+            current.copy(
+                scheduledHour = cleanHour,
+                scheduledMinute = cleanMinute
+            )
+        )
+        aiCallCenterPrefs?.clearRunMarkersForUpdatedSchedule()
+        refreshAiCallCenterQueue()
+        showMessage("Call time updated to ${AiCallCenterPrefsStore.formatTimeSlot(cleanHour, cleanMinute)}")
+    }
+
+    fun setAiCallAutoVoice(enabled: Boolean) {
+        if (!isAdminSession) return
+        val current = aiCallCenterPrefs?.loadConfig() ?: AiCallScheduleConfig()
+        aiCallCenterPrefs?.saveConfig(current.copy(autoVoiceGreeting = enabled))
+        refreshAiCallCenterQueue()
+    }
+
+    fun setAiCallAlsoDialPhone(enabled: Boolean) {
+        if (!isAdminSession) return
+        val current = aiCallCenterPrefs?.loadConfig() ?: AiCallScheduleConfig()
+        aiCallCenterPrefs?.saveConfig(current.copy(alsoDialPhoneNumber = enabled))
+        refreshAiCallCenterQueue()
+    }
+
+    fun selectAiCallVoiceOption(option: FemaleAiVoiceOption) {
+        if (!isAdminSession) return
+        val current = aiCallCenterPrefs?.loadConfig() ?: AiCallScheduleConfig()
+        aiCallCenterPrefs?.saveConfig(current.copy(selectedVoice = option))
+        refreshAiCallCenterQueue()
+    }
+
+    fun maybeAutoStartMondayCallsOnOpen(forceFromNotification: Boolean = false) {
+        if (!isAdminSession) return
+        if (_aiCallCenterState.value.isCallActive) return
+        val shouldStart = if (forceFromNotification) {
+            _aiCallCenterState.value.dueQueue.any {
+                it.callStatus == AiCallStatus.PENDING || it.callStatus == AiCallStatus.NO_PHONE
+            }
+        } else {
+            aiCallCenterPrefs?.isScheduledMondayAutoStartDue() == true &&
+                _aiCallCenterState.value.dueQueue.any {
+                    it.callStatus == AiCallStatus.PENDING || it.callStatus == AiCallStatus.NO_PHONE
+                }
+        }
+        if (shouldStart) {
+            startMondayAutoCallQueue(autoTriggered = true)
+        }
+    }
+
+    fun startMondayAutoCallQueue(autoTriggered: Boolean = false) {
+        if (!isAdminSession) return
+        val queue = _aiCallCenterState.value.dueQueue
+        if (queue.isEmpty()) {
+            if (!autoTriggered) {
+                showMessage("No members currently have pending dues.")
+            }
+            return
+        }
+
+        val pendingBatch = queue.filter {
+            it.callStatus == AiCallStatus.PENDING || it.callStatus == AiCallStatus.NO_PHONE
+        }
+        val targets = when {
+            pendingBatch.isNotEmpty() -> pendingBatch
+            !autoTriggered -> queue
+            else -> emptyList()
+        }
+        if (targets.isEmpty()) return
+
+        val currentConfig = aiCallCenterPrefs?.loadConfig() ?: AiCallScheduleConfig()
+        val slotKey = AiCallCenterPrefsStore.scheduleSlotKey(currentConfig)
+        aiCallCenterPrefs?.setLastRunMondayKey(slotKey)
+        aiCallCenterPrefs?.setPendingAutoStartMondayKey("")
+
+        val voiceOption = _aiCallCenterState.value.selectedVoice
+        val alsoDialSim = _aiCallCenterState.value.alsoDialPhoneNumber
+
+        aiCallVoiceJob?.cancel()
+        aiCallVoiceJob = viewModelScope.launch {
+            var completedCalls = 0
+            _aiCallCenterState.update {
+                it.copy(
+                    isAutoCallingQueue = true,
+                    activeCallTotalCount = targets.size,
+                    errorMessage = null
+                )
+            }
+
+            try {
+                for ((index, item) in targets.withIndex()) {
+                    aiCallCenterPrefs?.upsertCallRecord(
+                        AiCallRecord(
+                            memberId = item.memberId,
+                            memberName = item.memberName,
+                            phone = item.dialNumber,
+                            duesAmount = item.duesAmount,
+                            status = AiCallStatus.DIALING,
+                            updatedAtMs = System.currentTimeMillis(),
+                            scriptPreview = item.scriptPreview
+                        )
+                    )
+                    refreshAiCallCenterQueue()
+
+                    _aiCallCenterState.update {
+                        it.copy(
+                            activeMemberId = item.memberId,
+                            activeCallIndex = index + 1,
+                            activeCallTotalCount = targets.size,
+                            activeCallMemberName = item.memberName,
+                            activeCallMemberPhone = item.rawPhone.ifBlank { "Free In-App AI Call" },
+                            activeCallDuesAmount = item.duesAmount,
+                            activeCallPhaseLabel = "Ringing Free AI Call (${index + 1}/${targets.size})...",
+                            isGeneratingVoice = true,
+                            isPlayingVoice = false,
+                            progressMessage = "Calling ${item.memberName}...",
+                            pendingDialNumber = if (alsoDialSim && item.hasCallablePhone) item.dialNumber else null,
+                            pendingDialMemberName = if (alsoDialSim && item.hasCallablePhone) item.memberName else null
+                        )
+                    }
+
+                    aiVoiceAssistant.playCallRingbackTone(pulses = 2)
+
+                    val result = aiCallCenterEngine.generateDueCallAudio(
+                        item = item,
+                        voiceOption = voiceOption,
+                        onProgress = { msg ->
+                            _aiCallCenterState.update {
+                                it.copy(
+                                    progressMessage = msg,
+                                    activeCallPhaseLabel = "${voiceOption.agentName} (${voiceOption.genderLabel}) Connecting..."
+                                )
+                            }
+                        }
+                    )
+
+                    val generated = result.getOrElse { err ->
+                        val fallbackStatus = if (item.hasCallablePhone) AiCallStatus.PENDING else AiCallStatus.NO_PHONE
+                        aiCallCenterPrefs?.upsertCallRecord(
+                            AiCallRecord(
+                                memberId = item.memberId,
+                                memberName = item.memberName,
+                                phone = item.dialNumber,
+                                duesAmount = item.duesAmount,
+                                status = fallbackStatus,
+                                updatedAtMs = System.currentTimeMillis(),
+                                scriptPreview = item.scriptPreview
+                            )
+                        )
+                        refreshAiCallCenterQueue()
+                        _aiCallCenterState.update {
+                            it.copy(
+                                isAutoCallingQueue = false,
+                                isGeneratingVoice = false,
+                                isPlayingVoice = false,
+                                activeCallPhaseLabel = "",
+                                progressMessage = "",
+                                errorMessage = err.localizedMessage ?: "Free AI call failed."
+                            )
+                        }
+                        return@launch
+                    }
+
+                    _aiCallCenterState.update {
+                        it.copy(
+                            isGeneratingVoice = false,
+                            isPlayingVoice = true,
+                            activeCallScript = generated.script,
+                            activeCallPhaseLabel = "${voiceOption.agentName} (${voiceOption.genderLabel}) Speaking...",
+                            progressMessage = "${voiceOption.agentName} (${voiceOption.genderLabel}) speaking to ${item.memberName}..."
+                        )
+                    }
+
+                    aiVoiceAssistant.playPcmAudio(generated.audioBytes, generated.mimeType)
+
+                    aiCallCenterPrefs?.upsertCallRecord(
+                        AiCallRecord(
+                            memberId = item.memberId,
+                            memberName = item.memberName,
+                            phone = item.dialNumber,
+                            duesAmount = item.duesAmount,
+                            status = AiCallStatus.CALLED,
+                            updatedAtMs = System.currentTimeMillis(),
+                            scriptPreview = generated.script
+                        )
+                    )
+                    refreshAiCallCenterQueue()
+                    completedCalls++
+
+                    if (index < targets.lastIndex) {
+                        _aiCallCenterState.update {
+                            it.copy(
+                                isPlayingVoice = false,
+                                activeCallPhaseLabel = "Moving to next due member..."
+                            )
+                        }
+                        delay(800)
+                    }
+                }
+
+                _aiCallCenterState.update {
+                    it.copy(
+                        isAutoCallingQueue = false,
+                        isGeneratingVoice = false,
+                        isPlayingVoice = false,
+                        activeMemberId = null,
+                        activeCallIndex = 0,
+                        activeCallTotalCount = 0,
+                        activeCallMemberName = "",
+                        activeCallMemberPhone = "",
+                        activeCallDuesAmount = 0.0,
+                        activeCallPhaseLabel = "",
+                        progressMessage = "Completed $completedCalls free ${voiceOption.genderLabel} call(s) successfully."
+                    )
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            }
+        }
+    }
+
+    fun startAiCallForMember(memberId: String, dialPhoneExplicitly: Boolean = false) {
+        if (!isAdminSession) return
+        val item = _aiCallCenterState.value.dueQueue.firstOrNull { it.memberId == memberId } ?: return
+        val voiceOption = _aiCallCenterState.value.selectedVoice
+        val shouldDialSim = dialPhoneExplicitly || _aiCallCenterState.value.alsoDialPhoneNumber
+
+        if (dialPhoneExplicitly && !item.hasCallablePhone) {
+            showMessage("${item.memberName} does not have a valid phone number.")
+            return
+        }
+
+        aiCallVoiceJob?.cancel()
+        aiCallVoiceJob = viewModelScope.launch {
+            aiCallCenterPrefs?.upsertCallRecord(
+                AiCallRecord(
+                    memberId = item.memberId,
+                    memberName = item.memberName,
+                    phone = item.dialNumber,
+                    duesAmount = item.duesAmount,
+                    status = AiCallStatus.DIALING,
+                    updatedAtMs = System.currentTimeMillis(),
+                    scriptPreview = item.scriptPreview
+                )
+            )
+            refreshAiCallCenterQueue()
+
+            _aiCallCenterState.update {
+                it.copy(
+                    isAutoCallingQueue = true,
+                    activeMemberId = item.memberId,
+                    activeCallIndex = 1,
+                    activeCallTotalCount = 1,
+                    activeCallMemberName = item.memberName,
+                    activeCallMemberPhone = item.rawPhone.ifBlank { "Free In-App AI Call" },
+                    activeCallDuesAmount = item.duesAmount,
+                    activeCallPhaseLabel = "Ringing Free AI Call...",
+                    isGeneratingVoice = true,
+                    isPlayingVoice = false,
+                    progressMessage = "Calling ${item.memberName}...",
+                    pendingDialNumber = if (shouldDialSim && item.hasCallablePhone) item.dialNumber else null,
+                    pendingDialMemberName = if (shouldDialSim && item.hasCallablePhone) item.memberName else null,
+                    errorMessage = null
+                )
+            }
+
+            aiVoiceAssistant.playCallRingbackTone(pulses = 2)
+
+            val result = aiCallCenterEngine.generateDueCallAudio(
+                item = item,
+                voiceOption = voiceOption,
+                onProgress = { msg ->
+                    _aiCallCenterState.update {
+                        it.copy(
+                            progressMessage = msg,
+                            activeCallPhaseLabel = "${voiceOption.agentName} (${voiceOption.genderLabel}) Connecting..."
+                        )
+                    }
+                }
+            )
+
+            result.onSuccess { generated ->
+                _aiCallCenterState.update {
+                    it.copy(
+                        isGeneratingVoice = false,
+                        isPlayingVoice = true,
+                        activeCallScript = generated.script,
+                        activeCallPhaseLabel = "${voiceOption.agentName} (${voiceOption.genderLabel}) Speaking...",
+                        progressMessage = "${voiceOption.agentName} (${voiceOption.genderLabel}) speaking to ${item.memberName}..."
+                    )
+                }
+                aiVoiceAssistant.playPcmAudio(generated.audioBytes, generated.mimeType)
+                aiCallCenterPrefs?.upsertCallRecord(
+                    AiCallRecord(
+                        memberId = item.memberId,
+                        memberName = item.memberName,
+                        phone = item.dialNumber,
+                        duesAmount = item.duesAmount,
+                        status = AiCallStatus.CALLED,
+                        updatedAtMs = System.currentTimeMillis(),
+                        scriptPreview = generated.script
+                    )
+                )
+                refreshAiCallCenterQueue()
+                _aiCallCenterState.update {
+                    it.copy(
+                        isAutoCallingQueue = false,
+                        isGeneratingVoice = false,
+                        isPlayingVoice = false,
+                        activeMemberId = null,
+                        activeCallPhaseLabel = "",
+                        progressMessage = "Free ${voiceOption.genderLabel} call completed for ${item.memberName}."
+                    )
+                }
+            }.onFailure { err ->
+                val fallbackStatus = if (item.hasCallablePhone) AiCallStatus.PENDING else AiCallStatus.NO_PHONE
+                aiCallCenterPrefs?.upsertCallRecord(
+                    AiCallRecord(
+                        memberId = item.memberId,
+                        memberName = item.memberName,
+                        phone = item.dialNumber,
+                        duesAmount = item.duesAmount,
+                        status = fallbackStatus,
+                        updatedAtMs = System.currentTimeMillis(),
+                        scriptPreview = item.scriptPreview
+                    )
+                )
+                refreshAiCallCenterQueue()
+                _aiCallCenterState.update {
+                    it.copy(
+                        isAutoCallingQueue = false,
+                        isGeneratingVoice = false,
+                        isPlayingVoice = false,
+                        activeCallPhaseLabel = "",
+                        progressMessage = "",
+                        errorMessage = err.localizedMessage ?: "Free AI call voice failed."
+                    )
+                }
+            }
+        }
+    }
+
+    fun playAiCallScriptOnly(memberId: String) {
+        if (!isAdminSession) return
+        val item = _aiCallCenterState.value.dueQueue.firstOrNull { it.memberId == memberId } ?: return
+        val voiceOption = _aiCallCenterState.value.selectedVoice
+        aiCallVoiceJob?.cancel()
+        aiCallVoiceJob = viewModelScope.launch {
+            _aiCallCenterState.update {
+                it.copy(
+                    activeMemberId = item.memberId,
+                    activeCallMemberName = item.memberName,
+                    activeCallMemberPhone = item.rawPhone.ifBlank { "Free AI Voice Preview" },
+                    activeCallDuesAmount = item.duesAmount,
+                    activeCallPhaseLabel = "${voiceOption.agentName} (${voiceOption.genderLabel}) Preparing...",
+                    isGeneratingVoice = true,
+                    isPlayingVoice = false,
+                    progressMessage = "${voiceOption.agentName} (${voiceOption.genderLabel}) preparing voice for ${item.memberName}...",
+                    errorMessage = null
+                )
+            }
+            val result = aiCallCenterEngine.generateDueCallAudio(
+                item = item,
+                voiceOption = voiceOption,
+                onProgress = { msg ->
+                    _aiCallCenterState.update { it.copy(progressMessage = msg) }
+                }
+            )
+            result.onSuccess { generated ->
+                val existing = aiCallCenterPrefs?.loadCallRecordsForCurrentCycle()?.get(item.memberId)
+                aiCallCenterPrefs?.upsertCallRecord(
+                    AiCallRecord(
+                        memberId = item.memberId,
+                        memberName = item.memberName,
+                        phone = item.dialNumber,
+                        duesAmount = item.duesAmount,
+                        status = existing?.status ?: if (item.hasCallablePhone) AiCallStatus.PENDING else AiCallStatus.NO_PHONE,
+                        updatedAtMs = System.currentTimeMillis(),
+                        scriptPreview = generated.script
+                    )
+                )
+                refreshAiCallCenterQueue()
+                _aiCallCenterState.update {
+                    it.copy(
+                        isGeneratingVoice = false,
+                        isPlayingVoice = true,
+                        activeCallScript = generated.script,
+                        activeCallPhaseLabel = "${voiceOption.agentName} (${voiceOption.genderLabel}) Speaking...",
+                        progressMessage = "${voiceOption.agentName} (${voiceOption.genderLabel}) speaking for ${item.memberName}..."
+                    )
+                }
+                aiVoiceAssistant.playPcmAudio(generated.audioBytes, generated.mimeType)
+                _aiCallCenterState.update {
+                    it.copy(
+                        isPlayingVoice = false,
+                        activeCallPhaseLabel = "",
+                        progressMessage = ""
+                    )
+                }
+            }.onFailure { err ->
+                val msg = err.localizedMessage ?: "AI call voice preparation failed."
+                _aiCallCenterState.update {
+                    it.copy(
+                        isGeneratingVoice = false,
+                        isPlayingVoice = false,
+                        activeCallPhaseLabel = "",
+                        progressMessage = "",
+                        errorMessage = msg
+                    )
+                }
+            }
+        }
+    }
+
+    fun markAiCallStatus(memberId: String, status: AiCallStatus) {
+        if (!isAdminSession) return
+        val item = _aiCallCenterState.value.dueQueue.firstOrNull { it.memberId == memberId } ?: return
+        aiCallCenterPrefs?.upsertCallRecord(
+            AiCallRecord(
+                memberId = item.memberId,
+                memberName = item.memberName,
+                phone = item.dialNumber,
+                duesAmount = item.duesAmount,
+                status = status,
+                updatedAtMs = System.currentTimeMillis(),
+                scriptPreview = item.scriptPreview
+            )
+        )
+        refreshAiCallCenterQueue()
+    }
+
+    fun resetMondayCallQueue() {
+        if (!isAdminSession) return
+        aiCallCenterPrefs?.clearCycleRecords()
+        aiCallCenterPrefs?.setLastRunMondayKey("")
+        aiCallCenterPrefs?.setPendingAutoStartMondayKey("")
+        refreshAiCallCenterQueue()
+        showMessage("Call queue reset")
+    }
+
+    fun consumePendingDialIntent() {
+        _aiCallCenterState.update {
+            it.copy(
+                pendingDialNumber = null,
+                pendingDialMemberName = null
+            )
+        }
+    }
+
+    fun stopAiCallVoice() {
+        aiCallVoiceJob?.cancel()
+        aiCallVoiceJob = null
+        val activeId = _aiCallCenterState.value.activeMemberId
+        if (activeId != null) {
+            val item = _aiCallCenterState.value.dueQueue.firstOrNull { it.memberId == activeId }
+            if (item != null && item.callStatus == AiCallStatus.DIALING) {
+                aiCallCenterPrefs?.upsertCallRecord(
+                    AiCallRecord(
+                        memberId = item.memberId,
+                        memberName = item.memberName,
+                        phone = item.dialNumber,
+                        duesAmount = item.duesAmount,
+                        status = if (item.hasCallablePhone) AiCallStatus.PENDING else AiCallStatus.NO_PHONE,
+                        updatedAtMs = System.currentTimeMillis(),
+                        scriptPreview = item.scriptPreview
+                    )
+                )
+                refreshAiCallCenterQueue()
+            }
+        }
+        _aiCallCenterState.update {
+            it.copy(
+                isAutoCallingQueue = false,
+                isGeneratingVoice = false,
+                isPlayingVoice = false,
+                activeMemberId = null,
+                activeCallIndex = 0,
+                activeCallTotalCount = 0,
+                activeCallMemberName = "",
+                activeCallMemberPhone = "",
+                activeCallDuesAmount = 0.0,
+                activeCallPhaseLabel = "",
+                progressMessage = ""
+            )
+        }
+    }
+
+    fun clearAiCallError() {
+        _aiCallCenterState.update { it.copy(errorMessage = null) }
+    }
+
     override fun onCleared() {
         aiVoiceJob?.cancel()
+        aiCallVoiceJob?.cancel()
         super.onCleared()
     }
 

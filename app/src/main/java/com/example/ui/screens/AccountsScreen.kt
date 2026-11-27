@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,8 +12,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
@@ -43,11 +43,16 @@ import com.example.model.AccountType
 import com.example.model.BanglaFormatters
 import com.example.model.HisabTransaction
 import com.example.model.TxType
-import com.example.ui.components.SectionPanelCard
+import com.example.ui.components.GlossyNeonIconOrb
+import com.example.ui.components.UnifiedPageCardSurface
+import com.example.ui.components.UnifiedPageSectionDivider
+import com.example.ui.theme.CardBorderSolid
 import com.example.ui.theme.ExpenseCrimson
 import com.example.ui.theme.ExpenseSurface
 import com.example.ui.theme.IncomeEmerald
 import com.example.ui.theme.IncomeSurface
+import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.NeonEmerald
 
 @Composable
 fun AccountsScreen(
@@ -64,15 +69,28 @@ fun AccountsScreen(
         transactions.filter { it.resolvedType == TxType.EXPENSE }.sumOf { it.amount }
     }
     val netBalance = totalIncome - totalExpense
+    val bankNetBalance = remember(transactions) {
+        val bankItems = transactions.filter { it.resolvedAccount == AccountType.BANK }
+        val bankIncome = bankItems.filter { it.resolvedType == TxType.INCOME }.sumOf { it.amount }
+        val bankExpense = bankItems.filter { it.resolvedType == TxType.EXPENSE }.sumOf { it.amount }
+        bankIncome - bankExpense
+    }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        item {
-            SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
+    UnifiedPageCardSurface(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
+                    .testTag("accounts_total_hero_card")
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -85,8 +103,8 @@ fun AccountsScreen(
                         modifier = Modifier.weight(1f)
                     )
                     Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.White.copy(alpha = 0.06f)
                     ) {
                         Text(
                             text = BanglaFormatters.formatBdt(netBalance),
@@ -128,10 +146,14 @@ fun AccountsScreen(
                     }
                 }
             }
-        }
 
-        item {
-            SectionPanelCard(modifier = Modifier.fillMaxWidth()) {
+            UnifiedPageSectionDivider()
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
+            ) {
                 Text(
                     text = "Overall Summary",
                     style = MaterialTheme.typography.titleMedium,
@@ -162,12 +184,24 @@ fun AccountsScreen(
                 AccountListDivider()
 
                 AccountSummaryListRow(
+                    icon = Icons.Outlined.AccountBalance,
+                    iconBg = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    label = "All Banks Combined Balance",
+                    value = BanglaFormatters.formatBdt(bankNetBalance),
+                    valueColor = if (bankNetBalance >= 0) MaterialTheme.colorScheme.primary else expenseColor,
+                    modifier = Modifier.testTag("all_banks_combined_total_row")
+                )
+                AccountListDivider()
+
+                AccountSummaryListRow(
                     icon = Icons.Outlined.AccountBalanceWallet,
                     iconBg = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.primary,
                     label = "Remaining Net Balance",
                     value = BanglaFormatters.formatBdt(netBalance),
-                    valueColor = if (netBalance >= 0) MaterialTheme.colorScheme.primary else expenseColor
+                    valueColor = if (netBalance >= 0) MaterialTheme.colorScheme.primary else expenseColor,
+                    modifier = Modifier.testTag("all_accounts_grand_total_row")
                 )
             }
         }
@@ -177,8 +211,8 @@ fun AccountsScreen(
 @Composable
 private fun AccountListDivider() {
     HorizontalDivider(
-        thickness = 1.dp,
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+        thickness = 0.75.dp,
+        color = CardBorderSolid.copy(alpha = 0.35f)
     )
 }
 
@@ -200,20 +234,14 @@ private fun AccountListRow(
             .padding(vertical = 7.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+        GlossyNeonIconOrb(
+            icon = icon,
+            contentDescription = title,
+            glowColor = if (balance >= 0) NeonCyan else ExpenseCrimson,
+            iconTint = Color.White,
+            size = 42.dp,
+            iconSize = 20.dp
+        )
 
         Spacer(modifier = Modifier.width(12.dp))
 
@@ -280,28 +308,23 @@ private fun AccountSummaryListRow(
     iconTint: Color,
     label: String,
     value: String,
-    valueColor: Color
+    valueColor: Color,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 7.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(iconBg),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(18.dp)
-            )
-        }
+        GlossyNeonIconOrb(
+            icon = icon,
+            contentDescription = null,
+            glowColor = iconTint,
+            iconTint = Color.White,
+            size = 38.dp,
+            iconSize = 18.dp
+        )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = label,

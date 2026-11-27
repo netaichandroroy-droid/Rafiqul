@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallMade
+import androidx.compose.material.icons.automirrored.filled.CallReceived
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,7 +29,12 @@ import com.example.model.BanglaFormatters
 import com.example.model.HisabCategories
 import com.example.model.HisabTransaction
 import com.example.model.TxType
+import com.example.ui.components.GlossyFormSectionHeader
 import com.example.ui.components.TransactionFormFields
+import com.example.ui.theme.CardSurfaceSolid
+import com.example.ui.theme.ExpenseCrimson
+import com.example.ui.theme.GlassTextPrimary
+import com.example.ui.theme.NeonEmerald
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,7 +84,9 @@ fun TransactionModalSheet(
 
     ModalBottomSheet(
         onDismissRequest = { if (!isSaving) onDismiss() },
-        sheetState = sheetState
+        sheetState = sheetState,
+        containerColor = CardSurfaceSolid,
+        contentColor = GlassTextPrimary
     ) {
         Column(
             modifier = Modifier
@@ -87,10 +96,16 @@ fun TransactionModalSheet(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp)
         ) {
-            Text(
-                text = if (editingTransaction == null) "Add New Entry" else "Edit Entry",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
+            val isIncome = selectedType == TxType.INCOME
+            GlossyFormSectionHeader(
+                icon = if (isIncome) {
+                    Icons.AutoMirrored.Filled.CallReceived
+                } else {
+                    Icons.AutoMirrored.Filled.CallMade
+                },
+                title = if (editingTransaction == null) "Add New Entry" else "Edit Entry",
+                subtitle = selectedType.bnLabel,
+                glowColor = if (isIncome) NeonEmerald else ExpenseCrimson
             )
 
             Spacer(modifier = Modifier.height(14.dp))
